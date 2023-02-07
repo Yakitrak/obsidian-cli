@@ -1,0 +1,33 @@
+builds:
+  - id: obs
+    binary: obs
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -mod=vendor
+
+release:
+  prerelease: auto
+
+universal_binaries:
+  - replace: true
+
+brews:
+  - name: obs
+    homepage: https://github.com/Yakitrak/obsidian-cli
+    tap:
+      owner: Yakitrak
+      name: homebrew-yakitrak
+    commit_author:
+      name: kartikayjainwal
+      email: kartikayjainwal@gmail.com
+
+checksum:
+  name_template: "checksums.txt"
