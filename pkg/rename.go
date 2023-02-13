@@ -7,7 +7,7 @@ import (
 	"github.com/Yakitrak/obsidian-cli/utils"
 )
 
-func RenameNote(vaultName string, currentFileName string, newNoteName string) string {
+func RenameNote(vaultName string, currentNoteName string, newNoteName string) string {
 	fmt.Println("This feature is new, please report any bugs!")
 
 	if vaultName == "" {
@@ -22,14 +22,16 @@ func RenameNote(vaultName string, currentFileName string, newNoteName string) st
 
 	fmt.Println(vaultPath)
 
-	// Find name of file to rename -> replace name
-	fmt.Println("Renaming file " + currentFileName + " to " + newNoteName)
-	// utils.RenameNote(currentFileName, newNoteName)
+	// Find name of note to rename -> replace name
+	fmt.Println("Renaming note " + currentNoteName + " to " + newNoteName)
+	currentPath := vaultPath + "/" + currentNoteName
+	newPath := vaultPath + "/" + newNoteName
+	utils.RenameNote(currentPath, newPath)
 
 	fmt.Println("Updated links inside: abc")
-	// utils.UpdateLinks(vaultName, currentFileName, newNoteName)
+	// utils.UpdateLinks(vaultName, currentNoteName, newNoteName)
 
-	// Open renamed file
+	// Open renamed note
 	uri := ObsOpenUrl + utils.UrlConstructor(map[string]string{
 		"file":  newNoteName,
 		"vault": vaultName,

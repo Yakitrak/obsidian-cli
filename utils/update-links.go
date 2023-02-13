@@ -1,7 +1,7 @@
 package utils
 
-func UpdateLinks(directory string, oldFileName string, newFileName string) {
-	// Find all links to file in directory and update them -> print all directories where file has been renamed
+func UpdateLinks(directory string, oldNoteName string, newNoteName string) {
+	// Find all links to note in directory and update them -> print all directories where note has been renamed
 	// todo
 
 }

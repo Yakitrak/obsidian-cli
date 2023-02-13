@@ -2,12 +2,12 @@
 
 ![Obs Usage](./docs/obs-usage.png)
 
-CLI made to search, open and creates files in Obsidian. Written in [Go](https://go.dev/), built on top of existing [Obsidian URIs](https://help.obsidian.md/Advanced+topics/Using+obsidian+URI)
+CLI made to search, open and creates notes in Obsidian. Written in [Go](https://go.dev/), built on top of existing [Obsidian URIs](https://help.obsidian.md/Advanced+topics/Using+obsidian+URI)
 
 ## Description
 
 [Obsidian](https://obsidian.md/) is a powerful and extensible knowledge base application
-that works on top of your local folder of plain text files. This CLI tool will let you interact with the application using the terminal. You are currently able to open, search and create files.
+that works on top of your local folder of plain text notes. This CLI tool will let you interact with the application using the terminal. You are currently able to open, search and create notes.
 
 ## Install
 
@@ -47,20 +47,20 @@ Defines default vault for future usage. If not set, pass `--vault` flag for othe
 obs set-default "{vault-name}"
 ```
 
-### Open File
+### Open Note
 
-Open given file name in Obsidian. File can also be a path.
+Open given note name in Obsidian. Note can also be a path from root of vault.
 
 ```bash
-# Opens file in obsidian
-obs open "{file}"
+# Opens note in obsidian
+obs open "{note-name}"
 
-# Opens file in specified vault
-obs open "{file}" --vault "{vault-name}"
+# Opens note in specified vault
+obs open "{note-name}" --vault "{vault-name}"
 
 ```
 
-### Search File
+### Search Note
 
 Opens obsidian search tab with given search text
 
@@ -73,24 +73,39 @@ obs search "{search-text}" --vault "{vault-name}"
 
 ```
 
-### Create / Update File
+### Create / Update Note
 
-Creates file (can also be a path with name) in vault. By default if the file exists, it will create another file but passing `--overwrite` or `--append` can be used to edit the named file.
+Creates note (can also be a path with name) in vault. By default if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
 
 ```bash
-# Creates empty file in default vault and opens it
-obs create "{file}"
+# Creates empty note in default vault and opens it
+obs create "{note-name}"
 
-# Creates empty file in given vault and opens it
-obs create "{file}"  --vault "{vault-name}"
+# Creates empty note in given vault and opens it
+obs create "{note-name}"  --vault "{vault-name}"
 
-# Creates file in default vault with content
-obs create "{file}" --content "abcde"
+# Creates note in default vault with content
+obs create "{note-name}" --content "abcde"
 
-# Creates file in default vault with content - overwrite existing file
-obs create "{file}" --content "abcde" --overwrite
+# Creates note in default vault with content - overwrite existing note
+obs create "{note-name}" --content "abcde" --overwrite
 
-# Creates file in default vault with content - append existing file
-obs create "{file}" --content "abcde" --append
+# Creates note in default vault with content - append existing note
+obs create "{note-name}" --content "abcde" --append
 
+```
+
+### Rename Note
+
+Renames a given note(path from vault root) with new name given (path from vault root) . All links inside vault are updated to match new name.
+
+```bash
+# Renames a note in default vault
+obs rename "{current-note-path}" "{new-note-path}"
+
+# Renames a note and given vault
+obs rename "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
+
+# Renames a note in default vault and opens it
+obs rename "{current-note-path}" "{new-note-path}" --open
 ```

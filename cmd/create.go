@@ -24,9 +24,9 @@ var createNoteCmd = &cobra.Command{
 
 func init() {
 	createNoteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	createNoteCmd.Flags().StringVarP(&content, "content", "c", "", "text to add to file")
-	createNoteCmd.Flags().BoolVarP(&shouldAppend, "append", "a", false, "append to file")
-	createNoteCmd.Flags().BoolVarP(&shouldOverwrite, "overwrite", "o", false, "overwrite file")
+	createNoteCmd.Flags().StringVarP(&content, "content", "c", "", "text to add to note")
+	createNoteCmd.Flags().BoolVarP(&shouldAppend, "append", "a", false, "append to note")
+	createNoteCmd.Flags().BoolVarP(&shouldOverwrite, "overwrite", "o", false, "overwrite note")
 	createNoteCmd.MarkFlagsMutuallyExclusive("append", "overwrite")
 	rootCmd.AddCommand(createNoteCmd)
 }

@@ -1,25 +1,30 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/Yakitrak/obsidian-cli/pkg"
+	"github.com/Yakitrak/obsidian-cli/utils"
 
 	"github.com/spf13/cobra"
 )
 
+var shouldOpen bool
 var renameCmd = &cobra.Command{
 	Use:     "rename",
 	Aliases: []string{"r"},
-	Short:   "rename file in Obsidian and updated corresponding links",
+	Short:   "rename note in Obsidian and updated corresponding links",
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		uri := pkg.RenameNote(vaultName, args[0], args[1])
-		fmt.Println(uri)
-		// utils.UriExecute(uri)
+		current := args[0]
+		new := args[1]
+		uri := pkg.RenameNote(vaultName, current, new)
+		if shouldOpen {
+			utils.UriExecute(uri)
+
+		}
 	},
 }
 
 func init() {
+	renameCmd.Flags().BoolVarP(&shouldOpen, "open", "o", false, "open new note")
 	rootCmd.AddCommand(renameCmd)
 }

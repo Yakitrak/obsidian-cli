@@ -39,7 +39,7 @@ func FindVaultPathFromName(vaultName string) (string, error) {
 	err = json.Unmarshal(content, &vaultsContent)
 
 	for _, element := range vaultsContent.Vaults {
-		if strings.Contains(element.Path, vaultName) {
+		if strings.HasSuffix(element.Path, "/"+vaultName) {
 			return element.Path, nil
 		}
 	}

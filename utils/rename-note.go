@@ -7,8 +7,8 @@ import (
 
 func RenameNote(originalPath string, newPath string) {
 
-	o := originalPath + "md"
-	n := newPath + "md"
+	o := originalPath + ".md"
+	n := newPath + ".md"
 
 	e := os.Rename(o, n)
 	if e != nil {
