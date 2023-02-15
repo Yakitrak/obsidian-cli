@@ -95,9 +95,9 @@ obs create "{note-name}" --content "abcde" --append
 
 ```
 
-### Rename Note
+### Move / Rename Note
 
-Renames a given note(path from vault root) with new name given (path from vault root) . All links inside vault are updated to match new name.
+Moves a given note(path from vault root) with new name given (path from vault root). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
 
 ```bash
 # Renames a note in default vault

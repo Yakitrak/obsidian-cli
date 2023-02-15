@@ -10,7 +10,7 @@ var vaultName string
 var openVaultCmd = &cobra.Command{
 	Use:     "open",
 	Aliases: []string{"o"},
-	Short:   "Opens vault or note in Obsidian",
+	Short:   "Opens note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		uri := pkg.OpenNote(args[0], vaultName)
