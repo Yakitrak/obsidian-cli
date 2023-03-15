@@ -4,13 +4,13 @@ import (
 	"github.com/Yakitrak/obsidian-cli/utils"
 )
 
-func OpenNote(fileName string, vaultName string) string {
+func OpenNote(noteName string, vaultName string) string {
 	if vaultName == "" {
 		vaultName = utils.GetDefaultVault()
 	}
 
 	uri := ObsOpenUrl + utils.UrlConstructor(map[string]string{
-		"file":  fileName,
+		"file":  noteName,
 		"vault": vaultName,
 	})
 
