@@ -13,7 +13,7 @@ func TestOpenNote(t *testing.T) {
 	// Defining the columns of the table
 	var tests = []struct {
 		name      string
-		noteName  string
+		fileName  string
 		vaultName string
 		want      string
 	}{
@@ -24,7 +24,7 @@ func TestOpenNote(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := OpenNote(tt.noteName, tt.vaultName)
+			got := OpenNote(tt.fileName, tt.vaultName)
 			if utils.MapsEqual(utils.ExtractParams(got), utils.ExtractParams(tt.want)) == false {
 				t.Errorf("got %s, want %s", got, tt.want)
 			}

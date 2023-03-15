@@ -10,7 +10,7 @@ import (
 var searchCmd = &cobra.Command{
 	Use:     "search",
 	Aliases: []string{"s"},
-	Short:   "Searches note in vault",
+	Short:   "Searches file in Obsidian",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		uri := pkg.SearchNotes(args[0], vaultName)
