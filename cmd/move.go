@@ -11,7 +11,7 @@ var shouldOpen bool
 var moveCmd = &cobra.Command{
 	Use:     "move",
 	Aliases: []string{"m"},
-	Short:   "move or rename note in vault and updated corresponding links (experimental)",
+	Short:   "Move or rename note in vault and updated corresponding links (experimental feature)",
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		current := args[0]

@@ -10,7 +10,7 @@ import (
 var setDefaultCmd = &cobra.Command{
 	Use:     "set-default",
 	Aliases: []string{"sd"},
-	Short:   "sets default Obsidian vault",
+	Short:   "Sets default Obsidian vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]

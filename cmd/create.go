@@ -12,7 +12,7 @@ var content string
 var createNoteCmd = &cobra.Command{
 	Use:       "create",
 	Aliases:   []string{"c"},
-	Short:     "creates note in vault",
+	Short:     "Creates note in vault",
 	ValidArgs: []string{"vault", "text", "silent", "append", "overwrite"},
 	Args:      cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

@@ -13,13 +13,14 @@ func MoveNote(originalPath string, newPath string) {
 
 	e := os.Rename(o, n)
 
-	message := fmt.Sprintf(`Moved note 
-	from %s
-	to %s`, o, n)
-
-	fmt.Println(message)
 	if e != nil {
 		log.Fatal(e)
+	} else {
+		message := fmt.Sprintf(`Moved note 
+		from %s
+		to %s`, o, n)
+		fmt.Println(message)
+
 	}
 
 }
