@@ -22,7 +22,6 @@ func MoveNote(vaultName string, currentNoteName string, newNoteName string) stri
 	newPath := vaultPath + "/" + newNoteName
 	utils.MoveNote(currentPath, newPath)
 
-	// Update links inside note
 	utils.UpdateLinksInVault(vaultPath, currentNoteName, newNoteName)
 
 	// Open renamed note

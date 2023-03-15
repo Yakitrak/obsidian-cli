@@ -41,7 +41,7 @@ obs --help
 
 ### Set Default Vault
 
-Defines default vault for future usage. If not set, pass `--vault` flag for other commands
+Defines default vault for future usage. If not set, pass `--vault` flag for other commands. You don't provide the path to vault here, just the name, as Obsidian already saves the paths to the vault which is what `obs` uses.
 
 ```bash
 obs set-default "{vault-name}"
@@ -49,7 +49,7 @@ obs set-default "{vault-name}"
 
 ### Open Note
 
-Open given note name in Obsidian. Note can also be a path from root of vault.
+Open given note name in Obsidian. Note can also be a absolute path from root of vault.
 
 ```bash
 # Opens note in obsidian
@@ -101,11 +101,11 @@ Moves a given note(path from vault root) with new name given (path from vault ro
 
 ```bash
 # Renames a note in default vault
-obs rename "{current-note-path}" "{new-note-path}"
+obs move "{current-note-path}" "{new-note-path}"
 
 # Renames a note and given vault
-obs rename "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
+obs move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
 
 # Renames a note in default vault and opens it
-obs rename "{current-note-path}" "{new-note-path}" --open
+obs move "{current-note-path}" "{new-note-path}" --open
 ```

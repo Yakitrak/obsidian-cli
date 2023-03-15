@@ -7,13 +7,31 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) {
 
+	if strings.Contains(oldNoteName, "/") {
+		oldNoteName = filepath.Base(oldNoteName)
+	}
+
+	if strings.Contains(newNoteName, "/") {
+		newNoteName = filepath.Base(newNoteName)
+	}
+
 	// TODO change regex pattern to work if using #heading or |aliss
-	oldText := "[[" + oldNoteName + "]]"
-	newText := "[[" + newNoteName + "]]"
+	// Standard note links
+	oldNoteStandardText := "[[" + oldNoteName + "]]"
+	newNoteStandardText := "[[" + newNoteName + "]]"
+
+	// Aliased note links
+	oldNoteWithAliasText := "[[" + oldNoteName + "|"
+	newNoteWithAliasText := "[[" + newNoteName + "|"
+
+	// Note links with headings
+	oldNoteWithHeadingText := "[[" + oldNoteName + "#"
+	newNoteWithHeadingText := "[[" + newNoteName + "#"
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -26,9 +44,11 @@ func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) 
 		if err != nil {
 			return err
 		}
-		newContent := bytes.ReplaceAll(content, []byte(oldText), []byte(newText))
+		newContentWithUpdatedStandardLinks := bytes.ReplaceAll(content, []byte(oldNoteStandardText), []byte(newNoteStandardText))
+		newContentWithUpdatedStandardAndAliasLinks := bytes.ReplaceAll(newContentWithUpdatedStandardLinks, []byte(oldNoteWithAliasText), []byte(newNoteWithAliasText))
+		newContentWithUpdatedStandardAndAliasAndHeadingLinks := bytes.ReplaceAll(newContentWithUpdatedStandardAndAliasLinks, []byte(oldNoteWithHeadingText), []byte(newNoteWithHeadingText))
 
-		err = ioutil.WriteFile(path, newContent, info.Mode())
+		err = ioutil.WriteFile(path, newContentWithUpdatedStandardAndAliasAndHeadingLinks, info.Mode())
 		if err != nil {
 			return err
 		}
