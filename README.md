@@ -49,7 +49,7 @@ obs set-default "{vault-name}"
 
 ### Open Note
 
-Open given note name in Obsidian. Note can also be a absolute path from root of vault.
+Open given note name in Obsidian. Note can also be an absolute path from root of vault.
 
 ```bash
 # Opens note in obsidian
