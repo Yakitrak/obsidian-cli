@@ -47,6 +47,8 @@ Defines default vault for future usage. If not set, pass `--vault` flag for othe
 obs set-default "{vault-name}"
 ```
 
+Note: `open` and other commands in `obs` use this vault's base directory as the working directory, not the current working directory of your terminal.
+
 ### Open Note
 
 Open given note name in Obsidian. Note can also be an absolute path from root of vault.
