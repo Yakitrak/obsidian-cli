@@ -37,9 +37,16 @@ func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) 
 		if err != nil {
 			return err
 		}
+
+		// Skip hidden directories
+		if info.IsDir() && info.Name()[0] == '.' {
+			return filepath.SkipDir
+		}
+
 		if info.IsDir() {
 			return nil
 		}
+
 		content, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
