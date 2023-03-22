@@ -37,9 +37,12 @@ func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) 
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
+
+		// Skip hidden directories and non-markdown files
+		if shouldSkipDirectoryOrFile(info) {
 			return nil
 		}
+
 		content, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
@@ -60,4 +63,16 @@ func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) 
 
 	fmt.Print("Update links inside: ", dirPath, " from ", oldNoteName, " to ", newNoteName)
 
+}
+
+func shouldSkipDirectoryOrFile(info os.FileInfo) bool {
+	isDirectory := info.IsDir()
+	isHidden := info.Name()[0] == '.'
+	isNonMarkdownFile := filepath.Ext(info.Name()) != ".md"
+
+	if isDirectory || isHidden || isNonMarkdownFile {
+		return true
+	}
+
+	return false
 }
