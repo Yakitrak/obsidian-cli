@@ -9,10 +9,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "obs",
-	Short: "obs - CLI to search and open notes in obsidian",
-	Long: `obs - CLI to search and open notes in obsidian
-   
-It can open a vault, open, search and create notes in your vault(s)`,
+	Short: "obs - CLI to open, search, move, create and update notes",
+	Long:  "obs - CLI to open, search, move, create and update notes",
 }
 
 func Execute() {
