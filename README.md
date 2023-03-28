@@ -2,12 +2,10 @@
 
 ![Obs Usage](./docs/obs-usage.png)
 
-CLI made to search, open and creates notes in Obsidian. Written in [Go](https://go.dev/), built on top of existing [Obsidian URIs](https://help.obsidian.md/Advanced+topics/Using+obsidian+URI)
-
 ## Description
 
 [Obsidian](https://obsidian.md/) is a powerful and extensible knowledge base application
-that works on top of your local folder of plain text notes. This CLI tool will let you interact with the application using the terminal. You are currently able to open, search and create notes.
+that works on top of your local folder of plain text notes. This CLI tool (written in [Go](https://go.dev/)) will let you interact with the application using the terminal. You are currently able to open, search, move, create and update notes.
 
 ## Install
 
