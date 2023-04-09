@@ -14,9 +14,9 @@ var moveCmd = &cobra.Command{
 	Short:   "Move or rename note in vault and updated corresponding links",
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		current := args[0]
-		new := args[1]
-		uri := pkg.MoveNote(utils.UriConstructor, utils.FindVaultPathFromName, utils.MoveNote, utils.UpdateLinksInVault, utils.GetDefaultVault(vaultName), current, new)
+		currentName := args[0]
+		newName := args[1]
+		uri := pkg.MoveNote(utils.UriConstructor, utils.FindVaultPathFromName, utils.MoveNote, utils.UpdateLinksInVault, utils.GetDefaultVault(vaultName), currentName, newName)
 		if shouldOpen {
 			utils.UriExecute(uri)
 

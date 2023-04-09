@@ -14,7 +14,7 @@ func TestSetDefaultVault(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := GetDefaultVault()
+			got := GetDefaultVault("")
 			if got != tt.want {
 				t.Errorf("got %s, want %s", got, tt.want)
 			}
