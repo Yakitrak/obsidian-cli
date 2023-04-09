@@ -3,29 +3,44 @@ package pkg_test
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
 	"testing"
-
-	"github.com/Yakitrak/obsidian-cli/utils"
 )
 
 func TestOpenNote(t *testing.T) {
+	var calledBaseUri string
+	var calledVaultName string
+	var calledNoteName string
 
-	// Defining the columns of the table
+	mockUriConstructor := func(baseUri string, params map[string]string) string {
+		calledBaseUri = baseUri
+		calledVaultName = params["vault"]
+		calledNoteName = params["file"]
+		return ""
+	}
+
 	var tests = []struct {
-		name      string
+		testName  string
 		noteName  string
 		vaultName string
-		want      string
 	}{
-		{"Given direct file", "name", "v-name", pkg.ObsOpenUrl + "?file=name&vault=v-name"},
-		{"Given Nested path", "nested path/another path/file here", "v-name", pkg.ObsOpenUrl + "?file=nested%20path%2Fanother%20path%2Ffile%20here&vault=v-name"},
+		{"Given direct file", "name", "v-name"},
+		{"Given Nested path", "nested path/another path/file here", "v-name"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := pkg.OpenNote(tt.noteName, tt.vaultName)
-			if utils.MapsEqual(utils.ExtractParams(got), utils.ExtractParams(tt.want)) == false {
-				t.Errorf("got %s, want %s", got, tt.want)
-			}
+		t.Run(tt.testName, func(t *testing.T) {
+			pkg.OpenNote(mockUriConstructor, tt.noteName, tt.vaultName)
+
+			t.Run("Then it should call the uri constructor with the correct parameters", func(t *testing.T) {
+				if calledBaseUri != pkg.ObsOpenUrl {
+					t.Errorf("got %s, want %s", calledBaseUri, pkg.ObsOpenUrl)
+				}
+				if calledVaultName != tt.vaultName {
+					t.Errorf("got %s, want %s", calledVaultName, tt.vaultName)
+				}
+				if calledNoteName != tt.noteName {
+					t.Errorf("got %s, want %s", calledNoteName, tt.noteName)
+				}
+			})
 		})
 	}
 }

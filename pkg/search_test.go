@@ -3,28 +3,43 @@ package pkg_test
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
 	"testing"
-
-	"github.com/Yakitrak/obsidian-cli/utils"
 )
 
 func TestSearchNotes(t *testing.T) {
-	// Defining the columns of the table
+	var calledBaseUri string
+	var calledVaultName string
+	var calledSearchText string
+
+	mockUriConstructor := func(baseUri string, params map[string]string) string {
+		calledBaseUri = baseUri
+		calledVaultName = params["vault"]
+		calledSearchText = params["query"]
+		return ""
+	}
+
 	var tests = []struct {
-		name       string
-		searchText string
+		testName   string
 		vaultName  string
-		want       string
+		searchText string
 	}{
 
-		{"Given vault", "search text", "v-name", pkg.ObsSearchUrl + "?query=search%20text&vault=v-name"},
+		{"Given vault", "v-name", "search text"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := pkg.SearchNotes(tt.searchText, tt.vaultName)
-			if utils.MapsEqual(utils.ExtractParams(got), utils.ExtractParams(tt.want)) == false {
-				t.Errorf("got %s, want %s", got, tt.want)
-			}
+		t.Run(tt.testName, func(t *testing.T) {
+			pkg.SearchNotes(mockUriConstructor, tt.vaultName, tt.searchText)
+			t.Run("Then it should call the uri constructor with the correct parameters", func(t *testing.T) {
+				if calledBaseUri != pkg.ObsSearchUrl {
+					t.Errorf("got %s, want %s", calledBaseUri, pkg.ObsSearchUrl)
+				}
+				if calledVaultName != tt.vaultName {
+					t.Errorf("got %s, want %s", calledVaultName, tt.vaultName)
+				}
+				if calledSearchText != tt.searchText {
+					t.Errorf("got %s, want %s", calledSearchText, tt.searchText)
+				}
+			})
 		})
 	}
 }

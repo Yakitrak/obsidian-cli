@@ -4,8 +4,8 @@ import (
 	"net/url"
 )
 
-func UrlConstructor(params map[string]string) string {
-	var uri string
+func UriConstructor(baseUri string, params map[string]string) string {
+	uri := baseUri
 	for key, value := range params {
 		if value != "" && value != "false" {
 			if uri == "" {

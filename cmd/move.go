@@ -16,7 +16,7 @@ var moveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		current := args[0]
 		new := args[1]
-		uri := pkg.MoveNote(utils.GetDefaultVault(vaultName), current, new)
+		uri := pkg.MoveNote(utils.UriConstructor, utils.FindVaultPathFromName, utils.MoveNote, utils.UpdateLinksInVault, utils.GetDefaultVault(vaultName), current, new)
 		if shouldOpen {
 			utils.UriExecute(uri)
 
