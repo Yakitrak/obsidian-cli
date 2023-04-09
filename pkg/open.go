@@ -5,10 +5,6 @@ import (
 )
 
 func OpenNote(noteName string, vaultName string) string {
-	if vaultName == "" {
-		vaultName = utils.GetDefaultVault()
-	}
-
 	uri := ObsOpenUrl + utils.UrlConstructor(map[string]string{
 		"file":  noteName,
 		"vault": vaultName,

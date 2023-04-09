@@ -7,10 +7,6 @@ import (
 )
 
 func CreateNote(vaultName string, noteName string, content string, shouldAppend bool, shouldOverwrite bool) string {
-	if vaultName == "" {
-		vaultName = utils.GetDefaultVault()
-	}
-
 	uri := ObsCreateUrl + utils.UrlConstructor(map[string]string{
 		"append":    strconv.FormatBool(shouldAppend),
 		"content":   content,

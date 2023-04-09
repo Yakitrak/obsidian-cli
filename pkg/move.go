@@ -7,9 +7,6 @@ import (
 )
 
 func MoveNote(vaultName string, currentNoteName string, newNoteName string) string {
-	if vaultName == "" {
-		vaultName = utils.GetDefaultVault()
-	}
 	// Find obsidian vault directory
 	vaultPath, err := utils.FindVaultPathFromName(vaultName)
 

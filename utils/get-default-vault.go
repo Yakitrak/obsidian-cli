@@ -8,7 +8,11 @@ import (
 
 var config Config
 
-func GetDefaultVault() string {
+func GetDefaultVault(vaultName string) string {
+	if vaultName != "" {
+		return vaultName
+	}
+
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal("User config directory not found", err)

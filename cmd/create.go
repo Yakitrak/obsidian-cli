@@ -17,7 +17,7 @@ var createNoteCmd = &cobra.Command{
 	Args:      cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		noteName := args[0]
-		uri := pkg.CreateNote(vaultName, noteName, content, shouldAppend, shouldOverwrite)
+		uri := pkg.CreateNote(utils.GetDefaultVault(vaultName), noteName, content, shouldAppend, shouldOverwrite)
 		utils.UriExecute(uri)
 	},
 }
