@@ -19,16 +19,16 @@ func TestOpenNote(t *testing.T) {
 
 	var tests = []struct {
 		testName  string
-		noteName  string
 		vaultName string
+		noteName  string
 	}{
-		{"Given direct file", "name", "v-name"},
-		{"Given Nested path", "nested path/another path/file here", "v-name"},
+		{"Given direct file", "v-name", "name"},
+		{"Given Nested path", "v-name", "nested path/another path/file here"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			pkg.OpenNote(mockUriConstructor, tt.noteName, tt.vaultName)
+			pkg.OpenNote(mockUriConstructor, tt.vaultName, tt.noteName)
 
 			t.Run("Then it should call the uri constructor with the correct parameters", func(t *testing.T) {
 				if calledBaseUri != pkg.ObsOpenUrl {

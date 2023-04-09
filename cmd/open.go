@@ -13,7 +13,8 @@ var openVaultCmd = &cobra.Command{
 	Short:   "Opens note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		uri := pkg.OpenNote(args[0], utils.GetDefaultVault(vaultName))
+		noteName := args[0]
+		uri := pkg.OpenNote(utils.UriConstructor, utils.GetDefaultVault(vaultName), noteName)
 		utils.UriExecute(uri)
 
 	},

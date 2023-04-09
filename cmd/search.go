@@ -13,7 +13,8 @@ var searchCmd = &cobra.Command{
 	Short:   "Searches note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		uri := pkg.SearchNotes(args[0], utils.GetDefaultVault(vaultName))
+		searchText := args[0]
+		uri := pkg.SearchNotes(utils.UriConstructor, utils.GetDefaultVault(vaultName), searchText)
 		utils.UriExecute(uri)
 	},
 }
