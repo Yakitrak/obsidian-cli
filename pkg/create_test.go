@@ -2,7 +2,7 @@ package pkg_test
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
-	"strconv"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -42,26 +42,13 @@ func TestCreateNote(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			pkg.CreateNote(mockUriConstructor, tt.vaultName, tt.noteName, tt.content, tt.shouldAppend, tt.shouldOverwrite)
-
 			t.Run("Then it should call the uri constructor with the correct parameters", func(t *testing.T) {
-				if calledBaseUri != pkg.ObsCreateUrl {
-					t.Errorf("got %s, want %s", calledBaseUri, pkg.ObsCreateUrl)
-				}
-				if calledVaultName != tt.vaultName {
-					t.Errorf("got %s, want %s", calledVaultName, tt.vaultName)
-				}
-				if calledNoteName != tt.noteName {
-					t.Errorf("got %s, want %s", calledNoteName, tt.noteName)
-				}
-				if calledContent != tt.content {
-					t.Errorf("got %s, want %s", calledContent, tt.content)
-				}
-				if calledShouldAppend != tt.shouldAppend {
-					t.Errorf("got %s, want %s", strconv.FormatBool(calledShouldAppend), strconv.FormatBool(tt.shouldAppend))
-				}
-				if calledShouldOverwrite != tt.shouldOverwrite {
-					t.Errorf("got %s, want %s", strconv.FormatBool(calledShouldOverwrite), strconv.FormatBool(tt.shouldOverwrite))
-				}
+				assert.Equal(t, pkg.ObsCreateUrl, calledBaseUri)
+				assert.Equal(t, tt.vaultName, calledVaultName)
+				assert.Equal(t, tt.noteName, calledNoteName)
+				assert.Equal(t, tt.content, calledContent)
+				assert.Equal(t, tt.shouldAppend, calledShouldAppend)
+				assert.Equal(t, tt.shouldOverwrite, calledShouldOverwrite)
 			})
 		})
 	}
