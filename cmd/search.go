@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
 	"github.com/Yakitrak/obsidian-cli/utils"
+	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -15,7 +16,10 @@ var searchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		searchText := args[0]
 		uri := pkg.SearchNotes(utils.UriConstructor, utils.GetDefaultVault(vaultName), searchText)
-		utils.UriExecute(uri)
+		err := utils.UriExecute(uri)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 

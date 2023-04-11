@@ -22,8 +22,10 @@ var moveCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		if shouldOpen {
-			utils.UriExecute(uri)
-
+			err := utils.UriExecute(uri)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	},
 }

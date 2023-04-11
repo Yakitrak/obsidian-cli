@@ -4,6 +4,7 @@ import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
 	"github.com/Yakitrak/obsidian-cli/utils"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 var vaultName string
@@ -15,8 +16,10 @@ var OpenVaultCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		noteName := args[0]
 		uri := pkg.OpenNote(utils.UriConstructor, utils.GetDefaultVault(vaultName), noteName)
-		utils.UriExecute(uri)
-
+		err := utils.UriExecute(uri)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
