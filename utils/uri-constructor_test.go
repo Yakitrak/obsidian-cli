@@ -3,6 +3,7 @@ package utils_test
 import (
 	"fmt"
 	"github.com/Yakitrak/obsidian-cli/utils"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -23,9 +24,7 @@ func TestUrlConstructor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			got := utils.UriConstructor(baseUri, tt.in)
-			if got != tt.want {
-				t.Errorf("got %s, want %s", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 
