@@ -2,24 +2,24 @@ package utils_test
 
 import (
 	"github.com/Yakitrak/obsidian-cli/utils"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestAddMdSuffix(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
+		testName string
 		input    string
 		expected string
 	}{
-		{input: "myNote", expected: "myNote.md"},
-		{input: "myNote.md", expected: "myNote.md"},
+		{testName: "Without existing .md", input: "myNote", expected: "myNote.md"},
+		{testName: "With existing .md", input: "myNote.md", expected: "myNote.md"},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.input, func(t *testing.T) {
-			got := utils.AddMdSuffix(tc.input)
-			if got != tc.expected {
-				t.Errorf("got %s, want %s", got, tc.expected)
-			}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := utils.AddMdSuffix(tt.input)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

@@ -15,7 +15,7 @@ func TestUriExecute(t *testing.T) {
 		err  error
 	}
 
-	testCases := []testCase{
+	tests := []testCase{
 		{
 			name: "valid uri",
 			uri:  "http://example.com",
@@ -28,10 +28,10 @@ func TestUriExecute(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := utils.UriExecute(tc.uri)
-			assert.Equal(t, tc.err, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := utils.UriExecute(tt.uri)
+			assert.Equal(t, tt.err, err)
 		})
 	}
 }

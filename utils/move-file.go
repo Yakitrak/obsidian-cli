@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func MoveNote(originalPath string, newPath string) {
+func MoveFile(originalPath string, newPath string) {
 
 	o := AddMdSuffix(originalPath)
 	n := AddMdSuffix(newPath)
