@@ -1,15 +1,15 @@
 package pkg
 
 import (
-	"log"
+	"errors"
 )
 
-func MoveNote(uriConstructor UriConstructorFunc, findVaultPathFromName FindVaultPathFromNameFunc, moveNote MoveNoteFunc, updateLinksInVault UpdateLinksInVaultFunc, vaultName string, currentNoteName string, newNoteName string) string {
+func MoveNote(uriConstructor UriConstructorFunc, findVaultPathFromName FindVaultPathFromNameFunc, moveNote MoveNoteFunc, updateLinksInVault UpdateLinksInVaultFunc, vaultName string, currentNoteName string, newNoteName string) (string, error) {
 	// Find obsidian vault directory
 	vaultPath, err := findVaultPathFromName(vaultName)
 
 	if err != nil {
-		log.Fatal(err)
+		return "", errors.New("Cannot locate vault " + vaultName)
 	}
 
 	// Move / rename note
@@ -25,6 +25,5 @@ func MoveNote(uriConstructor UriConstructorFunc, findVaultPathFromName FindVault
 		"vault": vaultName,
 	})
 
-	return uri
-
+	return uri, nil
 }

@@ -1,6 +1,8 @@
 package pkg_test
 
 import (
+	"errors"
+	"fmt"
 	"github.com/Yakitrak/obsidian-cli/pkg"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -23,6 +25,10 @@ func TestMoveNote(t *testing.T) {
 
 	mockFindVaultPathFromName := func(vaultName string) (string, error) {
 		return mockVaultPath, nil
+	}
+
+	mockFindVaultPathFromNameWithError := func(vaultName string) (string, error) {
+		return "", errors.New("Cannot locate vault " + vaultName)
 	}
 
 	mockMoveNote := func(currentPath string, newPath string) {
@@ -66,6 +72,12 @@ func TestMoveNote(t *testing.T) {
 				assert.Equal(t, calledCurrentNoteName, tt.currentNoteName, "unexpected current note name")
 				assert.Equal(t, calledNewNoteName, tt.newNoteName, "unexpected new note name")
 			})
+		})
+
+		t.Run("Given vault with error", func(t *testing.T) {
+			_, err := pkg.MoveNote(mockUriConstructor, mockFindVaultPathFromNameWithError, mockMoveNote, mockUpdateLinksInVault, tt.vaultName, tt.currentNoteName, tt.newNoteName)
+			fmt.Println(err)
+			assert.Equal(t, err.Error(), "Cannot locate vault "+tt.vaultName, "unexpected error")
 		})
 
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 var vaultName string
-var openVaultCmd = &cobra.Command{
+var OpenVaultCmd = &cobra.Command{
 	Use:     "open",
 	Aliases: []string{"o"},
 	Short:   "Opens note in vault",
@@ -21,6 +21,6 @@ var openVaultCmd = &cobra.Command{
 }
 
 func init() {
-	openVaultCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
-	rootCmd.AddCommand(openVaultCmd)
+	OpenVaultCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
+	rootCmd.AddCommand(OpenVaultCmd)
 }
