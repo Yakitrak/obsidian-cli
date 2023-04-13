@@ -15,8 +15,10 @@ func MoveNote(uriConstructor UriConstructorFunc, findVaultPathFromName FindVault
 	// Move / rename note
 	currentPath := vaultPath + "/" + currentNoteName
 	newPath := vaultPath + "/" + newNoteName
-	moveNote(currentPath, newPath)
-
+	err = moveNote(currentPath, newPath)
+	if err != nil {
+		return "", err
+	}
 	updateLinksInVault(vaultPath, currentNoteName, newNoteName)
 
 	// Open renamed note

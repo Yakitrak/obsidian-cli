@@ -2,25 +2,23 @@ package utils
 
 import (
 	"fmt"
-	"log"
 	"os"
 )
 
-func MoveFile(originalPath string, newPath string) {
+func MoveNote(originalPath string, newPath string) error {
 
 	o := AddMdSuffix(originalPath)
 	n := AddMdSuffix(newPath)
 
-	e := os.Rename(o, n)
+	err := os.Rename(o, n)
 
-	if e != nil {
-		log.Fatal(e)
+	if err != nil {
+		return err
 	} else {
 		message := fmt.Sprintf(`Moved note 
 		from %s
 		to %s`, o, n)
 		fmt.Println(message)
-
 	}
-
+	return nil
 }
