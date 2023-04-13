@@ -3,6 +3,8 @@ package utils
 import "testing"
 
 func TestSetDefaultVault(t *testing.T) {
+	// TODO get full coverage
+
 	// Set up default vault
 	SetDefaultVault("new default value 2")
 

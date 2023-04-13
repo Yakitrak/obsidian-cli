@@ -1,8 +1,10 @@
-package utils
+package utils_test
 
 import "testing"
 
 func TestGetDefaultVault(t *testing.T) {
+	// TODO get full coverage
+
 	// Set up default vault
 	SetDefaultVault("new default value")
 

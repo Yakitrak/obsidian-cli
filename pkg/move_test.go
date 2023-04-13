@@ -31,10 +31,14 @@ func TestMoveNote(t *testing.T) {
 		return "", errors.New("Cannot locate vault " + vaultName)
 	}
 
-	mockMoveNote := func(currentPath string, newPath string) {
+	mockMoveNote := func(currentPath string, newPath string) error {
 		calledCurrentPath = currentPath
 		calledNewPath = newPath
-		return
+		return nil
+	}
+
+	mockMoveNoteWithError := func(currentPath string, newPath string) error {
+		return errors.New("Cannot move note")
 	}
 
 	mockUpdateLinksInVault := func(vaultPath string, currentNoteName string, newNoteName string) {
@@ -78,6 +82,12 @@ func TestMoveNote(t *testing.T) {
 			_, err := pkg.MoveNote(mockUriConstructor, mockFindVaultPathFromNameWithError, mockMoveNote, mockUpdateLinksInVault, tt.vaultName, tt.currentNoteName, tt.newNoteName)
 			fmt.Println(err)
 			assert.Equal(t, err.Error(), "Cannot locate vault "+tt.vaultName, "unexpected error")
+		})
+
+		t.Run("Given error with MoveNote", func(t *testing.T) {
+			_, err := pkg.MoveNote(mockUriConstructor, mockFindVaultPathFromName, mockMoveNoteWithError, mockUpdateLinksInVault, tt.vaultName, tt.currentNoteName, tt.newNoteName)
+			fmt.Println(err)
+			assert.Equal(t, err.Error(), "Cannot move note", "unexpected error")
 		})
 
 	}
