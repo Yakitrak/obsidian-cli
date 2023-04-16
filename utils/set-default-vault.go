@@ -14,7 +14,7 @@ func SetDefaultVault(name string) {
 	jsonContent, err := json.Marshal(Config{DefaultVaultName: name})
 
 	if err != nil {
-		log.Fatal("Vault name has unexpected character", err)
+		log.Fatal("VaultInformation name has unexpected character", err)
 	}
 
 	// Get default user config dir

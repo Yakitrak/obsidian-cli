@@ -1,15 +1,21 @@
 package pkg
 
 import (
-	"errors"
+	"fmt"
+	"os"
 )
 
 func MoveNote(uriConstructor UriConstructorFunc, findVaultPathFromName FindVaultPathFromNameFunc, moveNote MoveNoteFunc, updateLinksInVault UpdateLinksInVaultFunc, vaultName string, currentNoteName string, newNoteName string) (string, error) {
 	// Find obsidian vault directory
-	vaultPath, err := findVaultPathFromName(vaultName)
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("user config directory not found %g", err)
+	}
+	configFilePath := userConfigDir + ObsidianConfigPath
+	vaultPath, err := findVaultPathFromName(vaultName, configFilePath)
 
 	if err != nil {
-		return "", errors.New("Cannot locate vault " + vaultName)
+		return "", fmt.Errorf("cannot locate vault %g", err)
 	}
 
 	// Move / rename note

@@ -23,11 +23,11 @@ func TestMoveNote(t *testing.T) {
 		return ""
 	}
 
-	mockFindVaultPathFromName := func(vaultName string) (string, error) {
+	mockFindVaultPathFromName := func(vaultName string, configFilePath string) (string, error) {
 		return mockVaultPath, nil
 	}
 
-	mockFindVaultPathFromNameWithError := func(vaultName string) (string, error) {
+	mockFindVaultPathFromNameWithError := func(vaultName string, configFilePath string) (string, error) {
 		return "", errors.New("Cannot locate vault " + vaultName)
 	}
 

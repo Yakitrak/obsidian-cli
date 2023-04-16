@@ -7,33 +7,20 @@ import (
 	"strings"
 )
 
+type ObsidianVaultConfig struct {
+	Vaults map[string]struct {
+		Path string `json:"path"`
+	} `json:"vaults"`
+}
+
 var vaultsContent ObsidianVaultConfig
 
-type Vault struct {
-	Path string `json:"path"`
-	Ts   int64  `json:"ts"`
-	Open bool   `json:"open"`
-}
+func FindVaultPathFromConfig(vaultName string, configFilePath string) (string, error) {
 
-type Vaults map[string]Vault
-
-type ObsidianVaultConfig struct {
-	Vaults `json:"vaults"`
-}
-
-func FindVaultPathFromName(vaultName string) (string, error) {
-
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("User config directory not found %g", err)
-	}
-
-	obsidianVaultsFile := configDir + "/obsidian/obsidian.json"
-
-	content, err := os.ReadFile(obsidianVaultsFile)
+	content, err := os.ReadFile(configFilePath)
 
 	if err != nil {
-		return "", fmt.Errorf("Obsidian config cannot be read %g", err)
+		return "", fmt.Errorf("obsidian config file cannot be found: %g", err)
 	}
 
 	err = json.Unmarshal(content, &vaultsContent)
@@ -44,5 +31,5 @@ func FindVaultPathFromName(vaultName string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("Obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %g", err)
+	return "", fmt.Errorf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %g", err)
 }
