@@ -20,7 +20,7 @@ func FindVaultPathFromConfig(vaultName string, configFilePath string) (string, e
 	content, err := os.ReadFile(configFilePath)
 
 	if err != nil {
-		return "", fmt.Errorf("obsidian config file cannot be found: %g", err)
+		return "", fmt.Errorf("obsidian config file cannot be found: %s", err)
 	}
 
 	err = json.Unmarshal(content, &vaultsContent)
@@ -31,5 +31,5 @@ func FindVaultPathFromConfig(vaultName string, configFilePath string) (string, e
 		}
 	}
 
-	return "", fmt.Errorf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %g", err)
+	return "", fmt.Errorf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %s", err)
 }

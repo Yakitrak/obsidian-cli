@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-	DefaultVaultName string `json:"default_vault_name"`
+	DefaultVaultName string `json:"default_vault_name"` // TODO make lower case?
 }
 
 func SetDefaultVault(name string) {

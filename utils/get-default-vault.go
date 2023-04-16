@@ -2,38 +2,38 @@ package utils
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 )
 
 var config Config
 
-func GetDefaultVault(vaultName string) string {
+func GetDefaultVault(vaultName string, obsConfigFilePath string) (string, error) {
 	if vaultName != "" {
-		return vaultName
+		return vaultName, nil
 	}
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatal("User config directory not found", err)
-	}
-
-	obsConfig := configDir + ObsConfigName
-	content, err := os.ReadFile(obsConfig)
+	content, err := os.ReadFile(obsConfigFilePath)
 
 	if err != nil {
-		log.Fatal("Please use set-default command to set default vault or use --vault", err)
+		return "", fmt.Errorf("cannot find vault config. please use set-default command to set default vault or use --vault: %s", err)
 	}
 
 	err = json.Unmarshal(content, &config)
 
 	if err != nil {
-		log.Fatal("Could not retrieve default vault", err)
+		return "", fmt.Errorf("could not retrieve default vault %s", err)
 	}
 
 	if config.DefaultVaultName == "" {
-		log.Fatal("Could not read value of default vault", err)
+		return "", fmt.Errorf("could not read value of default vault %s", err)
 	}
 
-	return string(config.DefaultVaultName)
+	return string(config.DefaultVaultName), nil
 }
+
+//configDir, err := os.UserConfigDir()
+//if err != nil {
+//	return "", fmt.Errorf("user config directory not found: %s", err)
+//}
+//obsConfig := configDir + ObsConfigName

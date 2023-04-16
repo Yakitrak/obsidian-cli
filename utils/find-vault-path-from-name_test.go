@@ -30,8 +30,6 @@ func TestFindVaultPathFromName(t *testing.T) {
 	}`
 
 	obsidianConfigFile := filepath.Join(tmpDir, "/obsidian.json")
-	t.Logf(tmpDir)
-	t.Logf(obsidianConfigFile)
 	err = os.WriteFile(obsidianConfigFile, []byte(obsidianConfig), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create obsidian.json file: %v", err)
@@ -39,14 +37,13 @@ func TestFindVaultPathFromName(t *testing.T) {
 
 	t.Run("Valid vault name", func(t *testing.T) {
 		vaultPath, err := utils.FindVaultPathFromConfig("vault1", obsidianConfigFile)
-		t.Logf(vaultPath)
 		assert.Nil(t, err)
 		assert.Equal(t, "/path/to/vault1", vaultPath)
 	})
 
 	t.Run("Invalid vault name", func(t *testing.T) {
 		vaultPath, err := utils.FindVaultPathFromConfig("vault3", obsidianConfigFile)
-		assert.Error(t, err, fmt.Sprintf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %g", err))
+		assert.Error(t, err, fmt.Sprintf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %s", err))
 		assert.Equal(t, "", vaultPath)
 	})
 
