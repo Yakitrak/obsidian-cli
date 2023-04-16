@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestGetDefaultVaultWithVaultName(t *testing.T) {
+func TestGetDefaultVault(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "test")
 	if err != nil {
