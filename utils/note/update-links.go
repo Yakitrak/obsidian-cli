@@ -1,9 +1,8 @@
-package temp
+package note
 
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -43,7 +42,7 @@ func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) 
 			return nil
 		}
 
-		content, err := ioutil.ReadFile(path)
+		content, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -51,7 +50,7 @@ func UpdateLinksInVault(dirPath string, oldNoteName string, newNoteName string) 
 		newContentWithUpdatedStandardAndAliasLinks := bytes.ReplaceAll(newContentWithUpdatedStandardLinks, []byte(oldNoteWithAliasText), []byte(newNoteWithAliasText))
 		newContentWithUpdatedStandardAndAliasAndHeadingLinks := bytes.ReplaceAll(newContentWithUpdatedStandardAndAliasLinks, []byte(oldNoteWithHeadingText), []byte(newNoteWithHeadingText))
 
-		err = ioutil.WriteFile(path, newContentWithUpdatedStandardAndAliasAndHeadingLinks, info.Mode())
+		err = os.WriteFile(path, newContentWithUpdatedStandardAndAliasAndHeadingLinks, info.Mode())
 		if err != nil {
 			return err
 		}
