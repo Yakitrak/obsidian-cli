@@ -1,15 +1,14 @@
-package notes
+package note
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/utils"
 	"os"
 )
 
-func MoveNote(originalPath string, newPath string) error {
+func Move(originalPath string, newPath string) error {
 
-	o := utils.AddMdSuffix(originalPath)
-	n := utils.AddMdSuffix(newPath)
+	o := AddMdSuffix(originalPath)
+	n := AddMdSuffix(newPath)
 
 	err := os.Rename(o, n)
 

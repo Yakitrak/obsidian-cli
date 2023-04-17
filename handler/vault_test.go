@@ -7,13 +7,22 @@ import (
 	"testing"
 )
 
-func createTmpTestDirectories(t *testing.T) (string, string) {
+func createMockCliConfigDirectories(t *testing.T) (string, string) {
 	t.Helper()
 	tmpDir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory: %s", err)
 	}
 	return tmpDir, tmpDir + "/preferences.json"
+}
+
+func createMockObsidianConfigFile(t *testing.T) string {
+	t.Helper()
+	tmpDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err)
+	}
+	return tmpDir + "/obsidian.json"
 }
 
 func TestVaultSetDefaultName(t *testing.T) {
@@ -23,7 +32,7 @@ func TestVaultSetDefaultName(t *testing.T) {
 
 	t.Run("default vault name set without errors", func(t *testing.T) {
 		// Arrange
-		mockCliConfigDir, mockCliConfigFile := createTmpTestDirectories(t)
+		mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
 		handler.CliConfigPath = func() (string, string, error) {
 			return mockCliConfigDir, mockCliConfigFile, nil
 		}
@@ -79,7 +88,7 @@ func TestVaultSetDefaultName(t *testing.T) {
 
 		t.Run("Error in creating and writing to default vault config file", func(t *testing.T) {
 			// Arrange
-			mockCliConfigDir, _ := createTmpTestDirectories(t)
+			mockCliConfigDir, _ := createMockCliConfigDirectories(t)
 			handler.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir + "/unwrittable", mockCliConfigDir + "unwrittable/preferences.json", nil
 			}
@@ -110,7 +119,7 @@ func TestVaultDefaultName(t *testing.T) {
 
 		t.Run("Get vault name from file", func(t *testing.T) {
 			// Arrange
-			mockCliConfigDir, mockCliConfigFile := createTmpTestDirectories(t)
+			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
 			handler.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
@@ -140,7 +149,7 @@ func TestVaultDefaultName(t *testing.T) {
 
 		t.Run("Error in reading default vault config file", func(t *testing.T) {
 			// Arrange
-			mockCliConfigDir, mockCliConfigFile := createTmpTestDirectories(t)
+			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
 			handler.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
@@ -153,7 +162,7 @@ func TestVaultDefaultName(t *testing.T) {
 
 		t.Run("Error in unmarshalling default vault config file", func(t *testing.T) {
 			// Arrange
-			mockCliConfigDir, mockCliConfigFile := createTmpTestDirectories(t)
+			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
 			handler.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
@@ -167,7 +176,7 @@ func TestVaultDefaultName(t *testing.T) {
 
 		t.Run("Error DefaultVaultName empty", func(t *testing.T) {
 			// Arrange
-			mockCliConfigDir, mockCliConfigFile := createTmpTestDirectories(t)
+			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
 			handler.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
@@ -178,6 +187,103 @@ func TestVaultDefaultName(t *testing.T) {
 			// Assert
 			assert.ErrorContains(t, err, "could not read value of default vault")
 		})
+	})
+}
+
+func TestVaultPath(t *testing.T) {
+	originalObsidianConfigFile := handler.ObsidianConfigFile
+	defer func() { handler.ObsidianConfigFile = originalObsidianConfigFile }()
+
+	obsidianConfig := `{
+		"vaults": {
+			"random1": {
+				"path": "/path/to/vault1"
+			},
+			"random2": {
+				"path": "/path/to/vault2"
+			}
+		}
+	}`
+	mockObsidianConfigFile := createMockObsidianConfigFile(t)
+	handler.ObsidianConfigFile = func() (string, error) {
+		return mockObsidianConfigFile, nil
+	}
+	err := os.WriteFile(mockObsidianConfigFile, []byte(obsidianConfig), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create obsidian.json file: %v", err)
+	}
+
+	t.Run("Get vault path from valid vault name without errors", func(t *testing.T) {
+		// Act
+		vaultHandler := handler.Vault{Name: "vault1"}
+		vaultPath, err := vaultHandler.Path()
+		// Assert
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "/path/to/vault1", vaultPath)
+	})
+
+	t.Run("Error in getting obsidian config file ", func(t *testing.T) {
+		// Arrange
+		handler.ObsidianConfigFile = func() (string, error) {
+			return "", os.ErrNotExist
+		}
+		// Act
+		vaultHandler := handler.Vault{Name: "vault1"}
+		_, err := vaultHandler.Path()
+		// Assert
+		assert.ErrorContains(t, err, "failed to get obsidian config file")
+	})
+
+	t.Run("Error in reading obsidian config file", func(t *testing.T) {
+		// Arrange
+		mockObsidianConfigFile := createMockObsidianConfigFile(t)
+		handler.ObsidianConfigFile = func() (string, error) {
+			return mockObsidianConfigFile, nil
+		}
+		err := os.WriteFile(mockObsidianConfigFile, []byte(``), 0000)
+		if err != nil {
+			t.Fatalf("Failed to create obsidian.json file: %v", err)
+		}
+		// Act
+		vaultHandler := handler.Vault{Name: "vault1"}
+		_, err = vaultHandler.Path()
+		// Assert
+		assert.ErrorContains(t, err, "obsidian config file cannot be found")
+
+	})
+
+	t.Run("Error in unmarshalling obsidian config file", func(t *testing.T) {
+		// Arrange
+		handler.ObsidianConfigFile = func() (string, error) {
+			return mockObsidianConfigFile, nil
+		}
+
+		err := os.WriteFile(mockObsidianConfigFile, []byte(`abc`), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create obsidian.json file: %v", err)
+		}
+		// Act
+		vaultHandler := handler.Vault{Name: "vault1"}
+		_, err = vaultHandler.Path()
+		// Assert
+		assert.ErrorContains(t, err, "obsidian config file cannot be parsed")
+
+	})
+
+	t.Run("No vault found with given name", func(t *testing.T) {
+		// Arrange
+		handler.ObsidianConfigFile = func() (string, error) {
+			return mockObsidianConfigFile, nil
+		}
+
+		err := os.WriteFile(mockObsidianConfigFile, []byte(`{"vaults":{}}`), 0644)
+
+		// Act
+		vaultHandler := handler.Vault{Name: "vault3"}
+		_, err = vaultHandler.Path()
+		// Assert
+		assert.ErrorContains(t, err, "obsidian vault cannot be found. Please ensure the vault is set up on Obsidian")
+
 	})
 
 }

@@ -3,33 +3,41 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/utils"
+	"github.com/Yakitrak/obsidian-cli/utils/config"
 	"os"
+	"strings"
 )
 
 type Vault struct {
 	Name string
 }
 
-type Config struct {
+type CliConfig struct {
 	DefaultVaultName string `json:"default_vault_name"`
 }
 
-var CliConfigPath = utils.CliConfigPath
+type ObsidianVaultConfig struct {
+	Vaults map[string]struct {
+		Path string `json:"path"`
+	} `json:"vaults"`
+}
+
+var CliConfigPath = config.CliPath
+var ObsidianConfigFile = config.ObsidianFile
 var JsonMarshal = json.Marshal
 
 func (v *Vault) SetDefaultName(name string) error {
 	// marshal vault name to json
-	config := Config{DefaultVaultName: name}
-	jsonContent, err := JsonMarshal(config)
+	cliConfig := CliConfig{DefaultVaultName: name}
+	jsonContent, err := JsonMarshal(cliConfig)
 	if err != nil {
 		return fmt.Errorf("failed to save default vault to json: %s", err)
 	}
 
-	// get config path
+	// get cliConfig path
 	obsConfigDir, obsConfigFile, err := CliConfigPath()
 	if err != nil {
-		return fmt.Errorf("failed to get user config directory %s", err)
+		return fmt.Errorf("failed to get user cliConfig directory %s", err)
 	}
 	// create directory
 	err = os.MkdirAll(obsConfigDir, os.ModePerm)
@@ -49,34 +57,61 @@ func (v *Vault) SetDefaultName(name string) error {
 }
 
 func (v *Vault) DefaultName() (string, error) {
-	config := Config{}
-
 	if v.Name != "" {
 		return v.Name, nil
 	}
 
-	// get config paths
+	// get cliConfig paths
 	_, cliConfigFile, err := CliConfigPath()
 	if err != nil {
-		return "", fmt.Errorf("failed to get user config directory %s", err)
+		return "", fmt.Errorf("failed to get user cliConfig directory %s", err)
 	}
 
-	// read config
+	// read cliConfig
 	content, err := os.ReadFile(cliConfigFile)
 	if err != nil {
-		return "", fmt.Errorf("cannot find vault config. please use set-default command to set default vault or use --vault: %s", err)
+		return "", fmt.Errorf("cannot find vault cliConfig. please use set-default command to set default vault or use --vault: %s", err)
 	}
 
 	// retrieve value
-	err = json.Unmarshal(content, &config)
+	cliConfig := CliConfig{}
+	err = json.Unmarshal(content, &cliConfig)
 
 	if err != nil {
 		return "", fmt.Errorf("could not retrieve default vault %s", err)
 	}
 
-	if config.DefaultVaultName == "" {
+	if cliConfig.DefaultVaultName == "" {
 		return "", fmt.Errorf("could not read value of default vault %s", err)
 	}
 
-	return config.DefaultVaultName, nil
+	return cliConfig.DefaultVaultName, nil
+}
+
+func (v *Vault) Path() (string, error) {
+	obsidianConfigFile, err := ObsidianConfigFile()
+	if err != nil {
+		return "", fmt.Errorf("failed to get obsidian config file %s", err)
+	}
+
+	content, err := os.ReadFile(obsidianConfigFile)
+
+	if err != nil {
+		return "", fmt.Errorf("obsidian config file cannot be found: %s", err)
+	}
+
+	vaultsContent := ObsidianVaultConfig{}
+	err = json.Unmarshal(content, &vaultsContent)
+
+	if err != nil {
+		return "", fmt.Errorf("obsidian config file cannot be parsed: %s", err)
+	}
+
+	for _, element := range vaultsContent.Vaults {
+		if strings.HasSuffix(element.Path, "/"+v.Name) {
+			return element.Path, nil
+		}
+	}
+
+	return "", fmt.Errorf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %s", err)
 }

@@ -1,7 +1,7 @@
-package utils_test
+package note_test
 
 import (
-	"github.com/Yakitrak/obsidian-cli/utils"
+	"github.com/Yakitrak/obsidian-cli/utils/note"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -19,7 +19,7 @@ func TestAddMdSuffix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			// Act
-			got := utils.AddMdSuffix(tt.input)
+			got := note.AddMdSuffix(tt.input)
 			// Assert
 			assert.Equal(t, tt.expected, got)
 		})

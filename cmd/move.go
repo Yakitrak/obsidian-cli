@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
-	"github.com/Yakitrak/obsidian-cli/temp/notes"
+	temp2 "github.com/Yakitrak/obsidian-cli/temp"
 	"github.com/Yakitrak/obsidian-cli/temp/vaults"
+	"github.com/Yakitrak/obsidian-cli/utils/note"
 	"github.com/Yakitrak/obsidian-cli/utils/temp"
 	"log"
 
@@ -20,7 +21,7 @@ var moveCmd = &cobra.Command{
 		currentName := args[0]
 		newName := args[1]
 
-		uri, err := pkg.MoveNote(temp.UriConstructor, vaults.FindVaultPathFromConfig, notes.MoveNote, notes.UpdateLinksInVault, vaults.GetDefaultVault(vaultName), currentName, newName)
+		uri, err := pkg.MoveNote(temp.UriConstructor, vaults.FindVaultPathFromConfig, note.Move, temp2.UpdateLinksInVault, vaults.GetDefaultVault(vaultName), currentName, newName)
 		if err != nil {
 			log.Fatal(err)
 		}

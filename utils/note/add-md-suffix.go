@@ -1,4 +1,4 @@
-package utils
+package note
 
 import "strings"
 
