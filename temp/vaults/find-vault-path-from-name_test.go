@@ -1,8 +1,8 @@
-package temp_test
+package vaults_test
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/temp"
+	"github.com/Yakitrak/obsidian-cli/temp/vaults"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -36,19 +36,19 @@ func TestFindVaultPathFromName(t *testing.T) {
 	}
 
 	t.Run("Valid vault name", func(t *testing.T) {
-		vaultPath, err := temp.FindVaultPathFromConfig("vault1", obsidianConfigFile)
+		vaultPath, err := vaults.FindVaultPathFromConfig("vault1", obsidianConfigFile)
 		assert.Nil(t, err)
 		assert.Equal(t, "/path/to/vault1", vaultPath)
 	})
 
 	t.Run("Invalid vault name", func(t *testing.T) {
-		vaultPath, err := temp.FindVaultPathFromConfig("vault3", obsidianConfigFile)
+		vaultPath, err := vaults.FindVaultPathFromConfig("vault3", obsidianConfigFile)
 		assert.Error(t, err, fmt.Sprintf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %s", err))
 		assert.Equal(t, "", vaultPath)
 	})
 
 	t.Run("Obsidian config file not found", func(t *testing.T) {
-		vaultPath, err := temp.FindVaultPathFromConfig("vault1", "invalid-path")
+		vaultPath, err := vaults.FindVaultPathFromConfig("vault1", "invalid-path")
 		assert.Error(t, err, "obsidian config file cannot be found")
 		assert.Equal(t, "", vaultPath)
 	})

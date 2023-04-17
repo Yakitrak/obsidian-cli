@@ -18,7 +18,9 @@ func TestAddMdSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			// Act
 			got := utils.AddMdSuffix(tt.input)
+			// Assert
 			assert.Equal(t, tt.expected, got)
 		})
 	}

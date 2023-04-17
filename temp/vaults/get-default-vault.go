@@ -1,4 +1,4 @@
-package temp
+package vaults
 
 import (
 	"encoding/json"

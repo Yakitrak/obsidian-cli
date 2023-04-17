@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
-	temp2 "github.com/Yakitrak/obsidian-cli/temp"
+	temp2 "github.com/Yakitrak/obsidian-cli/temp/vaults"
 	"github.com/Yakitrak/obsidian-cli/utils/temp"
 	"log"
 

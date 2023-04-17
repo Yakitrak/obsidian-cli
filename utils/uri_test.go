@@ -1,9 +1,9 @@
-package handler_test
+package utils_test
 
 import (
 	"errors"
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/handler"
+	"github.com/Yakitrak/obsidian-cli/utils"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -23,38 +23,39 @@ func TestUriConstruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			uri := handler.Uri{}
-			got := uri.Construct(baseUri, tt.in)
+			// Act
+			got := utils.UriConstruct(baseUri, tt.in)
+			// Assert
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestUriExecute(t *testing.T) {
-	originalOpenerFunc := handler.OpenerFunc
-
-	defer func() {
-		handler.OpenerFunc = originalOpenerFunc
-	}()
+	originalOpenerFunc := utils.RunUri
+	defer func() { utils.RunUri = originalOpenerFunc }()
 
 	t.Run("valid uri", func(t *testing.T) {
-		handler.OpenerFunc = func(uri string) error {
+		// Arrange
+		utils.RunUri = func(uri string) error {
 			return nil
 		}
 
-		uri := handler.Uri{}
-		err := uri.Execute("http://example.com")
+		// Act
+		err := utils.UriExecute("http://example.com")
+		// Assert
 		assert.Equal(t, nil, err)
 	})
 
 	t.Run("invalid uri", func(t *testing.T) {
-		handler.OpenerFunc = func(uri string) error {
-			return fmt.Errorf("not a uri %s", uri)
+		// Arrange
+		utils.RunUri = func(uri string) error {
+			return errors.New("not a uri")
 		}
-
-		uri := handler.Uri{}
-		err := uri.Execute("http://example.com")
-		assert.Equal(t, errors.New("failed to open URI: not a uri http://example.com"), err)
+		// Act
+		err := utils.UriExecute("foo")
+		// Assert
+		assert.Equal(t, errors.New("failed to open URI: not a uri"), err)
 	})
 
 }

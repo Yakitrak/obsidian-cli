@@ -1,4 +1,4 @@
-package temp
+package notes
 
 import (
 	"fmt"

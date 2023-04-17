@@ -1,7 +1,7 @@
-package temp_test
+package notes_test
 
 import (
-	"github.com/Yakitrak/obsidian-cli/temp"
+	"github.com/Yakitrak/obsidian-cli/temp/notes"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -44,7 +44,7 @@ func TestMoveNote(t *testing.T) {
 			// Call the MoveNote function
 			fullOriginalNotePath := filepath.Join(tempDir, test.originalNotePath)
 			fullNewNotePath := filepath.Join(tempDir, test.newNotePath)
-			err = temp.MoveNote(fullOriginalNotePath, fullNewNotePath)
+			err = notes.MoveNote(fullOriginalNotePath, fullNewNotePath)
 			assert.NoError(t, err, "Expected no error while moving note")
 
 			// Check if the original file has been moved to the new path
@@ -66,7 +66,7 @@ func TestMoveNote(t *testing.T) {
 	}
 
 	t.Run("Error when moving file", func(t *testing.T) {
-		err := temp.MoveNote("filepath/that/does/not/exist", "newNote")
+		err := notes.MoveNote("filepath/that/does/not/exist", "newNote")
 		assert.Error(t, err, "Expected an error while moving note")
 	})
 }

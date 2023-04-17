@@ -1,4 +1,4 @@
-package temp_test
+package vaults_test
 
 import (
 	"github.com/Yakitrak/obsidian-cli/utils/temp"
