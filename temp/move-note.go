@@ -1,14 +1,15 @@
-package utils
+package temp
 
 import (
 	"fmt"
+	"github.com/Yakitrak/obsidian-cli/utils"
 	"os"
 )
 
 func MoveNote(originalPath string, newPath string) error {
 
-	o := AddMdSuffix(originalPath)
-	n := AddMdSuffix(newPath)
+	o := utils.AddMdSuffix(originalPath)
+	n := utils.AddMdSuffix(newPath)
 
 	err := os.Rename(o, n)
 

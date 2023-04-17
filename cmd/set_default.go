@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/Yakitrak/obsidian-cli/utils/temp"
 
-	"github.com/Yakitrak/obsidian-cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ var setDefaultCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		fmt.Println("Setting vault location as default: ", name)
-		utils.SetDefaultVault(name)
+		temp.SetDefaultVault(name)
 	},
 }
 
