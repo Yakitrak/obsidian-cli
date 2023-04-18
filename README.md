@@ -47,6 +47,17 @@ obs set-default "{vault-name}"
 
 Note: `open` and other commands in `obs` use this vault's base directory as the working directory, not the current working directory of your terminal.
 
+### Print Default Vault
+
+Prints default vault and path. Please set this with `set-default` command if not set.
+
+```bash
+obs print-default
+```
+
+Note: `open` and other commands in `obs` use this vault's base directory as the working directory, not the current working directory of your terminal.
+
+
 ### Open Note
 
 Open given note name in Obsidian. Note can also be an absolute path from root of vault.
@@ -109,3 +120,18 @@ obs move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
 # Renames a note in default vault and opens it
 obs move "{current-note-path}" "{new-note-path}" --open
 ```
+
+### Delete Note
+
+Deletes a given note(path from vault root).
+
+```bash
+# Renames a note in default vault
+obs delete "{note-path}" 
+
+# Renames a note in given vault
+obs delete "{note-path}" --vault "{vault-name}"
+```
+
+
+

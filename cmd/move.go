@@ -33,5 +33,6 @@ var moveCmd = &cobra.Command{
 
 func init() {
 	moveCmd.Flags().BoolVarP(&shouldOpen, "open", "o", false, "open new note")
+	moveCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	rootCmd.AddCommand(moveCmd)
 }
