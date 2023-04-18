@@ -8,3 +8,10 @@ func AddMdSuffix(str string) string {
 	}
 	return str
 }
+
+func RemoveMdSuffix(str string) string {
+	if strings.HasSuffix(str, ".md") {
+		return strings.TrimSuffix(str, ".md")
+	}
+	return str
+}

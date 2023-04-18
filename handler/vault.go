@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Yakitrak/obsidian-cli/utils/config"
+	"github.com/Yakitrak/obsidian-cli/utils/note"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -114,4 +116,40 @@ func (v *Vault) Path() (string, error) {
 	}
 
 	return "", fmt.Errorf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %s", err)
+}
+
+func (v *Vault) UpdateNoteLinks(vaultPath string, oldNoteName string, newNoteName string) error {
+	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if note.ShouldSkipDirectoryOrFile(info) {
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		oldNoteLinks := note.GenerateNoteLinkTexts(oldNoteName)
+		newNoteLinks := note.GenerateNoteLinkTexts(newNoteName)
+
+		content = note.ReplaceContent(content, map[string]string{
+			oldNoteLinks[0]: newNoteLinks[0],
+			oldNoteLinks[1]: newNoteLinks[1],
+			oldNoteLinks[2]: newNoteLinks[2],
+		})
+
+		err = os.WriteFile(path, content, info.Mode())
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
