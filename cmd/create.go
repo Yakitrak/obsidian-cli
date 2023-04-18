@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
-	temp2 "github.com/Yakitrak/obsidian-cli/temp/vaults"
-	"github.com/Yakitrak/obsidian-cli/utils/temp"
+	"github.com/Yakitrak/obsidian-cli/utils/uri"
 	"github.com/spf13/cobra"
 	"log"
 )
@@ -19,8 +18,11 @@ var createNoteCmd = &cobra.Command{
 	Args:      cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		noteName := args[0]
-		uri := pkg.CreateNote(temp.UriConstructor, temp2.GetDefaultVault(vaultName), noteName, content, shouldAppend, shouldOverwrite)
-		err := temp.UriExecute(uri)
+		createUri, err := pkg.CreateNote(vaultName, noteName, content, shouldAppend, shouldOverwrite)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = uri.Execute(createUri)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg"
-	"github.com/Yakitrak/obsidian-cli/temp/vaults"
-	"github.com/Yakitrak/obsidian-cli/utils/note"
-	"github.com/Yakitrak/obsidian-cli/utils/temp"
+	"github.com/Yakitrak/obsidian-cli/utils/uri"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -20,12 +18,12 @@ var moveCmd = &cobra.Command{
 		currentName := args[0]
 		newName := args[1]
 
-		uri, err := pkg.MoveNote(temp.UriConstructor, vaults.FindVaultPathFromConfig, note.Move, note.UpdateLinksInVault, vaults.GetDefaultVault(vaultName), currentName, newName)
+		openUri, err := pkg.MoveNote(vaultName, currentName, newName)
 		if err != nil {
 			log.Fatal(err)
 		}
 		if shouldOpen {
-			err := temp.UriExecute(uri)
+			err := uri.Execute(openUri)
 			if err != nil {
 				log.Fatal(err)
 			}

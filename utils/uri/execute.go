@@ -8,6 +8,7 @@ import (
 var Run = open.Run
 
 func Execute(uri string) error {
+	//fmt.Println("Opening URI: ", uri)
 	err := Run(uri)
 	if err != nil {
 		return errors.New("failed to open URI: not a uri")

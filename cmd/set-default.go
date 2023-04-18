@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Yakitrak/obsidian-cli/handler"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 var setDefaultCmd = &cobra.Command{
@@ -16,10 +17,14 @@ var setDefaultCmd = &cobra.Command{
 		v := handler.Vault{Name: name}
 		err := v.SetDefaultName(name)
 		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println("Default vault set to: ", name)
+			log.Fatal(err)
 		}
+		path, err := v.Path()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Default vault set to: ", name)
+		fmt.Println("Default vault path set to: ", path)
 
 	},
 }

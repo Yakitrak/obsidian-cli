@@ -12,7 +12,7 @@ func Delete(path string) error {
 	if err != nil {
 		return errors.New("note does not exist")
 	} else {
-		fmt.Println("Deleted note: ", path)
+		fmt.Println("Deleted note: ", note)
 	}
 	return nil
 }

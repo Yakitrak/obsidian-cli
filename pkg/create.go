@@ -1,11 +1,19 @@
 package pkg
 
 import (
+	"github.com/Yakitrak/obsidian-cli/handler"
+	"github.com/Yakitrak/obsidian-cli/utils/uri"
 	"strconv"
 )
 
-func CreateNote(uriConstructor UriConstructorFunc, vaultName string, noteName string, content string, shouldAppend bool, shouldOverwrite bool) string {
-	uri := uriConstructor(ObsCreateUrl, map[string]string{
+func CreateNote(vaultName string, noteName string, content string, shouldAppend bool, shouldOverwrite bool) (string, error) {
+	vaultHandler := handler.Vault{Name: vaultName}
+	vaultName, err := vaultHandler.DefaultName()
+	if err != nil {
+		return "", err
+	}
+
+	uri := uri.Construct(ObsCreateUrl, map[string]string{
 		"append":    strconv.FormatBool(shouldAppend),
 		"content":   content,
 		"file":      noteName,
@@ -13,5 +21,5 @@ func CreateNote(uriConstructor UriConstructorFunc, vaultName string, noteName st
 		"vault":     vaultName,
 	})
 
-	return uri
+	return uri, nil
 }

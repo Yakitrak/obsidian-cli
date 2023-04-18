@@ -16,8 +16,8 @@ func Move(originalPath string, newPath string) error {
 		return err
 	} else {
 		message := fmt.Sprintf(`Moved note 
-		from %s
-		to %s`, o, n)
+from %s
+to %s`, o, n)
 		fmt.Println(message)
 	}
 	return nil

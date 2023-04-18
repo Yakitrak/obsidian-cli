@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Yakitrak/obsidian-cli/utils/config"
 	"github.com/Yakitrak/obsidian-cli/utils/note"
@@ -87,6 +88,7 @@ func (v *Vault) DefaultName() (string, error) {
 		return "", fmt.Errorf("could not read value of default vault %s", err)
 	}
 
+	v.Name = cliConfig.DefaultVaultName
 	return cliConfig.DefaultVaultName, nil
 }
 
@@ -110,12 +112,12 @@ func (v *Vault) Path() (string, error) {
 	}
 
 	for _, element := range vaultsContent.Vaults {
-		if strings.HasSuffix(element.Path, "/"+v.Name) {
+		if strings.HasSuffix(element.Path, v.Name) {
 			return element.Path, nil
 		}
 	}
 
-	return "", fmt.Errorf("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian %s", err)
+	return "", errors.New("Vault cannot be found. Please ensure the vault is set up on Obsidian.")
 }
 
 func (v *Vault) UpdateNoteLinks(vaultPath string, oldNoteName string, newNoteName string) error {

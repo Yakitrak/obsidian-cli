@@ -2,33 +2,35 @@ package pkg
 
 import (
 	"fmt"
-	"os"
+	"github.com/Yakitrak/obsidian-cli/handler"
+	"github.com/Yakitrak/obsidian-cli/utils/note"
+	"github.com/Yakitrak/obsidian-cli/utils/uri"
+	"path/filepath"
 )
 
-func MoveNote(uriConstructor UriConstructorFunc, findVaultPathFromName FindVaultPathFromNameFunc, moveNote MoveNoteFunc, updateLinksInVault UpdateLinksInVaultFunc, vaultName string, currentNoteName string, newNoteName string) (string, error) {
-	// Find obsidian vault directory
-	userConfigDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("user config directory not found %g", err)
-	}
-	configFilePath := userConfigDir + ObsidianConfigPath
-	vaultPath, err := findVaultPathFromName(vaultName, configFilePath)
-
-	if err != nil {
-		return "", fmt.Errorf("cannot locate vault %g", err)
-	}
-
-	// Move / rename note
-	currentPath := vaultPath + "/" + currentNoteName
-	newPath := vaultPath + "/" + newNoteName
-	err = moveNote(currentPath, newPath)
+func MoveNote(vaultName string, currentNoteName string, newNoteName string) (string, error) {
+	vaultHandler := handler.Vault{Name: vaultName}
+	vaultName, err := vaultHandler.DefaultName()
 	if err != nil {
 		return "", err
 	}
-	updateLinksInVault(vaultPath, currentNoteName, newNoteName)
+	vaultPath, err := vaultHandler.Path()
 
-	// Open renamed note
-	uri := uriConstructor(ObsOpenUrl, map[string]string{
+	if err != nil {
+		return "", fmt.Errorf("cannot locate vault %s", err)
+	}
+
+	currentPath := filepath.Join(vaultPath, currentNoteName)
+	newPath := filepath.Join(vaultPath, newNoteName)
+
+	err = note.Move(currentPath, newPath)
+	if err != nil {
+		return "", fmt.Errorf("cannot move note '%s'", currentNoteName)
+	}
+
+	vaultHandler.UpdateNoteLinks(vaultPath, currentNoteName, newNoteName)
+
+	uri := uri.Construct(ObsOpenUrl, map[string]string{
 		"file":  newNoteName,
 		"vault": vaultName,
 	})

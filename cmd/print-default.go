@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Yakitrak/obsidian-cli/handler"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 var printDefaultCmd = &cobra.Command{
@@ -15,11 +16,11 @@ var printDefaultCmd = &cobra.Command{
 		v := handler.Vault{}
 		name, err := v.DefaultName()
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		path, err := v.Path()
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		fmt.Println("Default vault name: ", name)
 		fmt.Println("Default vault path: ", path)

@@ -285,5 +285,8 @@ func TestVaultPath(t *testing.T) {
 		assert.ErrorContains(t, err, "obsidian vault cannot be found. Please ensure the vault is set up on Obsidian")
 
 	})
+}
 
+func TestVaultUpdateNoteLinks(t *testing.T) {
+	// TODO
 }
