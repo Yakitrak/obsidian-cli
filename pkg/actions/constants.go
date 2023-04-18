@@ -1,4 +1,4 @@
-package pkg
+package actions
 
 const (
 	ObsBaseUrl   = "obsidian://"

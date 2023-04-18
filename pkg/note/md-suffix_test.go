@@ -1,7 +1,7 @@
 package note_test
 
 import (
-	"github.com/Yakitrak/obsidian-cli/utils/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/note"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

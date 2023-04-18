@@ -1,7 +1,7 @@
-package handler_test
+package vault_test
 
 import (
-	"github.com/Yakitrak/obsidian-cli/handler"
+	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -27,18 +27,18 @@ func createMockObsidianConfigFile(t *testing.T) string {
 
 func TestVaultSetDefaultName(t *testing.T) {
 	// set the config function
-	originalCliConfigPath := handler.CliConfigPath
-	defer func() { handler.CliConfigPath = originalCliConfigPath }()
+	originalCliConfigPath := vault.CliConfigPath
+	defer func() { vault.CliConfigPath = originalCliConfigPath }()
 
 	t.Run("default vault name set without errors", func(t *testing.T) {
 		// Arrange
 		mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
-		handler.CliConfigPath = func() (string, string, error) {
+		vault.CliConfigPath = func() (string, string, error) {
 			return mockCliConfigDir, mockCliConfigFile, nil
 		}
 		// Act
-		vaultHandler := handler.Vault{}
-		err := vaultHandler.SetDefaultName("vault-name")
+		vault := vault.Vault{}
+		err := vault.SetDefaultName("vault-name")
 
 		// Assert
 		assert.Equal(t, nil, err)
@@ -50,38 +50,38 @@ func TestVaultSetDefaultName(t *testing.T) {
 	t.Run("default vault name not set due to error", func(t *testing.T) {
 		t.Run("Error in CliConfigPath", func(t *testing.T) {
 			// Arrange
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return "", "", os.ErrNotExist
 			}
 			// Act
-			vaultHandler := handler.Vault{}
-			err := vaultHandler.SetDefaultName("vault-name")
+			vault := vault.Vault{}
+			err := vault.SetDefaultName("vault-name")
 			// Assert
 			assert.ErrorContains(t, err, "failed to get user config directory")
 		})
 
 		t.Run("Error in json marshal", func(t *testing.T) {
 			// Arrange
-			originalJsonMarshal := handler.JsonMarshal
-			defer func() { handler.JsonMarshal = originalJsonMarshal }()
-			handler.JsonMarshal = func(v interface{}) ([]byte, error) {
+			originalJsonMarshal := vault.JsonMarshal
+			defer func() { vault.JsonMarshal = originalJsonMarshal }()
+			vault.JsonMarshal = func(v interface{}) ([]byte, error) {
 				return nil, os.ErrNotExist
 			}
 			// Act
-			vaultHandler := handler.Vault{}
-			err := vaultHandler.SetDefaultName("invalid json")
+			vault := vault.Vault{}
+			err := vault.SetDefaultName("invalid json")
 			// Assert
 			assert.ErrorContains(t, err, "failed to save default vault to json")
 		})
 
 		t.Run("Error in creating default vault config directory", func(t *testing.T) {
 			// Arrange
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return "", "" + "/preferences.json", nil
 			}
 			// Act
-			vaultHandler := handler.Vault{}
-			err := vaultHandler.SetDefaultName("vault-name")
+			vault := vault.Vault{}
+			err := vault.SetDefaultName("vault-name")
 			// Assert
 			assert.ErrorContains(t, err, "failed to create default vault directory")
 		})
@@ -89,13 +89,13 @@ func TestVaultSetDefaultName(t *testing.T) {
 		t.Run("Error in creating and writing to default vault config file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, _ := createMockCliConfigDirectories(t)
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir + "/unwrittable", mockCliConfigDir + "unwrittable/preferences.json", nil
 			}
 			err := os.Mkdir(mockCliConfigDir+"/unwrittable", 0444)
 			// Act
-			vaultHandler := handler.Vault{}
-			err = vaultHandler.SetDefaultName("vault-name")
+			vault := vault.Vault{}
+			err = vault.SetDefaultName("vault-name")
 			// Assert
 			assert.ErrorContains(t, err, "failed to create default vault configuration file")
 		})
@@ -105,13 +105,13 @@ func TestVaultSetDefaultName(t *testing.T) {
 
 func TestVaultDefaultName(t *testing.T) {
 	// set the config function
-	originalCliConfigPath := handler.CliConfigPath
-	defer func() { handler.CliConfigPath = originalCliConfigPath }()
+	originalCliConfigPath := vault.CliConfigPath
+	defer func() { vault.CliConfigPath = originalCliConfigPath }()
 	t.Run("Get vault name without errors", func(t *testing.T) {
 		t.Run("Get vault name from struct", func(t *testing.T) {
 			// Act
-			vaultHandler := handler.Vault{Name: "my-vault"}
-			vaultName, err := vaultHandler.DefaultName()
+			vault := vault.Vault{Name: "my-vault"}
+			vaultName, err := vault.DefaultName()
 			// Assert
 			assert.Equal(t, nil, err)
 			assert.Equal(t, "my-vault", vaultName)
@@ -120,13 +120,13 @@ func TestVaultDefaultName(t *testing.T) {
 		t.Run("Get vault name from file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
 			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name":"example-vault"}`), 0644)
 			// Act
-			vaultHandler := handler.Vault{}
-			vaultName, err := vaultHandler.DefaultName()
+			vault := vault.Vault{}
+			vaultName, err := vault.DefaultName()
 			// Assert
 			assert.Equal(t, nil, err)
 			assert.Equal(t, "example-vault", vaultName)
@@ -137,12 +137,12 @@ func TestVaultDefaultName(t *testing.T) {
 
 		t.Run("Error in CliConfigPath", func(t *testing.T) {
 			// Arrange
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return "", "", os.ErrNotExist
 			}
 			// Act
-			vaultHandler := handler.Vault{}
-			_, err := vaultHandler.DefaultName()
+			vault := vault.Vault{}
+			_, err := vault.DefaultName()
 			// Assert
 			assert.ErrorContains(t, err, "failed to get user config directory")
 		})
@@ -150,12 +150,12 @@ func TestVaultDefaultName(t *testing.T) {
 		t.Run("Error in reading default vault config file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
 			// Act
-			vaultHandler := handler.Vault{}
-			_, err := vaultHandler.DefaultName()
+			vault := vault.Vault{}
+			_, err := vault.DefaultName()
 			// Assert
 			assert.ErrorContains(t, err, "cannot find vault config. please use set-default command to set default vault or use --vault")
 		})
@@ -163,13 +163,13 @@ func TestVaultDefaultName(t *testing.T) {
 		t.Run("Error in unmarshalling default vault config file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
 			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name""example-vault`), 0644)
 			// Act
-			vaultHandler := handler.Vault{}
-			_, err = vaultHandler.DefaultName()
+			vault := vault.Vault{}
+			_, err = vault.DefaultName()
 			// Assert
 			assert.ErrorContains(t, err, "could not retrieve default vault")
 		})
@@ -177,13 +177,13 @@ func TestVaultDefaultName(t *testing.T) {
 		t.Run("Error DefaultVaultName empty", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
-			handler.CliConfigPath = func() (string, string, error) {
+			vault.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
 			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name":""}`), 0644)
 			// Act
-			vaultHandler := handler.Vault{}
-			_, err = vaultHandler.DefaultName()
+			vault := vault.Vault{}
+			_, err = vault.DefaultName()
 			// Assert
 			assert.ErrorContains(t, err, "could not read value of default vault")
 		})
@@ -191,8 +191,8 @@ func TestVaultDefaultName(t *testing.T) {
 }
 
 func TestVaultPath(t *testing.T) {
-	originalObsidianConfigFile := handler.ObsidianConfigFile
-	defer func() { handler.ObsidianConfigFile = originalObsidianConfigFile }()
+	originalObsidianConfigFile := vault.ObsidianConfigFile
+	defer func() { vault.ObsidianConfigFile = originalObsidianConfigFile }()
 
 	obsidianConfig := `{
 		"vaults": {
@@ -205,7 +205,7 @@ func TestVaultPath(t *testing.T) {
 		}
 	}`
 	mockObsidianConfigFile := createMockObsidianConfigFile(t)
-	handler.ObsidianConfigFile = func() (string, error) {
+	vault.ObsidianConfigFile = func() (string, error) {
 		return mockObsidianConfigFile, nil
 	}
 	err := os.WriteFile(mockObsidianConfigFile, []byte(obsidianConfig), 0644)
@@ -215,8 +215,8 @@ func TestVaultPath(t *testing.T) {
 
 	t.Run("Get vault path from valid vault name without errors", func(t *testing.T) {
 		// Act
-		vaultHandler := handler.Vault{Name: "vault1"}
-		vaultPath, err := vaultHandler.Path()
+		vault := vault.Vault{Name: "vault1"}
+		vaultPath, err := vault.Path()
 		// Assert
 		assert.Equal(t, nil, err)
 		assert.Equal(t, "/path/to/vault1", vaultPath)
@@ -224,12 +224,12 @@ func TestVaultPath(t *testing.T) {
 
 	t.Run("Error in getting obsidian config file ", func(t *testing.T) {
 		// Arrange
-		handler.ObsidianConfigFile = func() (string, error) {
+		vault.ObsidianConfigFile = func() (string, error) {
 			return "", os.ErrNotExist
 		}
 		// Act
-		vaultHandler := handler.Vault{Name: "vault1"}
-		_, err := vaultHandler.Path()
+		vault := vault.Vault{Name: "vault1"}
+		_, err := vault.Path()
 		// Assert
 		assert.ErrorContains(t, err, "failed to get obsidian config file")
 	})
@@ -237,7 +237,7 @@ func TestVaultPath(t *testing.T) {
 	t.Run("Error in reading obsidian config file", func(t *testing.T) {
 		// Arrange
 		mockObsidianConfigFile := createMockObsidianConfigFile(t)
-		handler.ObsidianConfigFile = func() (string, error) {
+		vault.ObsidianConfigFile = func() (string, error) {
 			return mockObsidianConfigFile, nil
 		}
 		err := os.WriteFile(mockObsidianConfigFile, []byte(``), 0000)
@@ -245,8 +245,8 @@ func TestVaultPath(t *testing.T) {
 			t.Fatalf("Failed to create obsidian.json file: %v", err)
 		}
 		// Act
-		vaultHandler := handler.Vault{Name: "vault1"}
-		_, err = vaultHandler.Path()
+		vault := vault.Vault{Name: "vault1"}
+		_, err = vault.Path()
 		// Assert
 		assert.ErrorContains(t, err, "obsidian config file cannot be found")
 
@@ -254,7 +254,7 @@ func TestVaultPath(t *testing.T) {
 
 	t.Run("Error in unmarshalling obsidian config file", func(t *testing.T) {
 		// Arrange
-		handler.ObsidianConfigFile = func() (string, error) {
+		vault.ObsidianConfigFile = func() (string, error) {
 			return mockObsidianConfigFile, nil
 		}
 
@@ -263,8 +263,8 @@ func TestVaultPath(t *testing.T) {
 			t.Fatalf("Failed to create obsidian.json file: %v", err)
 		}
 		// Act
-		vaultHandler := handler.Vault{Name: "vault1"}
-		_, err = vaultHandler.Path()
+		vault := vault.Vault{Name: "vault1"}
+		_, err = vault.Path()
 		// Assert
 		assert.ErrorContains(t, err, "obsidian config file cannot be parsed")
 
@@ -272,15 +272,15 @@ func TestVaultPath(t *testing.T) {
 
 	t.Run("No vault found with given name", func(t *testing.T) {
 		// Arrange
-		handler.ObsidianConfigFile = func() (string, error) {
+		vault.ObsidianConfigFile = func() (string, error) {
 			return mockObsidianConfigFile, nil
 		}
 
 		err := os.WriteFile(mockObsidianConfigFile, []byte(`{"vaults":{}}`), 0644)
 
 		// Act
-		vaultHandler := handler.Vault{Name: "vault3"}
-		_, err = vaultHandler.Path()
+		vault := vault.Vault{Name: "vault3"}
+		_, err = vault.Path()
 		// Assert
 		assert.ErrorContains(t, err, "obsidian vault cannot be found. Please ensure the vault is set up on Obsidian")
 

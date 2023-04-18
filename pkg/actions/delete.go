@@ -1,16 +1,16 @@
-package pkg
+package actions
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/handler"
-	"github.com/Yakitrak/obsidian-cli/utils/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 	"path/filepath"
 )
 
 func DeleteNote(vaultName string, notePath string) error {
-	vaultHandler := handler.Vault{Name: vaultName}
-	vaultHandler.DefaultName()
-	vaultPath, err := vaultHandler.Path()
+	vault := vault.Vault{Name: vaultName}
+	vault.DefaultName()
+	vaultPath, err := vault.Path()
 
 	if err != nil {
 		return fmt.Errorf("cannot locate vault %g", err)

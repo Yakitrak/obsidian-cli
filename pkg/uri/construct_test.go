@@ -2,7 +2,7 @@ package uri_test
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/utils/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/uri"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

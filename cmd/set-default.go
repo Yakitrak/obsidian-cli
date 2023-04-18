@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/handler"
+	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 	"github.com/spf13/cobra"
 	"log"
 )
@@ -14,7 +14,7 @@ var setDefaultCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		v := handler.Vault{Name: name}
+		v := vault.Vault{Name: name}
 		err := v.SetDefaultName(name)
 		if err != nil {
 			log.Fatal(err)

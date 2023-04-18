@@ -1,13 +1,13 @@
-package pkg
+package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/handler"
-	"github.com/Yakitrak/obsidian-cli/utils/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 )
 
 func SearchNotes(vaultName string, searchText string) (string, error) {
-	vaultHandler := handler.Vault{Name: vaultName}
-	vaultName, err := vaultHandler.DefaultName()
+	vault := vault.Vault{Name: vaultName}
+	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return "", err
 	}

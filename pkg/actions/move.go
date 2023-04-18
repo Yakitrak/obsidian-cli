@@ -1,20 +1,20 @@
-package pkg
+package actions
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/handler"
-	"github.com/Yakitrak/obsidian-cli/utils/note"
-	"github.com/Yakitrak/obsidian-cli/utils/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 	"path/filepath"
 )
 
 func MoveNote(vaultName string, currentNoteName string, newNoteName string) (string, error) {
-	vaultHandler := handler.Vault{Name: vaultName}
-	vaultName, err := vaultHandler.DefaultName()
+	vault := vault.Vault{Name: vaultName}
+	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return "", err
 	}
-	vaultPath, err := vaultHandler.Path()
+	vaultPath, err := vault.Path()
 
 	if err != nil {
 		return "", fmt.Errorf("cannot locate vault %s", err)
@@ -28,7 +28,7 @@ func MoveNote(vaultName string, currentNoteName string, newNoteName string) (str
 		return "", fmt.Errorf("cannot move note '%s'", currentNoteName)
 	}
 
-	vaultHandler.UpdateNoteLinks(vaultPath, currentNoteName, newNoteName)
+	vault.UpdateNoteLinks(vaultPath, currentNoteName, newNoteName)
 
 	uri := uri.Construct(ObsOpenUrl, map[string]string{
 		"file":  newNoteName,

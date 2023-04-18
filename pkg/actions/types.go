@@ -1,4 +1,4 @@
-package pkg
+package actions
 
 type UriConstructorFunc func(baseUri string, params map[string]string) string
 type FindVaultPathFromNameFunc func(vaultName string, configFilePath string) (string, error)

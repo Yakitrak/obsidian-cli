@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg"
+	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -14,7 +14,7 @@ var deleteCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		notePath := args[0]
-		err := pkg.DeleteNote(vaultName, notePath)
+		err := actions.DeleteNote(vaultName, notePath)
 		if err != nil {
 			log.Fatal(err)
 		}

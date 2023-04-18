@@ -1,11 +1,11 @@
-package handler
+package vault
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/utils/config"
-	"github.com/Yakitrak/obsidian-cli/utils/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/config"
+	"github.com/Yakitrak/obsidian-cli/pkg/note"
 	"os"
 	"path/filepath"
 	"strings"
