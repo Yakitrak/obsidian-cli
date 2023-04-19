@@ -28,7 +28,7 @@ func MoveNote(vaultName string, currentNoteName string, newNoteName string) (str
 		return "", fmt.Errorf("cannot move note '%s'", currentNoteName)
 	}
 
-	vault.UpdateNoteLinks(vaultPath, currentNoteName, newNoteName)
+	note.UpdateNoteLinks(vaultPath, currentNoteName, newNoteName)
 
 	uri := uri.Construct(ObsOpenUrl, map[string]string{
 		"file":  newNoteName,
