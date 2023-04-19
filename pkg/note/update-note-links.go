@@ -1,6 +1,7 @@
 package note
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -8,7 +9,7 @@ import (
 func UpdateNoteLinks(vaultPath string, oldNoteName string, newNoteName string) error {
 	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return errors.New("Failed to access vault directory")
 		}
 
 		if ShouldSkipDirectoryOrFile(info) {
@@ -17,7 +18,7 @@ func UpdateNoteLinks(vaultPath string, oldNoteName string, newNoteName string) e
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return errors.New("Failed to read files in vault")
 		}
 
 		oldNoteLinkTexts := GenerateNoteLinkTexts(oldNoteName)
@@ -31,7 +32,7 @@ func UpdateNoteLinks(vaultPath string, oldNoteName string, newNoteName string) e
 
 		err = os.WriteFile(path, content, info.Mode())
 		if err != nil {
-			return err
+			return errors.New("Failed to write to files in vault")
 		}
 		return nil
 	})
