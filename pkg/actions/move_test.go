@@ -58,7 +58,7 @@ func TestMoveNote(t *testing.T) {
 	//		pkg.MoveNote(mockUriConstructor, mockFindVaultPathFromName, mockMoveNote, mockUpdateLinksInVault, tt.vaultName, tt.currentNoteName, tt.newNoteName)
 	//
 	//		t.Run("mockUriConstructor call", func(t *testing.T) {
-	//			assert.Equal(t, calledBaseUri, pkg.ObsOpenUrl, "unexpected base URI")
+	//			assert.Equal(t, calledBaseUri, pkg.obsOpenUrl, "unexpected base URI")
 	//			assert.Equal(t, calledVaultName, tt.vaultName, "unexpected vault name")
 	//
 	//		})

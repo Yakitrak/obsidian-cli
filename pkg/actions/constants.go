@@ -1,8 +1,11 @@
 package actions
 
 const (
-	ObsBaseUrl   = "obsidian://"
-	ObsOpenUrl   = ObsBaseUrl + "open"
-	ObsSearchUrl = ObsBaseUrl + "search"
-	ObsCreateUrl = ObsBaseUrl + "new"
+	obsBaseUrl   = "obsidian://"
+	openAction   = "open"
+	searchAction = "search"
+	createAction = "new"
+	ObsOpenUrl   = obsBaseUrl + openAction
+	ObsSearchUrl = obsBaseUrl + searchAction
+	ObsCreateUrl = obsBaseUrl + createAction
 )

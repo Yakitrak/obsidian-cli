@@ -29,7 +29,7 @@ func TestSearchNotes(t *testing.T) {
 	//	t.Run(tt.testName, func(t *testing.T) {
 	//		pkg.SearchNotes(mockUriConstructor, tt.vaultName, tt.searchText)
 	//		t.Run("Then it should call the uri constructor with the correct parameters", func(t *testing.T) {
-	//			assert.Equal(t, pkg.ObsSearchUrl, calledBaseUri)
+	//			assert.Equal(t, pkg.obsSearchUrl, calledBaseUri)
 	//			assert.Equal(t, tt.vaultName, calledVaultName)
 	//			assert.Equal(t, tt.searchText, calledSearchText)
 	//		})

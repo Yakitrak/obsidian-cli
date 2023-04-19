@@ -18,6 +18,8 @@ func TestUriConstruct(t *testing.T) {
 		{"Empty map", baseUri, map[string]string{}, baseUri},
 		{"One key", baseUri, map[string]string{"key": "value"}, fmt.Sprintf("%s?key=value", baseUri)},
 		{"Two keys", baseUri, map[string]string{"key1": "value1", "key2": "value2"}, fmt.Sprintf("%s?key1=value1&key2=value2", baseUri)},
+		{"Empty value", baseUri, map[string]string{"key": ""}, baseUri},
+		{"Mix of empty and non-empty values", baseUri, map[string]string{"key1": "value1", "key2": ""}, fmt.Sprintf("%s?key1=value1", baseUri)},
 	}
 
 	for _, tt := range tests {

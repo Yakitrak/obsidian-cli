@@ -30,7 +30,7 @@ func TestOpenNote(t *testing.T) {
 	//		pkg.OpenNote(mockUriConstructor, tt.vaultName, tt.noteName)
 	//
 	//		t.Run("Then it should call the uri constructor with the correct parameters", func(t *testing.T) {
-	//			assert.Equal(t, pkg.ObsOpenUrl, calledBaseUri)
+	//			assert.Equal(t, pkg.obsOpenUrl, calledBaseUri)
 	//			assert.Equal(t, tt.vaultName, calledVaultName)
 	//			assert.Equal(t, tt.noteName, calledNoteName)
 	//		})
