@@ -7,10 +7,9 @@ import (
 	"path/filepath"
 )
 
-func DeleteNote(vaultName string, notePath string) error {
-	vault := vault.Vault{Name: vaultName}
-	vault.DefaultName()
-	vaultPath, err := vault.Path()
+func DeleteNote(vaultOp vault.VaultOperator, notePath string) error {
+	vaultOp.DefaultName()
+	vaultPath, err := vaultOp.Path()
 
 	if err != nil {
 		return fmt.Errorf("cannot locate vault %g", err)

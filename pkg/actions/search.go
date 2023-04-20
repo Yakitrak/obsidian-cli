@@ -5,9 +5,8 @@ import (
 	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 )
 
-func SearchNotes(vaultName string, searchText string) (string, error) {
-	vault := vault.Vault{Name: vaultName}
-	vaultName, err := vault.DefaultName()
+func SearchNotes(vaultOp vault.VaultOperator, searchText string) (string, error) {
+	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
 		return "", err
 	}

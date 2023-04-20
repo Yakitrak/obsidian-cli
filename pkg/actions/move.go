@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 )
 
-func MoveNote(vaultName string, currentNoteName string, newNoteName string) (string, error) {
-	vault := vault.Vault{Name: vaultName}
-	vaultName, err := vault.DefaultName()
+func MoveNote(vaultOp vault.VaultOperator, currentNoteName string, newNoteName string) (string, error) {
+	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
 		return "", err
 	}
-	vaultPath, err := vault.Path()
+	vaultPath, err := vaultOp.Path()
 
 	if err != nil {
 		return "", fmt.Errorf("cannot locate vault %s", err)
