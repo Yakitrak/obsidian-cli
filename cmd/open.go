@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 	"github.com/spf13/cobra"
 	"log"
 )
@@ -14,8 +15,9 @@ var OpenVaultCmd = &cobra.Command{
 	Short:   "Opens note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		vaultOp := vault.Vault{Name: vaultName}
 		noteName := args[0]
-		createUri, err := actions.OpenNote(vaultName, noteName)
+		createUri, err := actions.OpenNote(&vaultOp, noteName)
 		if err != nil {
 			log.Fatal(err)
 		}

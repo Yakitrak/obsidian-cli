@@ -6,9 +6,8 @@ import (
 	"strconv"
 )
 
-func CreateNote(vaultName string, noteName string, content string, shouldAppend bool, shouldOverwrite bool) (string, error) {
-	vault := vault.Vault{Name: vaultName}
-	vaultName, err := vault.DefaultName()
+func CreateNote(vaultOp vault.VaultOperator, noteName string, content string, shouldAppend bool, shouldOverwrite bool) (string, error) {
+	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
 		return "", err
 	}

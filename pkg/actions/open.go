@@ -5,9 +5,8 @@ import (
 	"github.com/Yakitrak/obsidian-cli/pkg/vault"
 )
 
-func OpenNote(vaultName string, noteName string) (string, error) {
-	vault := vault.Vault{Name: vaultName}
-	vaultName, err := vault.DefaultName()
+func OpenNote(vaultOp vault.VaultOperator, noteName string) (string, error) {
+	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
 		return "", err
 	}
