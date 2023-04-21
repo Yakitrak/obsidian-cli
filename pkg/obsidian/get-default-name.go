@@ -1,4 +1,4 @@
-package vault
+package obsidian
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func (v *Vault) DefaultName() (string, error) {
 	// read cliConfig
 	content, err := os.ReadFile(cliConfigFile)
 	if err != nil {
-		return "", fmt.Errorf("cannot find vault config. please use set-default command to set default vault or use --vault: %s", err)
+		return "", fmt.Errorf("cannot find obsidian config. please use set-default command to set default obsidian or use --obsidian: %s", err)
 	}
 
 	// retrieve value
@@ -32,11 +32,11 @@ func (v *Vault) DefaultName() (string, error) {
 	err = json.Unmarshal(content, &cliConfig)
 
 	if err != nil {
-		return "", fmt.Errorf("could not retrieve default vault %s", err)
+		return "", fmt.Errorf("could not retrieve default obsidian %s", err)
 	}
 
 	if cliConfig.DefaultVaultName == "" {
-		return "", errors.New("could not read value of default vault %s")
+		return "", errors.New("could not read value of default obsidian %s")
 	}
 
 	v.Name = cliConfig.DefaultVaultName

@@ -66,8 +66,8 @@ Open given note name in Obsidian. Note can also be an absolute path from root of
 # Opens note in obsidian
 obs open "{note-name}"
 
-# Opens note in specified vault
-obs open "{note-name}" --vault "{vault-name}"
+# Opens note in specified obsidian
+obs open "{note-name}" --obsidian "{vault-name}"
 
 ```
 
@@ -76,11 +76,11 @@ obs open "{note-name}" --vault "{vault-name}"
 Opens obsidian search tab with given search text
 
 ```bash
-# Searches in default vault
+# Searches in default obsidian
 obs search "{search-text}"
 
-# Searches in specified vault
-obs search "{search-text}" --vault "{vault-name}"
+# Searches in specified obsidian
+obs search "{search-text}" --obsidian "{vault-name}"
 
 ```
 
@@ -89,19 +89,19 @@ obs search "{search-text}" --vault "{vault-name}"
 Creates note (can also be a path with name) in vault. By default if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
 
 ```bash
-# Creates empty note in default vault and opens it
+# Creates empty note in default obsidian and opens it
 obs create "{note-name}"
 
-# Creates empty note in given vault and opens it
-obs create "{note-name}"  --vault "{vault-name}"
+# Creates empty note in given obsidian and opens it
+obs create "{note-name}"  --obsidian "{vault-name}"
 
-# Creates note in default vault with content
+# Creates note in default obsidian with content
 obs create "{note-name}" --content "abcde"
 
-# Creates note in default vault with content - overwrite existing note
+# Creates note in default obsidian with content - overwrite existing note
 obs create "{note-name}" --content "abcde" --overwrite
 
-# Creates note in default vault with content - append existing note
+# Creates note in default obsidian with content - append existing note
 obs create "{note-name}" --content "abcde" --append
 
 ```
@@ -111,13 +111,13 @@ obs create "{note-name}" --content "abcde" --append
 Moves a given note(path from vault root) with new name given (path from vault root). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
 
 ```bash
-# Renames a note in default vault
+# Renames a note in default obsidian
 obs move "{current-note-path}" "{new-note-path}"
 
-# Renames a note and given vault
-obs move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
+# Renames a note and given obsidian
+obs move "{current-note-path}" "{new-note-path}" --obsidian "{vault-name}"
 
-# Renames a note in default vault and opens it
+# Renames a note in default obsidian and opens it
 obs move "{current-note-path}" "{new-note-path}" --open
 ```
 
@@ -126,11 +126,11 @@ obs move "{current-note-path}" "{new-note-path}" --open
 Deletes a given note(path from vault root).
 
 ```bash
-# Renames a note in default vault
+# Renames a note in default obsidian
 obs delete "{note-path}" 
 
-# Renames a note in given vault
-obs delete "{note-path}" --vault "{vault-name}"
+# Renames a note in given obsidian
+obs delete "{note-path}" --obsidian "{vault-name}"
 ```
 
 

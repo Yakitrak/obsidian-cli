@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
 	"log"
 )
@@ -12,16 +11,14 @@ var vaultName string
 var OpenVaultCmd = &cobra.Command{
 	Use:     "open",
 	Aliases: []string{"o"},
-	Short:   "Opens note in vault",
+	Short:   "Opens note in obsidian",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vaultOp := vault.Vault{Name: vaultName}
+		vaultOp := obsidian.Vault{Name: vaultName}
+		uriManager := obsidian.Uri{}
 		noteName := args[0]
-		createUri, err := actions.OpenNote(&vaultOp, noteName)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = uri.Execute(createUri)
+		params := actions.OpenParams{NoteName: noteName}
+		err := actions.OpenNote(&vaultOp, &uriManager, params)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -29,6 +26,6 @@ var OpenVaultCmd = &cobra.Command{
 }
 
 func init() {
-	OpenVaultCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
+	OpenVaultCmd.Flags().StringVarP(&vaultName, "obsidian", "v", "", "obsidian name (not required if default is set)")
 	rootCmd.AddCommand(OpenVaultCmd)
 }

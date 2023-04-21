@@ -1,20 +1,27 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
-func OpenNote(vaultOp vault.VaultOperator, noteName string) (string, error) {
+type OpenParams struct {
+	NoteName string
+}
+
+func OpenNote(vaultOp obsidian.VaultOperator, uriManager obsidian.UriManager, params OpenParams) error {
 	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	uri := uri.Construct(ObsOpenUrl, map[string]string{
-		"file":  noteName,
+	uri := uriManager.Construct(ObsOpenUrl, map[string]string{
 		"vault": vaultName,
+		"file":  params.NoteName,
 	})
 
-	return uri, nil
+	err = uriManager.Execute(uri)
+	if err != nil {
+		return err
+	}
+	return nil
 }

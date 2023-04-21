@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -12,16 +11,14 @@ import (
 var searchCmd = &cobra.Command{
 	Use:     "search",
 	Aliases: []string{"s"},
-	Short:   "Searches note in vault",
+	Short:   "Searches note in obsidian",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vaultOp := vault.Vault{Name: vaultName}
+		vaultOp := obsidian.Vault{Name: vaultName}
+		uriManager := obsidian.Uri{}
 		searchText := args[0]
-		searchUri, err := actions.SearchNotes(&vaultOp, searchText)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = uri.Execute(searchUri)
+		params := actions.SearchParams{SearchText: searchText}
+		err := actions.SearchNotes(&vaultOp, &uriManager, params)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -29,6 +26,6 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
-	searchCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
+	searchCmd.Flags().StringVarP(&vaultName, "obsidian", "v", "", "obsidian name (not required if default is set)")
 	rootCmd.AddCommand(searchCmd)
 }

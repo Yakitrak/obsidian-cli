@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
 	"log"
 )
@@ -10,10 +10,10 @@ import (
 var printDefaultCmd = &cobra.Command{
 	Use:     "print-default",
 	Aliases: []string{"pd"},
-	Short:   "prints default Obsidian vault name and path",
+	Short:   "prints default Obsidian obsidian name and path",
 	Args:    cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		v := vault.Vault{}
+		v := obsidian.Vault{}
 		name, err := v.DefaultName()
 		if err != nil {
 			log.Fatal(err)
@@ -22,8 +22,8 @@ var printDefaultCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("Default vault name: ", name)
-		fmt.Println("Default vault path: ", path)
+		fmt.Println("Default obsidian name: ", name)
+		fmt.Println("Default obsidian path: ", path)
 	},
 }
 

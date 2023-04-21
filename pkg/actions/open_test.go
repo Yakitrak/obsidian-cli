@@ -3,83 +3,90 @@ package actions_test
 import (
 	"errors"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-// Define a mock implementation of VaultInterface for testing
-type MockVault struct {
-	DefaultNameFunc    func() (string, error)
-	SetDefaultNameFunc func(vaultName string) error
-	GetPathFunc        func() (string, error)
+type MockVaultOperator struct {
+	ExecuteErr error
+	PathError  error
+	Name       string
 }
 
-// Implement the VaultInterface methods on the mock Vault
-func (m *MockVault) DefaultName() (string, error) {
-	if m.DefaultNameFunc != nil {
-		return m.DefaultNameFunc()
+func (m *MockVaultOperator) DefaultName() (string, error) {
+	if m.ExecuteErr != nil {
+		return "", m.ExecuteErr
 	}
-	return "myVaultName", nil
+	return m.Name, nil
 }
 
-func (m *MockVault) SetDefaultName(_ string) error { return nil }
-
-func (m *MockVault) Path() (string, error) { return "", nil }
-
-// Define a struct to represent the test cases
-type testcase struct {
-	testName         string
-	vaultName        string
-	noteName         string
-	expectedKV       map[string]string
-	expectedErrorMsg string
-	mockDefaultName  func() (string, error)
-	expectedError    error
+func (m *MockVaultOperator) SetDefaultName(_ string) error {
+	if m.ExecuteErr != nil {
+		return m.ExecuteErr
+	}
+	return nil
 }
 
-// Define a table of test cases
-var testcases = []testcase{
-	{
-		testName:   "Happy path",
-		vaultName:  "myVaultName",
-		noteName:   "myNoteName",
-		expectedKV: map[string]string{"file": "myNoteName", "vault": "myVaultName"},
-	},
-	{
-		testName:        "Error getting default vault name",
-		vaultName:       "",
-		noteName:        "myNoteName",
-		mockDefaultName: func() (string, error) { return "", errors.New("failed to get default vault name") },
-		expectedError:   errors.New("failed to get default vault name"),
-	},
+func (m *MockVaultOperator) Path() (string, error) {
+	if m.PathError != nil {
+		return "", m.PathError
+	}
+	return "path", nil
+}
+
+// MockUriManager is a mock implementation of the UriManager interface for testing.
+type MockUriManager struct {
+	ConstructedURI string
+	ExecuteErr     error
+}
+
+// Construct mocks the Construct method of UriManager.
+func (m *MockUriManager) Construct(base string, params map[string]string) string {
+	return m.ConstructedURI
+}
+
+// Execute mocks the Execute method of UriManager.
+func (m *MockUriManager) Execute(uri string) error {
+	return m.ExecuteErr
 }
 
 func TestOpenNote(t *testing.T) {
-	// Iterate over the test cases
-	for _, tc := range testcases {
-		// Define the test function
-		t.Run(tc.testName, func(t *testing.T) {
-			// Create a mock implementation of VaultInterface
-			mockVault := &MockVault{
-				DefaultNameFunc: tc.mockDefaultName,
-			}
+	t.Run("Successful execution", func(t *testing.T) {
+		// Mock dependencies
+		vaultOp := &MockVaultOperator{Name: "myVault"}
+		uriManager := &MockUriManager{}
 
-			// Call OpenNote with the mockVault
-			result, err := actions.OpenNote(mockVault, tc.noteName)
-
-			// Assert that there are no errors
-			if tc.expectedError != nil {
-				assert.Error(t, err, "Expected error")
-				return
-			}
-			assert.NoError(t, err, "Unexpected error")
-
-			// Assert that the returned URI includes the expected keys and values
-			for k, v := range tc.expectedKV {
-				assert.Contains(t, result, k, "Expected key not found")
-				assert.Contains(t, result, v, "Expected value not found")
-			}
+		err := actions.OpenNote(vaultOp, uriManager, actions.OpenParams{
+			NoteName: "note.md",
 		})
-	}
+
+		assert.NoError(t, err, "Expected no error")
+	})
+
+	t.Run("VaultOperator returns an error", func(t *testing.T) {
+		vaultOpErr := errors.New("Failed to get vault name")
+		vaultOp := &MockVaultOperator{
+			ExecuteErr: vaultOpErr,
+		}
+
+		err := actions.OpenNote(vaultOp, &MockUriManager{}, actions.OpenParams{
+			NoteName: "note.md",
+		})
+
+		assert.Error(t, err, "Expected error to occur")
+		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+	})
+
+	t.Run("UriManager Execute returns an error", func(t *testing.T) {
+		uriManager := &MockUriManager{
+			ExecuteErr: errors.New("Failed to execute URI"),
+		}
+
+		err := actions.OpenNote(&MockVaultOperator{}, uriManager, actions.OpenParams{
+			NoteName: "note1.md",
+		})
+
+		assert.Error(t, err, "Expected error to occur")
+		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+	})
 }

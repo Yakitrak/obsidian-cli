@@ -1,38 +1,52 @@
 package actions
 
 import (
-	"fmt"
 	"github.com/Yakitrak/obsidian-cli/pkg/note"
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"path/filepath"
 )
 
-func MoveNote(vaultOp vault.VaultOperator, currentNoteName string, newNoteName string) (string, error) {
+type MoveParams struct {
+	CurrentNoteName string
+	NewNoteName     string
+	ShouldOpen      bool
+}
+
+func MoveNote(vaultOp obsidian.VaultOperator, noteManager note.ManagerInterface, uriManager obsidian.UriManager, params MoveParams) error {
 	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
-		return "", err
+		return err
 	}
 	vaultPath, err := vaultOp.Path()
 
 	if err != nil {
-		return "", fmt.Errorf("cannot locate vault %s", err)
+		return err
 	}
 
-	currentPath := filepath.Join(vaultPath, currentNoteName)
-	newPath := filepath.Join(vaultPath, newNoteName)
+	currentPath := filepath.Join(vaultPath, params.CurrentNoteName)
+	newPath := filepath.Join(vaultPath, params.NewNoteName)
 
-	err = note.Move(currentPath, newPath)
+	err = noteManager.Move(currentPath, newPath)
 	if err != nil {
-		return "", fmt.Errorf("cannot move note '%s'", currentNoteName)
+		return err
 	}
 
-	note.UpdateNoteLinks(vaultPath, currentNoteName, newNoteName)
+	err = noteManager.UpdateLinks(vaultPath, params.CurrentNoteName, params.NewNoteName)
+	if err != nil {
+		return err
+	}
 
-	uri := uri.Construct(ObsOpenUrl, map[string]string{
-		"file":  newNoteName,
-		"vault": vaultName,
-	})
+	if params.ShouldOpen {
+		uri := uriManager.Construct(ObsOpenUrl, map[string]string{
+			"file":     params.NewNoteName,
+			"obsidian": vaultName,
+		})
 
-	return uri, nil
+		err := uriManager.Execute(uri)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

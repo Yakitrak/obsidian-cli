@@ -1,4 +1,4 @@
-package vault
+package obsidian
 
 type CliConfig struct {
 	DefaultVaultName string `json:"default_vault_name"`
@@ -12,7 +12,7 @@ type ObsidianVaultConfig struct {
 
 type VaultOperator interface {
 	DefaultName() (string, error)
-	SetDefaultName(string) error
+	SetDefaultName(name string) error
 	Path() (string, error)
 }
 

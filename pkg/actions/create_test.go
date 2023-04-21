@@ -2,110 +2,48 @@ package actions_test
 
 import (
 	"errors"
-	"testing"
-
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-// Define a struct to represent the test cases
-type createNoteTestcase struct {
-	name            string
-	noteName        string
-	content         string
-	shouldAppend    bool
-	shouldOverwrite bool
-	expectedResult  map[string]string
-	expectedError   error
-	mockDefaultName func() (string, error)
-}
-
-// Define a table of test cases
-var createNoteTestcases = []createNoteTestcase{
-	{
-		name:            "Note only",
-		noteName:        "myNoteName",
-		content:         "",
-		shouldAppend:    false,
-		shouldOverwrite: false,
-		expectedResult: map[string]string{
-			"file":  "myNoteName",
-			"vault": "myVaultName",
-		},
-	},
-	{
-		name:            "Note with content",
-		noteName:        "myNoteName",
-		content:         "Note-content",
-		shouldAppend:    false,
-		shouldOverwrite: false,
-		expectedResult: map[string]string{
-			"file":    "myNoteName",
-			"content": "Note-content",
-			"vault":   "myVaultName",
-		},
-	},
-	{
-		name:            "Note with content and append",
-		noteName:        "myNoteName",
-		content:         "Note-content",
-		shouldAppend:    true,
-		shouldOverwrite: false,
-		expectedResult: map[string]string{
-			"file":    "myNoteName",
-			"content": "Note-content",
-			"append":  "true",
-		},
-	},
-	{
-		name:            "Note with content and overwrite",
-		noteName:        "myNoteName",
-		content:         "Note-content",
-		shouldAppend:    false,
-		shouldOverwrite: true,
-		expectedResult: map[string]string{
-			"file":      "myNoteName",
-			"content":   "Note-content",
-			"overwrite": "true",
-		},
-	},
-	{
-		name:            "Error getting default vault name",
-		noteName:        "myNoteName",
-		mockDefaultName: func() (string, error) { return "", errors.New("failed to get default vault name") },
-		content:         "Note content",
-		shouldAppend:    true,
-		shouldOverwrite: false,
-		expectedError:   errors.New("failed to get default vault name"),
-	},
-}
-
 func TestCreateNote(t *testing.T) {
-	// Iterate over the test cases
-	for _, tc := range createNoteTestcases {
-		// Define the test function
-		t.Run(tc.name, func(t *testing.T) {
-			// Create a mock implementation of VaultInterface
-			mockVault := &MockVault{
-				DefaultNameFunc: tc.mockDefaultName,
-			}
+	t.Run("Successful execution", func(t *testing.T) {
+		// Mock dependencies
+		vaultOp := &MockVaultOperator{Name: "myVault"}
+		uriManager := &MockUriManager{}
 
-			// Call CreateNote with the mockVaultOperator
-			result, err := actions.CreateNote(mockVault, tc.noteName, tc.content, tc.shouldAppend, tc.shouldOverwrite)
-
-			// Assert that there are no errors
-			if tc.expectedError != nil {
-				assert.Error(t, err, "Expected error")
-				assert.EqualError(t, err, tc.expectedError.Error(), "Unexpected error")
-				return
-			}
-			assert.NoError(t, err, "Unexpected error")
-
-			// Assert that the returned result is a map with expected values
-			for k, v := range tc.expectedResult {
-				assert.Contains(t, result, k, "Expected key not found")
-				assert.Contains(t, result, v, "Expected value not found")
-			}
+		err := actions.CreateNote(vaultOp, uriManager, actions.CreateParams{
+			NoteName: "note.md",
 		})
-	}
+
+		assert.NoError(t, err, "Expected no error")
+	})
+
+	t.Run("VaultOperator returns an error", func(t *testing.T) {
+		vaultOpErr := errors.New("Failed to get vault name")
+		vaultOp := &MockVaultOperator{
+			ExecuteErr: vaultOpErr,
+		}
+
+		err := actions.CreateNote(vaultOp, &MockUriManager{}, actions.CreateParams{
+			NoteName: "note-name",
+		})
+
+		assert.Error(t, err, "Expected error to occur")
+		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+	})
+
+	t.Run("UriManager Execute returns an error", func(t *testing.T) {
+		uriManager := &MockUriManager{
+			ExecuteErr: errors.New("Failed to execute URI"),
+		}
+
+		err := actions.CreateNote(&MockVaultOperator{}, uriManager, actions.CreateParams{
+			NoteName: "note-name",
+		})
+
+		assert.Error(t, err, "Expected error to occur")
+		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+	})
 }

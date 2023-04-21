@@ -1,4 +1,4 @@
-package vault
+package obsidian
 
 import (
 	"encoding/json"
@@ -9,11 +9,11 @@ import (
 var JsonMarshal = json.Marshal
 
 func (v *Vault) SetDefaultName(name string) error {
-	// marshal vault name to json
+	// marshal obsidian name to json
 	cliConfig := CliConfig{DefaultVaultName: name}
 	jsonContent, err := JsonMarshal(cliConfig)
 	if err != nil {
-		return fmt.Errorf("failed to save default vault to json: %s", err)
+		return fmt.Errorf("failed to save default obsidian to json: %s", err)
 	}
 
 	// get cliConfig path
@@ -24,13 +24,13 @@ func (v *Vault) SetDefaultName(name string) error {
 	// create directory
 	err = os.MkdirAll(obsConfigDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create default vault directory %s", err)
+		return fmt.Errorf("failed to create default obsidian directory %s", err)
 	}
 
 	// create and write file
 	err = os.WriteFile(obsConfigFile, jsonContent, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create default vault configuration file %s", err)
+		return fmt.Errorf("failed to create default obsidian configuration file %s", err)
 	}
 
 	v.Name = name

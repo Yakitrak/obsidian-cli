@@ -1,20 +1,27 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
-func SearchNotes(vaultOp vault.VaultOperator, searchText string) (string, error) {
+type SearchParams struct {
+	SearchText string
+}
+
+func SearchNotes(vaultOp obsidian.VaultOperator, uriManager obsidian.UriManager, params SearchParams) error {
 	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	uri := uri.Construct(ObsSearchUrl, map[string]string{
-		"query": searchText,
+	uri := uriManager.Construct(ObsSearchUrl, map[string]string{
 		"vault": vaultName,
+		"query": params.SearchText,
 	})
 
-	return uri, nil
+	err = uriManager.Execute(uri)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -1,8 +1,9 @@
-package uri_test
+package obsidian_test
 
 import (
+	"errors"
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -25,9 +26,41 @@ func TestUriConstruct(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			// Act
-			got := uri.Construct(baseUri, tt.in)
+			uriManager := obsidian.Uri{}
+			got := uriManager.Construct(baseUri, tt.in)
 			// Assert
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestUriExecute(t *testing.T) {
+	originalOpenerFunc := obsidian.Run
+	defer func() { obsidian.Run = originalOpenerFunc }()
+
+	t.Run("valid uri", func(t *testing.T) {
+		// Arrange
+		obsidian.Run = func(uri string) error {
+			return nil
+		}
+
+		// Act
+		uriManager := obsidian.Uri{}
+		err := uriManager.Execute("http://example.com")
+		// Assert
+		assert.Equal(t, nil, err)
+	})
+
+	t.Run("invalid uri", func(t *testing.T) {
+		// Arrange
+		obsidian.Run = func(uri string) error {
+			return errors.New("not a uri")
+		}
+		// Act
+		uriManager := obsidian.Uri{}
+		err := uriManager.Execute("foo")
+		// Assert
+		assert.Equal(t, errors.New("failed to open URI: not a uri"), err)
+	})
+
 }

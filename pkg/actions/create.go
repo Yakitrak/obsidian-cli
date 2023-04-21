@@ -1,24 +1,34 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/uri"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"strconv"
 )
 
-func CreateNote(vaultOp vault.VaultOperator, noteName string, content string, shouldAppend bool, shouldOverwrite bool) (string, error) {
+type CreateParams struct {
+	NoteName        string
+	ShouldAppend    bool
+	ShouldOverwrite bool
+	Content         string
+}
+
+func CreateNote(vaultOp obsidian.VaultOperator, uriManager obsidian.UriManager, params CreateParams) error {
 	vaultName, err := vaultOp.DefaultName()
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	uri := uri.Construct(ObsCreateUrl, map[string]string{
-		"append":    strconv.FormatBool(shouldAppend),
-		"content":   content,
-		"file":      noteName,
-		"overwrite": strconv.FormatBool(shouldOverwrite),
+	uri := uriManager.Construct(ObsCreateUrl, map[string]string{
 		"vault":     vaultName,
+		"append":    strconv.FormatBool(params.ShouldAppend),
+		"overwrite": strconv.FormatBool(params.ShouldOverwrite),
+		"content":   params.Content,
+		"file":      params.NoteName,
 	})
 
-	return uri, nil
+	err = uriManager.Execute(uri)
+	if err != nil {
+		return err
+	}
+	return nil
 }

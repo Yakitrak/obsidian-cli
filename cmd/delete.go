@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"github.com/Yakitrak/obsidian-cli/pkg/vault"
+	"github.com/Yakitrak/obsidian-cli/pkg/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -11,12 +12,14 @@ import (
 var deleteCmd = &cobra.Command{
 	Use:     "delete",
 	Aliases: []string{"d"},
-	Short:   "Delete node in vault",
+	Short:   "Delete node in obsidian",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vaultOp := vault.Vault{Name: vaultName}
+		vaultOp := obsidian.Vault{Name: vaultName}
+		noteManager := note.Manager{}
 		notePath := args[0]
-		err := actions.DeleteNote(&vaultOp, notePath)
+		params := actions.DeleteParams{NotePath: notePath}
+		err := actions.DeleteNote(&vaultOp, &noteManager, params)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -25,6 +28,6 @@ var deleteCmd = &cobra.Command{
 
 func init() {
 	deleteCmd.Flags().BoolVarP(&shouldOpen, "open", "o", false, "open new note")
-	deleteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
+	deleteCmd.Flags().StringVarP(&vaultName, "obsidian", "v", "", "obsidian name (not required if default is set)")
 	rootCmd.AddCommand(deleteCmd)
 }

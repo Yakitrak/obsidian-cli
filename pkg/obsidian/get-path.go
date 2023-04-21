@@ -1,4 +1,4 @@
-package vault
+package obsidian
 
 import (
 	"encoding/json"
@@ -36,5 +36,5 @@ func (v *Vault) Path() (string, error) {
 		}
 	}
 
-	return "", errors.New("obsidian vault cannot be found. Please ensure the vault is set up on Obsidian.")
+	return "", errors.New("obsidian obsidian cannot be found. Please ensure the obsidian is set up on Obsidian.")
 }

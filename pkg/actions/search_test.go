@@ -3,64 +3,47 @@ package actions_test
 import (
 	"errors"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-// Define a struct to represent the test cases
-type searchNoteTestcase struct {
-	testName         string
-	vaultName        string
-	searchName       string
-	expectedKV       map[string]string
-	expectedErrorMsg string
-	mockDefaultName  func() (string, error)
-	expectedError    error
-}
-
-// Define a table of test cases
-var searchNoteTestcases = []searchNoteTestcase{
-	{
-		testName:   "Happy path",
-		vaultName:  "myVaultName",
-		searchName: "search-text",
-		expectedKV: map[string]string{"search": "search-text", "vault": "myVaultName"},
-	},
-	{
-		testName:        "Error getting default vault name",
-		vaultName:       "",
-		searchName:      "search-text",
-		mockDefaultName: func() (string, error) { return "", errors.New("failed to get default vault name") },
-		expectedError:   errors.New("failed to get default vault name"),
-	},
-}
-
 func TestSearchNotes(t *testing.T) {
-	// Iterate over the test cases
-	for _, tc := range searchNoteTestcases {
-		// Define the test function
-		t.Run(tc.testName, func(t *testing.T) {
-			// Create a mock implementation of VaultInterface
-			mockVault := &MockVault{
-				DefaultNameFunc: tc.mockDefaultName,
-			}
+	t.Run("Successful execution", func(t *testing.T) {
+		// Mock dependencies
+		vaultOp := &MockVaultOperator{Name: "myVault"}
+		uriManager := &MockUriManager{}
 
-			// Call OpenNote with the mockVault
-			result, err := actions.SearchNotes(mockVault, tc.searchName)
-
-			// Assert that there are no errors
-			if tc.expectedError != nil {
-				assert.Error(t, err, "Expected error")
-				return
-			}
-			assert.NoError(t, err, "Unexpected error")
-
-			// Assert that the returned URI includes the expected keys and values
-			for k, v := range tc.expectedKV {
-				assert.Contains(t, result, k, "Expected key not found")
-				assert.Contains(t, result, v, "Expected value not found")
-			}
+		err := actions.SearchNotes(vaultOp, uriManager, actions.SearchParams{
+			SearchText: "Search-text-here",
 		})
-	}
+
+		assert.NoError(t, err, "Expected no error")
+	})
+
+	t.Run("VaultOperator returns an error", func(t *testing.T) {
+		vaultOpErr := errors.New("Failed to get vault name")
+		vaultOp := &MockVaultOperator{
+			ExecuteErr: vaultOpErr,
+		}
+
+		err := actions.SearchNotes(vaultOp, &MockUriManager{}, actions.SearchParams{
+			SearchText: "Search-text-here",
+		})
+
+		assert.Error(t, err, "Expected error to occur")
+		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+	})
+
+	t.Run("UriManager Execute returns an error", func(t *testing.T) {
+		uriManager := &MockUriManager{
+			ExecuteErr: errors.New("Failed to execute URI"),
+		}
+
+		err := actions.SearchNotes(&MockVaultOperator{}, uriManager, actions.SearchParams{
+			SearchText: "Search-text-here",
+		})
+
+		assert.Error(t, err, "Expected error to occur")
+		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+	})
 }
