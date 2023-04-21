@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/note"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"path/filepath"
 )
@@ -12,12 +11,12 @@ type MoveParams struct {
 	ShouldOpen      bool
 }
 
-func MoveNote(vaultOp obsidian.VaultOperator, noteManager note.ManagerInterface, uriManager obsidian.UriManager, params MoveParams) error {
-	vaultName, err := vaultOp.DefaultName()
+func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, params MoveParams) error {
+	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return err
 	}
-	vaultPath, err := vaultOp.Path()
+	vaultPath, err := vault.Path()
 
 	if err != nil {
 		return err
@@ -26,23 +25,23 @@ func MoveNote(vaultOp obsidian.VaultOperator, noteManager note.ManagerInterface,
 	currentPath := filepath.Join(vaultPath, params.CurrentNoteName)
 	newPath := filepath.Join(vaultPath, params.NewNoteName)
 
-	err = noteManager.Move(currentPath, newPath)
+	err = note.Move(currentPath, newPath)
 	if err != nil {
 		return err
 	}
 
-	err = noteManager.UpdateLinks(vaultPath, params.CurrentNoteName, params.NewNoteName)
+	err = note.UpdateLinks(vaultPath, params.CurrentNoteName, params.NewNoteName)
 	if err != nil {
 		return err
 	}
 
 	if params.ShouldOpen {
-		uri := uriManager.Construct(ObsOpenUrl, map[string]string{
+		obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
 			"file":     params.NewNoteName,
 			"obsidian": vaultName,
 		})
 
-		err := uriManager.Execute(uri)
+		err := uri.Execute(obsidianUri)
 		if err != nil {
 			return err
 		}

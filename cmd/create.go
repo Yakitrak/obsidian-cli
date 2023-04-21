@@ -11,22 +11,21 @@ var shouldAppend bool
 var shouldOverwrite bool
 var content string
 var createNoteCmd = &cobra.Command{
-	Use:       "create",
-	Aliases:   []string{"c"},
-	Short:     "Creates note in obsidian",
-	ValidArgs: []string{"obsidian", "text", "silent", "append", "overwrite"},
-	Args:      cobra.ExactArgs(1),
+	Use:     "create",
+	Aliases: []string{"c"},
+	Short:   "Creates note in vault",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vaultOp := obsidian.Vault{Name: vaultName}
+		vault := obsidian.Vault{Name: vaultName}
+		uri := obsidian.Uri{}
 		noteName := args[0]
-		uriManager := obsidian.Uri{}
 		params := actions.CreateParams{
 			NoteName:        noteName,
 			Content:         content,
 			ShouldAppend:    shouldAppend,
 			ShouldOverwrite: shouldOverwrite,
 		}
-		err := actions.CreateNote(&vaultOp, &uriManager, params)
+		err := actions.CreateNote(&vault, &uri, params)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -34,7 +33,7 @@ var createNoteCmd = &cobra.Command{
 }
 
 func init() {
-	createNoteCmd.Flags().StringVarP(&vaultName, "obsidian", "v", "", "obsidian name")
+	createNoteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	createNoteCmd.Flags().StringVarP(&content, "content", "c", "", "text to add to note")
 	createNoteCmd.Flags().BoolVarP(&shouldAppend, "append", "a", false, "append to note")
 	createNoteCmd.Flags().BoolVarP(&shouldOverwrite, "overwrite", "o", false, "overwrite note")

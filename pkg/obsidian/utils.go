@@ -1,4 +1,4 @@
-package note
+package obsidian
 
 import (
 	"bytes"

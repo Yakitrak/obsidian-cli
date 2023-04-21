@@ -1,7 +1,7 @@
-package note_test
+package obsidian_test
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -21,7 +21,7 @@ func TestAddMdSuffix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			// Act
-			got := note.AddMdSuffix(tt.input)
+			got := obsidian.AddMdSuffix(tt.input)
 			// Assert
 			assert.Equal(t, tt.expected, got)
 		})
@@ -41,7 +41,7 @@ func TestRemoveMdSuffix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			// Act
-			got := note.RemoveMdSuffix(tt.input)
+			got := obsidian.RemoveMdSuffix(tt.input)
 			// Assert
 			assert.Equal(t, tt.expected, got)
 		})
@@ -61,7 +61,7 @@ func TestGenerateNoteLinkTexts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
-			actual := note.GenerateNoteLinkTexts(test.noteName)
+			actual := obsidian.GenerateNoteLinkTexts(test.noteName)
 			if actual != test.expected {
 				t.Errorf("Expected %q, got %q", test.expected, actual)
 			}
@@ -85,7 +85,7 @@ func TestReplaceContent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
-			got := note.ReplaceContent(test.content, test.replacements)
+			got := obsidian.ReplaceContent(test.content, test.replacements)
 			assert.Equal(t, string(test.expected), string(got))
 		})
 	}
@@ -138,7 +138,7 @@ func TestShouldSkipDirectoryOrFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := note.ShouldSkipDirectoryOrFile(tt.info)
+			got := obsidian.ShouldSkipDirectoryOrFile(tt.info)
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -11,14 +11,14 @@ var vaultName string
 var OpenVaultCmd = &cobra.Command{
 	Use:     "open",
 	Aliases: []string{"o"},
-	Short:   "Opens note in obsidian",
+	Short:   "Opens note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vaultOp := obsidian.Vault{Name: vaultName}
-		uriManager := obsidian.Uri{}
+		vault := obsidian.Vault{Name: vaultName}
+		uri := obsidian.Uri{}
 		noteName := args[0]
 		params := actions.OpenParams{NoteName: noteName}
-		err := actions.OpenNote(&vaultOp, &uriManager, params)
+		err := actions.OpenNote(&vault, &uri, params)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -26,6 +26,6 @@ var OpenVaultCmd = &cobra.Command{
 }
 
 func init() {
-	OpenVaultCmd.Flags().StringVarP(&vaultName, "obsidian", "v", "", "obsidian name (not required if default is set)")
+	OpenVaultCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	rootCmd.AddCommand(OpenVaultCmd)
 }

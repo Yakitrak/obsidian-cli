@@ -10,20 +10,20 @@ import (
 var printDefaultCmd = &cobra.Command{
 	Use:     "print-default",
 	Aliases: []string{"pd"},
-	Short:   "prints default Obsidian obsidian name and path",
+	Short:   "prints default vault name and path",
 	Args:    cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		v := obsidian.Vault{}
-		name, err := v.DefaultName()
+		vault := obsidian.Vault{}
+		name, err := vault.DefaultName()
 		if err != nil {
 			log.Fatal(err)
 		}
-		path, err := v.Path()
+		path, err := vault.Path()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("Default obsidian name: ", name)
-		fmt.Println("Default obsidian path: ", path)
+		fmt.Println("Default vault name: ", name)
+		fmt.Println("Default vault path: ", path)
 	},
 }
 

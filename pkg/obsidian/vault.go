@@ -10,7 +10,7 @@ type ObsidianVaultConfig struct {
 	} `json:"vaults"`
 }
 
-type VaultOperator interface {
+type VaultManager interface {
 	DefaultName() (string, error)
 	SetDefaultName(name string) error
 	Path() (string, error)

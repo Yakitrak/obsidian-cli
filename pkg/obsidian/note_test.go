@@ -1,8 +1,8 @@
-package note_test
+package obsidian_test
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/note"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -30,7 +30,7 @@ func TestNoteDelete(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Act
-			noteManager := note.Manager{}
+			noteManager := obsidian.Note{}
 			err = noteManager.Delete(notePath)
 			// Assert
 			assert.Equal(t, nil, err, "Expected no error while deleting note")
@@ -40,7 +40,7 @@ func TestNoteDelete(t *testing.T) {
 
 	t.Run("Delete non-existent note", func(t *testing.T) {
 		// Act
-		noteManager := note.Manager{}
+		noteManager := obsidian.Note{}
 		err := noteManager.Delete("non-existent-note")
 		// Assert
 		assert.Equal(t, "note does not exist", err.Error(), "Expected error while deleting non-existent note")
@@ -84,7 +84,7 @@ func TestMoveNote(t *testing.T) {
 			// Call the Move function
 			fullOriginalNotePath := filepath.Join(tempDir, test.originalNotePath)
 			fullNewNotePath := filepath.Join(tempDir, test.newNotePath)
-			noteManager := note.Manager{}
+			noteManager := obsidian.Note{}
 			err = noteManager.Move(fullOriginalNotePath, fullNewNotePath)
 			assert.NoError(t, err, "Expected no error while moving note")
 
@@ -107,7 +107,7 @@ func TestMoveNote(t *testing.T) {
 	}
 
 	t.Run("Error when moving file", func(t *testing.T) {
-		noteManager := note.Manager{}
+		noteManager := obsidian.Note{}
 		err := noteManager.Move("filepath/that/does/not/exist", "newNote")
 		assert.Error(t, err, "Expected an error while moving note")
 	})
@@ -152,7 +152,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		// Call the function to be tested
-		noteManager := note.Manager{}
+		noteManager := obsidian.Note{}
 		err := noteManager.UpdateLinks(tmpDir, oldNoteName, newNoteName)
 		assert.Equal(t, nil, err)
 
@@ -169,7 +169,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 	})
 
 	t.Run("Error on incorrect vaultPath", func(t *testing.T) {
-		noteManager := note.Manager{}
+		noteManager := obsidian.Note{}
 		err := noteManager.UpdateLinks("", "oldNote", "newNote")
 		assert.ErrorContains(t, err, "Failed to access obsidian directory")
 	})
@@ -177,7 +177,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 	t.Run("Error reading files in vaultPath", func(t *testing.T) {
 		tmpDir := createTmpDirAndFiles(t, 0000, testFiles, content)
 		defer os.RemoveAll(tmpDir)
-		noteManager := note.Manager{}
+		noteManager := obsidian.Note{}
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
 		assert.ErrorContains(t, err, "Failed to read files in obsidian")
 	})
@@ -186,7 +186,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 
 		tmpDir := createTmpDirAndFiles(t, 0444, testFiles, content)
 		defer os.RemoveAll(tmpDir)
-		noteManager := note.Manager{}
+		noteManager := obsidian.Note{}
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
 		assert.ErrorContains(t, err, "Failed to write to files in obsidian")
 	})

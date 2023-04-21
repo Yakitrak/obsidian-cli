@@ -11,7 +11,7 @@ import (
 var searchCmd = &cobra.Command{
 	Use:     "search",
 	Aliases: []string{"s"},
-	Short:   "Searches note in obsidian",
+	Short:   "Searches note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		vaultOp := obsidian.Vault{Name: vaultName}
@@ -26,6 +26,6 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
-	searchCmd.Flags().StringVarP(&vaultName, "obsidian", "v", "", "obsidian name (not required if default is set)")
+	searchCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	rootCmd.AddCommand(searchCmd)
 }

@@ -1,4 +1,4 @@
-package note
+package obsidian
 
 import (
 	"errors"
@@ -7,16 +7,16 @@ import (
 	"path/filepath"
 )
 
-type Manager struct {
+type Note struct {
 }
 
-type ManagerInterface interface {
+type NoteManager interface {
 	Move(string, string) error
 	Delete(string) error
 	UpdateLinks(string, string, string) error
 }
 
-func (m *Manager) Move(originalPath string, newPath string) error {
+func (m *Note) Move(originalPath string, newPath string) error {
 	o := AddMdSuffix(originalPath)
 	n := AddMdSuffix(newPath)
 
@@ -32,7 +32,7 @@ to %s`, o, n)
 	}
 	return nil
 }
-func (m *Manager) Delete(path string) error {
+func (m *Note) Delete(path string) error {
 	note := AddMdSuffix(path)
 	err := os.Remove(note)
 	if err != nil {
@@ -43,7 +43,7 @@ func (m *Manager) Delete(path string) error {
 	return nil
 }
 
-func (m *Manager) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
+func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
 	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return errors.New("Failed to access obsidian directory")

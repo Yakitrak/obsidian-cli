@@ -8,18 +8,18 @@ type OpenParams struct {
 	NoteName string
 }
 
-func OpenNote(vaultOp obsidian.VaultOperator, uriManager obsidian.UriManager, params OpenParams) error {
-	vaultName, err := vaultOp.DefaultName()
+func OpenNote(vault obsidian.VaultManager, uri obsidian.UriManager, params OpenParams) error {
+	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return err
 	}
 
-	uri := uriManager.Construct(ObsOpenUrl, map[string]string{
+	obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
 		"vault": vaultName,
 		"file":  params.NoteName,
 	})
 
-	err = uriManager.Execute(uri)
+	err = uri.Execute(obsidianUri)
 	if err != nil {
 		return err
 	}
