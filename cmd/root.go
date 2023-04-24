@@ -10,7 +10,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "obs",
 	Short:   "obs - CLI to open, search, move, create and update notes",
-	Version: "v0.1.3",
+	Version: "v0.1.4",
 	Long:    "obs - CLI to open, search, move, create and update notes",
 }
 

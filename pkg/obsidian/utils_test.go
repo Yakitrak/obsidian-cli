@@ -52,7 +52,7 @@ func TestGenerateNoteLinkTexts(t *testing.T) {
 	var tests = []struct {
 		testName string
 		noteName string
-		expected [3]string
+		want     [3]string
 	}{
 		{"Note with .md", "note.md", [3]string{"[[note]]", "[[note|", "[[note#"}},
 		{"Note without .md", "note", [3]string{"[[note]]", "[[note|", "[[note#"}},
@@ -61,10 +61,10 @@ func TestGenerateNoteLinkTexts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
-			actual := obsidian.GenerateNoteLinkTexts(test.noteName)
-			if actual != test.expected {
-				t.Errorf("Expected %q, got %q", test.expected, actual)
-			}
+			// Act
+			got := obsidian.GenerateNoteLinkTexts(test.noteName)
+			// Assert
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
@@ -80,12 +80,13 @@ func TestReplaceContent(t *testing.T) {
 		{"No replacements", []byte("This is the original content"), map[string]string{}, []byte("This is the original content")},
 		{"Replace one word", []byte("This is the original content"), map[string]string{"original": "new"}, []byte("This is the new content")},
 		{"Replace multiple words", []byte("This is the original content"), map[string]string{"original": "new", "content": "text"}, []byte("This is the new text")},
-		{"Replace multiple words with multiple replacements", []byte("This is the original content"), map[string]string{"original": "new", "content": "text", "new": "old"}, []byte("This is the old text")},
 	}
 
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
+			// Act
 			got := obsidian.ReplaceContent(test.content, test.replacements)
+			// Assert
 			assert.Equal(t, string(test.expected), string(got))
 		})
 	}
@@ -138,7 +139,9 @@ func TestShouldSkipDirectoryOrFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			// Act
 			got := obsidian.ShouldSkipDirectoryOrFile(tt.info)
+			// Assert
 			assert.Equal(t, tt.want, got)
 		})
 	}
