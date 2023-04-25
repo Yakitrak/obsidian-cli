@@ -9,7 +9,7 @@ import (
 )
 
 func TestVaultSetDefaultName(t *testing.T) {
-	// set the config function
+	// Temporarily override the CliConfigPath function
 	originalCliConfigPath := obsidian.CliConfigPath
 	defer func() { obsidian.CliConfigPath = originalCliConfigPath }()
 
@@ -44,12 +44,13 @@ func TestVaultSetDefaultName(t *testing.T) {
 		})
 
 		t.Run("Error in json marshal", func(t *testing.T) {
-			// Arrange
+			// Temporarily override the JsonMarshal function
 			originalJsonMarshal := obsidian.JsonMarshal
 			defer func() { obsidian.JsonMarshal = originalJsonMarshal }()
 			obsidian.JsonMarshal = func(v interface{}) ([]byte, error) {
 				return nil, os.ErrNotExist
 			}
+			// Arrange
 			vault := obsidian.Vault{}
 			// Act
 			err := vault.SetDefaultName("invalid json")

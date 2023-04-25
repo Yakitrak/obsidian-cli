@@ -35,6 +35,7 @@ func TestUriConstruct(t *testing.T) {
 }
 
 func TestUriExecute(t *testing.T) {
+	// Temporarily override the Run function
 	originalOpenerFunc := obsidian.Run
 	defer func() { obsidian.Run = originalOpenerFunc }()
 

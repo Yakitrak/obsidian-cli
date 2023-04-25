@@ -8,6 +8,7 @@ import (
 )
 
 func TestConfigCliPath(t *testing.T) {
+	// Temporarily override the UserConfigDirectory function
 	originalUserConfigDirectory := config.UserConfigDirectory
 	defer func() { config.UserConfigDirectory = originalUserConfigDirectory }()
 

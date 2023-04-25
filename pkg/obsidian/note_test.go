@@ -148,7 +148,6 @@ func TestUpdateNoteLinks(t *testing.T) {
 	t.Run("Update note links", func(t *testing.T) {
 		// Arrange
 		tmpDir := createTmpDirAndFiles(t, 0644, testFiles, content)
-		defer os.RemoveAll(tmpDir)
 
 		noteManager := obsidian.Note{}
 

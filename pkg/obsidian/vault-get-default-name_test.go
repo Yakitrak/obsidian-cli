@@ -9,6 +9,7 @@ import (
 )
 
 func TestVaultDefaultName(t *testing.T) {
+	// Temporarily override the CliConfigPath function
 	originalCliConfigPath := obsidian.CliConfigPath
 	defer func() { obsidian.CliConfigPath = originalCliConfigPath }()
 	t.Run("Get obsidian name without errors", func(t *testing.T) {

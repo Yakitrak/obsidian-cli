@@ -9,6 +9,7 @@ import (
 )
 
 func TestVaultPath(t *testing.T) {
+	// Temporarily override the ObsidianConfigFile function
 	originalObsidianConfigFile := obsidian.ObsidianConfigFile
 	defer func() { obsidian.ObsidianConfigFile = originalObsidianConfigFile }()
 
