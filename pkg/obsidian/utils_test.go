@@ -1,11 +1,11 @@
 package obsidian_test
 
 import (
+	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
-	"time"
 )
 
 func TestAddMdSuffix(t *testing.T) {
@@ -93,49 +93,21 @@ func TestReplaceContent(t *testing.T) {
 
 }
 
-type mockFileInfo struct {
-	name  string
-	isDir bool
-}
-
-func (fi *mockFileInfo) Name() string {
-	return fi.name
-}
-
-func (fi *mockFileInfo) Size() int64 {
-	return 0
-}
-
-func (fi *mockFileInfo) Mode() os.FileMode {
-	return 0
-}
-
-func (fi *mockFileInfo) ModTime() time.Time {
-	return time.Now()
-}
-
-func (fi *mockFileInfo) IsDir() bool {
-	return fi.isDir
-}
-
-func (fi *mockFileInfo) Sys() interface{} {
-	return nil
-}
 func TestShouldSkipDirectoryOrFile(t *testing.T) {
 	tests := []struct {
 		testName string
 		info     os.FileInfo
 		want     bool
 	}{
-		{"markdown file", &mockFileInfo{"file.md", false}, false},
-		{"text file", &mockFileInfo{"file.txt", false}, true},
-		{"image file", &mockFileInfo{"file.jpg", false}, true},
-		{"directory", &mockFileInfo{"directory", true}, true},
-		{"hidden directory", &mockFileInfo{".hidden_directory", true}, true},
-		{"hidden file", &mockFileInfo{".hidden_file", false}, true},
-		{"file with no extension", &mockFileInfo{"file_with_no_extension", false}, true},
-		{"file with dots", &mockFileInfo{"file.md.with.dots", false}, true},
-		{"markdown file with dots", &mockFileInfo{"file.with.multiple.dots.md", false}, false},
+		{testName: "markdown file", info: &mocks.MockFileInfo{FileName: "file.md"}},
+		{"text file", &mocks.MockFileInfo{FileName: "file.txt"}, true},
+		{"image file", &mocks.MockFileInfo{FileName: "file.jpg"}, true},
+		{"directory", &mocks.MockFileInfo{FileName: "directory", IsDirectory: true}, true},
+		{"hidden directory", &mocks.MockFileInfo{FileName: ".hidden_directory", IsDirectory: true}, true},
+		{"hidden file", &mocks.MockFileInfo{FileName: ".hidden_file"}, true},
+		{"file with no extension", &mocks.MockFileInfo{FileName: "file_with_no_extension"}, true},
+		{"file with dots", &mocks.MockFileInfo{FileName: "file.md.with.dots"}, true},
+		{"markdown file with dots", &mocks.MockFileInfo{FileName: "file.with.multiple.dots.md"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {

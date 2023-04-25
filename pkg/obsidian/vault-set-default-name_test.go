@@ -1,20 +1,12 @@
 package obsidian_test
 
 import (
+	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
-
-func createMockCliConfigDirectories(t *testing.T) (string, string) {
-	t.Helper()
-	tmpDir, err := os.MkdirTemp("", "test")
-	if err != nil {
-		t.Fatalf("Failed to create temporary directory: %s", err)
-	}
-	return tmpDir, tmpDir + "/preferences.json"
-}
 
 func TestVaultSetDefaultName(t *testing.T) {
 	// set the config function
@@ -23,12 +15,12 @@ func TestVaultSetDefaultName(t *testing.T) {
 
 	t.Run("default obsidian name set without errors", func(t *testing.T) {
 		// Arrange
-		mockCliConfigDir, mockCliConfigFile := createMockCliConfigDirectories(t)
+		mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
 		obsidian.CliConfigPath = func() (string, string, error) {
 			return mockCliConfigDir, mockCliConfigFile, nil
 		}
-		// Act
 		vault := obsidian.Vault{}
+		// Act
 		err := vault.SetDefaultName("obsidian-name")
 
 		// Assert
@@ -44,8 +36,8 @@ func TestVaultSetDefaultName(t *testing.T) {
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return "", "", os.ErrNotExist
 			}
-			// Act
 			vault := obsidian.Vault{}
+			// Act
 			err := vault.SetDefaultName("obsidian-name")
 			// Assert
 			assert.ErrorContains(t, err, "failed to get user config directory")
@@ -58,8 +50,8 @@ func TestVaultSetDefaultName(t *testing.T) {
 			obsidian.JsonMarshal = func(v interface{}) ([]byte, error) {
 				return nil, os.ErrNotExist
 			}
-			// Act
 			vault := obsidian.Vault{}
+			// Act
 			err := vault.SetDefaultName("invalid json")
 			// Assert
 			assert.ErrorContains(t, err, "failed to save default obsidian to json")
@@ -70,8 +62,8 @@ func TestVaultSetDefaultName(t *testing.T) {
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return "", "" + "/preferences.json", nil
 			}
-			// Act
 			vault := obsidian.Vault{}
+			// Act
 			err := vault.SetDefaultName("obsidian-name")
 			// Assert
 			assert.ErrorContains(t, err, "failed to create default obsidian directory")
@@ -79,13 +71,13 @@ func TestVaultSetDefaultName(t *testing.T) {
 
 		t.Run("Error in creating and writing to default obsidian config file", func(t *testing.T) {
 			// Arrange
-			mockCliConfigDir, _ := createMockCliConfigDirectories(t)
+			mockCliConfigDir, _ := mocks.CreateMockCliConfigDirectories(t)
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir + "/unwrittable", mockCliConfigDir + "unwrittable/preferences.json", nil
 			}
 			err := os.Mkdir(mockCliConfigDir+"/unwrittable", 0444)
-			// Act
 			vault := obsidian.Vault{}
+			// Act
 			err = vault.SetDefaultName("obsidian-name")
 			// Assert
 			assert.ErrorContains(t, err, "failed to create default obsidian configuration file")

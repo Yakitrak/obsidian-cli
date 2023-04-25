@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestNoteDelete(t *testing.T) {
+func TestDeleteNote(t *testing.T) {
 	tests := []struct {
 		testName     string
 		noteToCreate string
