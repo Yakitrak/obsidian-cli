@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 )
 
 var UserConfigDirectory = os.UserConfigDir
@@ -10,9 +11,9 @@ var UserConfigDirectory = os.UserConfigDir
 func CliPath() (cliConfigDir string, cliConfigFile string, err error) {
 	userConfigDir, err := UserConfigDirectory()
 	if err != nil {
-		return "", "", errors.New("user config directory not found")
+		return "", "", errors.New(UserConfigDirectoryNotFoundErrorMessage)
 	}
-	cliConfigDir = userConfigDir + "/obs"
-	cliConfigFile = cliConfigDir + "/preferences.json"
+	cliConfigDir = filepath.Join(userConfigDir, ObsidianCLIConfigDirectory)
+	cliConfigFile = filepath.Join(cliConfigDir, ObsidianCLIConfigFile)
 	return cliConfigDir, cliConfigFile, nil
 }

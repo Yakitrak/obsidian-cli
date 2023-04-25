@@ -44,7 +44,7 @@ func TestDeleteNote(t *testing.T) {
 		// Act
 		err := noteManager.Delete("non-existent-note")
 		// Assert
-		assert.Equal(t, "note does not exist", err.Error(), "Expected error while deleting non-existent note")
+		assert.Equal(t, obsidian.NoteDoesNotExistError, err.Error(), "Expected error while deleting non-existent note")
 
 	})
 }
@@ -113,7 +113,7 @@ func TestMoveNote(t *testing.T) {
 		// Act
 		err := noteManager.Move("filepath/that/does/not/exist", "newNote")
 		// Assert
-		assert.Error(t, err, "Expected an error while moving note")
+		assert.Equal(t, err.Error(), obsidian.NoteDoesNotExistError)
 	})
 }
 
@@ -145,7 +145,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 	content := []byte(fmt.Sprintf("This is a test file with [[%s]] [[%s#section]] [[%s#section|text]]", oldNoteName, oldNoteName, oldNoteName))
 	testFiles := []string{"file1.md", "file2.md", "file3.md"}
 
-	t.Run("Update note links", func(t *testing.T) {
+	t.Run("Update note links successfully", func(t *testing.T) {
 		// Arrange
 		tmpDir := createTmpDirAndFiles(t, 0644, testFiles, content)
 
@@ -167,33 +167,33 @@ func TestUpdateNoteLinks(t *testing.T) {
 		}
 	})
 
-	t.Run("Error on incorrect vaultPath", func(t *testing.T) {
+	t.Run("Error on incorrect vault", func(t *testing.T) {
 		// Arrange
 		noteManager := obsidian.Note{}
 		// Act
 		err := noteManager.UpdateLinks("", "oldNote", "newNote")
 		// Assert
-		assert.ErrorContains(t, err, "Failed to access obsidian directory")
+		assert.Equal(t, err.Error(), obsidian.VaultAccessError)
 	})
 
-	t.Run("Error reading files in vaultPath", func(t *testing.T) {
+	t.Run("Error reading files in vault", func(t *testing.T) {
 		// Arrange
 		tmpDir := createTmpDirAndFiles(t, 0000, testFiles, content)
 		noteManager := obsidian.Note{}
 		// Act
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
 		// Assert
-		assert.ErrorContains(t, err, "Failed to read files in obsidian")
+		assert.Equal(t, err.Error(), obsidian.VaultReadError)
 	})
 
-	t.Run("Error on writing to files in vaultPath", func(t *testing.T) {
+	t.Run("Error on writing to files in vault", func(t *testing.T) {
 		// Arrange
 		tmpDir := createTmpDirAndFiles(t, 0444, testFiles, content)
 		noteManager := obsidian.Note{}
 		// Act
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
 		// Assert
-		assert.ErrorContains(t, err, "Failed to write to files in obsidian")
+		assert.Equal(t, err.Error(), obsidian.VaultWriteError)
 	})
 
 }

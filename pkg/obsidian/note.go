@@ -23,30 +23,30 @@ func (m *Note) Move(originalPath string, newPath string) error {
 	err := os.Rename(o, n)
 
 	if err != nil {
-		return err
-	} else {
-		message := fmt.Sprintf(`Moved note 
+		return errors.New(NoteDoesNotExistError)
+	}
+
+	message := fmt.Sprintf(`Moved note 
 from %s
 to %s`, o, n)
-		fmt.Println(message)
-	}
+
+	fmt.Println(message)
 	return nil
 }
 func (m *Note) Delete(path string) error {
 	note := AddMdSuffix(path)
 	err := os.Remove(note)
 	if err != nil {
-		return errors.New("note does not exist")
-	} else {
-		fmt.Println("Deleted note: ", note)
+		return errors.New(NoteDoesNotExistError)
 	}
+	fmt.Println("Deleted note: ", note)
 	return nil
 }
 
 func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
 	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return errors.New("Failed to access obsidian directory")
+			return errors.New(VaultAccessError)
 		}
 
 		if ShouldSkipDirectoryOrFile(info) {
@@ -55,7 +55,7 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return errors.New("Failed to read files in obsidian")
+			return errors.New(VaultReadError)
 		}
 
 		oldNoteLinkTexts := GenerateNoteLinkTexts(oldNoteName)
@@ -69,7 +69,7 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 
 		err = os.WriteFile(path, content, info.Mode())
 		if err != nil {
-			return errors.New("Failed to write to files in obsidian")
+			return errors.New(VaultWriteError)
 		}
 		return nil
 	})

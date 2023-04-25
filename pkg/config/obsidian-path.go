@@ -1,12 +1,15 @@
 package config
 
-import "errors"
+import (
+	"errors"
+	"path/filepath"
+)
 
 func ObsidianFile() (obsidianConfigFile string, err error) {
 	userConfigDir, err := UserConfigDirectory()
 	if err != nil {
-		return "", errors.New("user config directory not found")
+		return "", errors.New(UserConfigDirectoryNotFoundErrorMessage)
 	}
-	obsidianConfigFile = userConfigDir + "/obsidian/obsidian.json"
+	obsidianConfigFile = filepath.Join(userConfigDir, ObsidianConfigDirectory, ObsidianConfigFile)
 	return obsidianConfigFile, nil
 }

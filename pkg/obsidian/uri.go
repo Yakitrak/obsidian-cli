@@ -34,7 +34,7 @@ func (u *Uri) Execute(uri string) error {
 	//fmt.Println("Opening URI: ", uri)
 	err := Run(uri)
 	if err != nil {
-		return errors.New("failed to open URI: not a uri")
+		return errors.New(ExecuteUriError)
 
 	}
 	return nil

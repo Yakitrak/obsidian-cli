@@ -15,19 +15,16 @@ func (v *Vault) DefaultName() (string, error) {
 		return v.Name, nil
 	}
 
-	// get cliConfig paths
 	_, cliConfigFile, err := CliConfigPath()
 	if err != nil {
-		return "", fmt.Errorf("failed to get user config directory %s", err)
+		return "", err
 	}
 
-	// read cliConfig
 	content, err := os.ReadFile(cliConfigFile)
 	if err != nil {
 		return "", fmt.Errorf("cannot find obsidian config. please use set-default command to set default obsidian or use --obsidian: %s", err)
 	}
 
-	// retrieve value
 	cliConfig := CliConfig{}
 	err = json.Unmarshal(content, &cliConfig)
 

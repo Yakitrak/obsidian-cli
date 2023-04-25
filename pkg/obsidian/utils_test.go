@@ -12,18 +12,18 @@ func TestAddMdSuffix(t *testing.T) {
 	tests := []struct {
 		testName string
 		input    string
-		expected string
+		want     string
 	}{
-		{testName: "Without existing .md", input: "myNote", expected: "myNote.md"},
-		{testName: "With existing .md", input: "myNote.md", expected: "myNote.md"},
+		{testName: "Without existing .md", input: "myNote", want: "myNote.md"},
+		{testName: "With existing .md", input: "myNote.md", want: "myNote.md"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
 			// Act
-			got := obsidian.AddMdSuffix(tt.input)
+			got := obsidian.AddMdSuffix(test.input)
 			// Assert
-			assert.Equal(t, tt.expected, got)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
@@ -32,18 +32,18 @@ func TestRemoveMdSuffix(t *testing.T) {
 	tests := []struct {
 		testName string
 		input    string
-		expected string
+		want     string
 	}{
-		{testName: "Without existing .md", input: "myNote", expected: "myNote"},
-		{testName: "With existing .md", input: "myNote.md", expected: "myNote"},
+		{testName: "Without existing .md", input: "myNote", want: "myNote"},
+		{testName: "With existing .md", input: "myNote.md", want: "myNote"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
 			// Act
-			got := obsidian.RemoveMdSuffix(tt.input)
+			got := obsidian.RemoveMdSuffix(test.input)
 			// Assert
-			assert.Equal(t, tt.expected, got)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
@@ -70,12 +70,11 @@ func TestGenerateNoteLinkTexts(t *testing.T) {
 }
 
 func TestReplaceContent(t *testing.T) {
-
 	tests := []struct {
 		testName     string
 		content      []byte
 		replacements map[string]string
-		expected     []byte
+		want         []byte
 	}{
 		{"No replacements", []byte("This is the original content"), map[string]string{}, []byte("This is the original content")},
 		{"Replace one word", []byte("This is the original content"), map[string]string{"original": "new"}, []byte("This is the new content")},
@@ -87,7 +86,7 @@ func TestReplaceContent(t *testing.T) {
 			// Act
 			got := obsidian.ReplaceContent(test.content, test.replacements)
 			// Assert
-			assert.Equal(t, string(test.expected), string(got))
+			assert.Equal(t, string(test.want), string(got))
 		})
 	}
 
@@ -109,12 +108,12 @@ func TestShouldSkipDirectoryOrFile(t *testing.T) {
 		{"file with dots", &mocks.MockFileInfo{FileName: "file.md.with.dots"}, true},
 		{"markdown file with dots", &mocks.MockFileInfo{FileName: "file.with.multiple.dots.md"}, false},
 	}
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
 			// Act
-			got := obsidian.ShouldSkipDirectoryOrFile(tt.info)
+			got := obsidian.ShouldSkipDirectoryOrFile(test.info)
 			// Assert
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
