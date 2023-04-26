@@ -3,7 +3,6 @@ package obsidian
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/Yakitrak/obsidian-cli/pkg/config"
 	"os"
 )
@@ -15,25 +14,28 @@ func (v *Vault) DefaultName() (string, error) {
 		return v.Name, nil
 	}
 
+	// get cliConfig path
 	_, cliConfigFile, err := CliConfigPath()
 	if err != nil {
 		return "", err
 	}
 
+	// read file
 	content, err := os.ReadFile(cliConfigFile)
 	if err != nil {
-		return "", fmt.Errorf("cannot find obsidian config. please use set-default command to set default obsidian or use --obsidian: %s", err)
+		return "", errors.New(ObsidianCLIConfigReadError)
 	}
 
+	// unmarshal json
 	cliConfig := CliConfig{}
 	err = json.Unmarshal(content, &cliConfig)
 
 	if err != nil {
-		return "", fmt.Errorf("could not retrieve default obsidian %s", err)
+		return "", errors.New(ObsidianCLIConfigParseError)
 	}
 
 	if cliConfig.DefaultVaultName == "" {
-		return "", errors.New("could not read value of default obsidian %s")
+		return "", errors.New(ObsidianCLIConfigParseError)
 	}
 
 	v.Name = cliConfig.DefaultVaultName

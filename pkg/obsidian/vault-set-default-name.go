@@ -2,7 +2,7 @@ package obsidian
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 )
 
@@ -13,24 +13,25 @@ func (v *Vault) SetDefaultName(name string) error {
 	cliConfig := CliConfig{DefaultVaultName: name}
 	jsonContent, err := JsonMarshal(cliConfig)
 	if err != nil {
-		return fmt.Errorf("failed to save default obsidian to json: %s", err)
+		return errors.New(ObsidianCLIConfigGenerateJSONError)
 	}
 
 	// get cliConfig path
 	obsConfigDir, obsConfigFile, err := CliConfigPath()
 	if err != nil {
-		return fmt.Errorf("failed to get user config directory %s", err)
+		return err
 	}
+
 	// create directory
 	err = os.MkdirAll(obsConfigDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create default obsidian directory %s", err)
+		return errors.New(ObsidianCLIConfigDirWriteEror)
 	}
 
 	// create and write file
 	err = os.WriteFile(obsConfigFile, jsonContent, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create default obsidian configuration file %s", err)
+		return errors.New(ObsidianCLIConfigWriteError)
 	}
 
 	v.Name = name

@@ -9,13 +9,13 @@ import (
 )
 
 func TestMoveNote(t *testing.T) {
-	t.Run("Successful execution", func(t *testing.T) {
+	t.Run("Successful move note", func(t *testing.T) {
 		// Arrange
-		vaultOp := &mocks.MockVaultOperator{Name: "myVault"}
-		uriManager := &mocks.MockUriManager{}
-		noteManager := &mocks.MockNoteManager{}
+		vault := mocks.MockVaultOperator{Name: "myVault"}
+		uri := mocks.MockUriManager{}
+		note := mocks.MockNoteManager{}
 		// Act
-		err := actions.MoveNote(vaultOp, noteManager, uriManager, actions.MoveParams{
+		err := actions.MoveNote(&vault, &note, &uri, actions.MoveParams{
 			CurrentNoteName: "string",
 			NewNoteName:     "string",
 			ShouldOpen:      true,
@@ -24,28 +24,25 @@ func TestMoveNote(t *testing.T) {
 		assert.NoError(t, err, "Expected no error")
 	})
 
-	t.Run("VaultOperator.DefaultName returns an error", func(t *testing.T) {
+	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
 		// Arrange
-		vaultOpErr := errors.New("Failed to get vault name")
-		vaultOp := &mocks.MockVaultOperator{
-			ExecuteErr: vaultOpErr,
+		vault := mocks.MockVaultOperator{
+			DefaultNameErr: errors.New("Failed to get vault name"),
 		}
 		// Act
-		err := actions.MoveNote(vaultOp, &mocks.MockNoteManager{}, &mocks.MockUriManager{}, actions.MoveParams{
+		err := actions.MoveNote(&vault, &mocks.MockNoteManager{}, &mocks.MockUriManager{}, actions.MoveParams{
 			CurrentNoteName: "string",
 			NewNoteName:     "string",
 			ShouldOpen:      true,
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+		assert.Equal(t, err, vault.DefaultNameErr)
 	})
 
-	t.Run("VaultOperator.Path returns an error", func(t *testing.T) {
+	t.Run("vault.Path returns an error", func(t *testing.T) {
 		// Arrange
-		vaultOpErr := errors.New("Failed to get vault path")
 		vaultOp := &mocks.MockVaultOperator{
-			PathError: vaultOpErr,
+			PathError: errors.New("Failed to get vault path"),
 		}
 		// Act
 		err := actions.MoveNote(vaultOp, &mocks.MockNoteManager{}, &mocks.MockUriManager{}, actions.MoveParams{
@@ -54,43 +51,40 @@ func TestMoveNote(t *testing.T) {
 			ShouldOpen:      false,
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+		assert.Equal(t, err, vaultOp.PathError)
 	})
 
-	t.Run("NoteManager move returns an error", func(t *testing.T) {
+	t.Run("note.Move returns an error", func(t *testing.T) {
 		// Arrange
-		noteManager := &mocks.MockNoteManager{
-			ExecuteErr: errors.New("Failed to execute URI"),
+		note := mocks.MockNoteManager{
+			MoveErr: errors.New("Failed to execute URI"),
 		}
 		// Act
-		err := actions.MoveNote(&mocks.MockVaultOperator{}, noteManager, &mocks.MockUriManager{}, actions.MoveParams{
+		err := actions.MoveNote(&mocks.MockVaultOperator{}, &note, &mocks.MockUriManager{}, actions.MoveParams{
 			CurrentNoteName: "string",
 			NewNoteName:     "string",
 			ShouldOpen:      false,
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+		assert.Equal(t, err, note.MoveErr)
 	})
 
-	t.Run("NoteManager update links returns an error", func(t *testing.T) {
+	t.Run("note.UpdateLinks returns an error", func(t *testing.T) {
 		// Arrange
-		noteManager := &mocks.MockNoteManager{
+		note := mocks.MockNoteManager{
 			UpdateLinksError: errors.New("Failed to execute URI"),
 		}
 		// Act
-		err := actions.MoveNote(&mocks.MockVaultOperator{}, noteManager, &mocks.MockUriManager{}, actions.MoveParams{
+		err := actions.MoveNote(&mocks.MockVaultOperator{}, &note, &mocks.MockUriManager{}, actions.MoveParams{
 			CurrentNoteName: "string",
 			NewNoteName:     "string",
 			ShouldOpen:      false,
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+		assert.Equal(t, err, note.UpdateLinksError)
 	})
 
-	t.Run("UriManager Execute returns an error", func(t *testing.T) {
+	t.Run("uri.Execute returns an error", func(t *testing.T) {
 		// Arrange
 		uriManager := &mocks.MockUriManager{
 			ExecuteErr: errors.New("Failed to execute URI"),
@@ -102,7 +96,6 @@ func TestMoveNote(t *testing.T) {
 			ShouldOpen:      true,
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+		assert.Equal(t, err, uriManager.ExecuteErr)
 	})
 }

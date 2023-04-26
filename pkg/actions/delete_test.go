@@ -9,44 +9,41 @@ import (
 )
 
 func TestDeleteNote(t *testing.T) {
-	t.Run("Successful execution", func(t *testing.T) {
+	t.Run("Successful delete note", func(t *testing.T) {
 		// Arrange
-		vaultOp := &mocks.MockVaultOperator{Name: "myVault"}
-		noteManager := &mocks.MockNoteManager{}
+		vault := mocks.MockVaultOperator{Name: "myVault"}
+		note := mocks.MockNoteManager{}
 		// Act
-		err := actions.DeleteNote(vaultOp, noteManager, actions.DeleteParams{
+		err := actions.DeleteNote(&vault, &note, actions.DeleteParams{
 			NotePath: "Search-text-here",
 		})
 		// Assert
 		assert.NoError(t, err, "Expected no error")
 	})
 
-	t.Run("VaultOperator returns an error", func(t *testing.T) {
+	t.Run("vault.Path returns an error", func(t *testing.T) {
 		// Arrange
-		vaultOpErr := errors.New("Failed to get vault name")
-		vaultOp := &mocks.MockVaultOperator{
-			PathError: vaultOpErr,
+		vault := mocks.MockVaultOperator{
+			PathError: errors.New("Failed to get vault path"),
 		}
 		// Act
-		err := actions.DeleteNote(vaultOp, &mocks.MockNoteManager{}, actions.DeleteParams{
+		err := actions.DeleteNote(&vault, &mocks.MockNoteManager{}, actions.DeleteParams{
 			NotePath: "Search-text-here",
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+		assert.Equal(t, vault.PathError, err)
 	})
 
-	t.Run("NoteManager Execute returns an error", func(t *testing.T) {
+	t.Run("note.Delete returns an error", func(t *testing.T) {
 		// Arrange
-		noteManager := &mocks.MockNoteManager{
-			ExecuteErr: errors.New("Failed to execute URI"),
+		note := mocks.MockNoteManager{
+			DeleteErr: errors.New("Could not delete"),
 		}
 		// Act
-		err := actions.DeleteNote(&mocks.MockVaultOperator{}, noteManager, actions.DeleteParams{
+		err := actions.DeleteNote(&mocks.MockVaultOperator{}, &note, actions.DeleteParams{
 			NotePath: "Search-text-here",
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+		assert.Equal(t, note.DeleteErr, err)
 	})
 }

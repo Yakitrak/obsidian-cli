@@ -3,7 +3,6 @@ package obsidian
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/Yakitrak/obsidian-cli/pkg/config"
 	"os"
 	"strings"
@@ -14,20 +13,20 @@ var ObsidianConfigFile = config.ObsidianFile
 func (v *Vault) Path() (string, error) {
 	obsidianConfigFile, err := ObsidianConfigFile()
 	if err != nil {
-		return "", fmt.Errorf("failed to get obsidian config file %s", err)
+		return "", err
 	}
 
 	content, err := os.ReadFile(obsidianConfigFile)
 
 	if err != nil {
-		return "", fmt.Errorf("obsidian config file cannot be found: %s", err)
+		return "", errors.New(ObsidianConfigReadError)
 	}
 
 	vaultsContent := ObsidianVaultConfig{}
 	err = json.Unmarshal(content, &vaultsContent)
 
 	if err != nil {
-		return "", fmt.Errorf("obsidian config file cannot be parsed: %s", err)
+		return "", errors.New(ObsidianConfigParseError)
 	}
 
 	for _, element := range vaultsContent.Vaults {
@@ -36,5 +35,5 @@ func (v *Vault) Path() (string, error) {
 		}
 	}
 
-	return "", errors.New("obsidian obsidian cannot be found. Please ensure the obsidian is set up on Obsidian.")
+	return "", errors.New(ObsidianConfigVaultNotFoundError)
 }

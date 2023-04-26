@@ -14,11 +14,11 @@ var searchCmd = &cobra.Command{
 	Short:   "Searches note in vault",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		vaultOp := obsidian.Vault{Name: vaultName}
-		uriManager := obsidian.Uri{}
+		vault := obsidian.Vault{Name: vaultName}
+		uri := obsidian.Uri{}
 		searchText := args[0]
 		params := actions.SearchParams{SearchText: searchText}
-		err := actions.SearchNotes(&vaultOp, &uriManager, params)
+		err := actions.SearchNotes(&vault, &uri, params)
 		if err != nil {
 			log.Fatal(err)
 		}

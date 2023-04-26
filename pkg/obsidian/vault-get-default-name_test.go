@@ -12,18 +12,18 @@ func TestVaultDefaultName(t *testing.T) {
 	// Temporarily override the CliConfigPath function
 	originalCliConfigPath := obsidian.CliConfigPath
 	defer func() { obsidian.CliConfigPath = originalCliConfigPath }()
-	t.Run("Get obsidian name without errors", func(t *testing.T) {
-		t.Run("Get obsidian name from struct", func(t *testing.T) {
+	t.Run("Get vault name successfully without errors", func(t *testing.T) {
+		t.Run("Get vault name from struct", func(t *testing.T) {
 			// Arrange
-			vault := obsidian.Vault{Name: "my-obsidian"}
+			vault := obsidian.Vault{Name: "my-vault"}
 			// Act
 			vaultName, err := vault.DefaultName()
 			// Assert
 			assert.Equal(t, nil, err)
-			assert.Equal(t, "my-obsidian", vaultName)
+			assert.Equal(t, "my-vault", vaultName)
 		})
 
-		t.Run("Get obsidian name from file", func(t *testing.T) {
+		t.Run("Get vault name from config file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
 			obsidian.CliConfigPath = func() (string, string, error) {
@@ -39,9 +39,9 @@ func TestVaultDefaultName(t *testing.T) {
 		})
 	})
 
-	t.Run("Could not get obsidian name", func(t *testing.T) {
+	t.Run("Could not get vault name", func(t *testing.T) {
 
-		t.Run("Error in CliConfigPath", func(t *testing.T) {
+		t.Run("Error in config.CliPath", func(t *testing.T) {
 			// Arrange
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return "", "", os.ErrNotExist
@@ -50,10 +50,10 @@ func TestVaultDefaultName(t *testing.T) {
 			// Act
 			_, err := vault.DefaultName()
 			// Assert
-			assert.ErrorContains(t, err, "failed to get user config directory")
+			assert.Equal(t, os.ErrNotExist, err)
 		})
 
-		t.Run("Error in reading default obsidian config file", func(t *testing.T) {
+		t.Run("Error in reading default vault config file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
 			obsidian.CliConfigPath = func() (string, string, error) {
@@ -63,10 +63,10 @@ func TestVaultDefaultName(t *testing.T) {
 			// Act
 			_, err := vault.DefaultName()
 			// Assert
-			assert.ErrorContains(t, err, "cannot find obsidian config. please use set-default command to set default obsidian or use --obsidian")
+			assert.Equal(t, err.Error(), obsidian.ObsidianCLIConfigReadError)
 		})
 
-		t.Run("Error in unmarshalling default obsidian config file", func(t *testing.T) {
+		t.Run("Error in unmarshalling default vault config file", func(t *testing.T) {
 			// Arrange
 			mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
 			obsidian.CliConfigPath = func() (string, string, error) {
@@ -77,7 +77,7 @@ func TestVaultDefaultName(t *testing.T) {
 			// Act
 			_, err = vault.DefaultName()
 			// Assert
-			assert.ErrorContains(t, err, "could not retrieve default obsidian")
+			assert.Equal(t, err.Error(), obsidian.ObsidianCLIConfigParseError)
 		})
 
 		t.Run("Error DefaultVaultName empty", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestVaultDefaultName(t *testing.T) {
 			// Act
 			_, err = vault.DefaultName()
 			// Assert
-			assert.ErrorContains(t, err, "could not read value of default obsidian")
+			assert.Equal(t, err.Error(), obsidian.ObsidianCLIConfigParseError)
 		})
 	})
 }

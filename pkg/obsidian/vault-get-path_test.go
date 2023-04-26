@@ -32,7 +32,7 @@ func TestVaultPath(t *testing.T) {
 		t.Fatalf("Failed to create obsidian.json file: %v", err)
 	}
 
-	t.Run("Get obsidian path from valid obsidian name without errors", func(t *testing.T) {
+	t.Run("Gets vault path successfully from vault name without errors", func(t *testing.T) {
 		// Arrange
 		vault := obsidian.Vault{Name: "vault1"}
 		// Act
@@ -51,7 +51,7 @@ func TestVaultPath(t *testing.T) {
 		// Act
 		_, err := vault.Path()
 		// Assert
-		assert.ErrorContains(t, err, "failed to get obsidian config file")
+		assert.Equal(t, os.ErrNotExist, err)
 	})
 
 	t.Run("Error in reading obsidian config file", func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestVaultPath(t *testing.T) {
 		// Act
 		_, err = vault.Path()
 		// Assert
-		assert.ErrorContains(t, err, "obsidian config file cannot be found")
+		assert.Equal(t, err.Error(), obsidian.ObsidianConfigReadError)
 
 	})
 
@@ -86,11 +86,11 @@ func TestVaultPath(t *testing.T) {
 		// Act
 		_, err = vault.Path()
 		// Assert
-		assert.ErrorContains(t, err, "obsidian config file cannot be parsed")
+		assert.Equal(t, err.Error(), obsidian.ObsidianConfigParseError)
 
 	})
 
-	t.Run("No obsidian found with given name", func(t *testing.T) {
+	t.Run("No vault found with given name", func(t *testing.T) {
 		// Arrange
 		obsidian.ObsidianConfigFile = func() (string, error) {
 			return mockObsidianConfigFile, nil
@@ -100,7 +100,6 @@ func TestVaultPath(t *testing.T) {
 		// Act
 		_, err = vault.Path()
 		// Assert
-		assert.ErrorContains(t, err, "obsidian obsidian cannot be found. Please ensure the obsidian is set up on Obsidian")
-
+		assert.Equal(t, err.Error(), obsidian.ObsidianConfigVaultNotFoundError)
 	})
 }

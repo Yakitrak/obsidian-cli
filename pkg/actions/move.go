@@ -17,7 +17,6 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 		return err
 	}
 	vaultPath, err := vault.Path()
-
 	if err != nil {
 		return err
 	}
@@ -37,8 +36,8 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 
 	if params.ShouldOpen {
 		obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
-			"file":     params.NewNoteName,
-			"obsidian": vaultName,
+			"file":  params.NewNoteName,
+			"vault": vaultName,
 		})
 
 		err := uri.Execute(obsidianUri)

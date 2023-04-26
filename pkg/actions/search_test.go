@@ -9,44 +9,41 @@ import (
 )
 
 func TestSearchNotes(t *testing.T) {
-	t.Run("Successful execution", func(t *testing.T) {
+	t.Run("Successful search note", func(t *testing.T) {
 		// Arrange
-		vaultOp := &mocks.MockVaultOperator{Name: "myVault"}
-		uriManager := &mocks.MockUriManager{}
+		vault := mocks.MockVaultOperator{Name: "myVault"}
+		uri := &mocks.MockUriManager{}
 		// Act
-		err := actions.SearchNotes(vaultOp, uriManager, actions.SearchParams{
+		err := actions.SearchNotes(&vault, uri, actions.SearchParams{
 			SearchText: "Search-text-here",
 		})
 		// Assert
 		assert.NoError(t, err, "Expected no error")
 	})
 
-	t.Run("VaultOperator returns an error", func(t *testing.T) {
+	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
 		// Arrange
-		vaultOpErr := errors.New("Failed to get vault name")
-		vaultOp := &mocks.MockVaultOperator{
-			ExecuteErr: vaultOpErr,
+		vault := mocks.MockVaultOperator{
+			DefaultNameErr: errors.New("Failed to get vault name"),
 		}
 		// Act
-		err := actions.SearchNotes(vaultOp, &mocks.MockUriManager{}, actions.SearchParams{
+		err := actions.SearchNotes(&vault, &mocks.MockUriManager{}, actions.SearchParams{
 			SearchText: "Search-text-here",
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, vaultOpErr.Error(), "Expected error to be %v", vaultOpErr)
+		assert.Equal(t, err, vault.DefaultNameErr)
 	})
 
-	t.Run("UriManager Execute returns an error", func(t *testing.T) {
+	t.Run("uri.Execute returns an error", func(t *testing.T) {
 		// Arrange
-		uriManager := &mocks.MockUriManager{
+		uri := mocks.MockUriManager{
 			ExecuteErr: errors.New("Failed to execute URI"),
 		}
 		// Act
-		err := actions.SearchNotes(&mocks.MockVaultOperator{}, uriManager, actions.SearchParams{
+		err := actions.SearchNotes(&mocks.MockVaultOperator{}, &uri, actions.SearchParams{
 			SearchText: "Search-text-here",
 		})
 		// Assert
-		assert.Error(t, err, "Expected error to occur")
-		assert.EqualError(t, err, "Failed to execute URI", "Expected error to be 'Failed to execute URI'")
+		assert.Equal(t, err, uri.ExecuteErr)
 	})
 }
