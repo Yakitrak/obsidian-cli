@@ -1,15 +1,17 @@
 # Obsidian CLI
 
+---
 ![Obs Usage](./docs/obs-usage.png)
+
+---
+## [Installation and Usage Manual](https://yakitrak.github.io/obs/)
+
+---
 
 ## Description
 
 Obsidian is a powerful and extensible knowledge base application 
 that works on top of your local folder of plain text notes. This CLI tool (written in Go) will let you interact with the application using the terminal. You are currently able to open, search, move, create, update and delete notes.
-
----
-
-[Installation and Usage Guide](https://yakitrak.github.io/obs/)
 
 ---
 
