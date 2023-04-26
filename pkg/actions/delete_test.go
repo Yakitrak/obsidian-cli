@@ -15,10 +15,23 @@ func TestDeleteNote(t *testing.T) {
 		note := mocks.MockNoteManager{}
 		// Act
 		err := actions.DeleteNote(&vault, &note, actions.DeleteParams{
-			NotePath: "Search-text-here",
+			NotePath: "noteToDelete",
 		})
 		// Assert
 		assert.NoError(t, err, "Expected no error")
+	})
+
+	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
+		// Arrange
+		vault := mocks.MockVaultOperator{
+			DefaultNameErr: errors.New("Failed to get default vault name"),
+		}
+		// Act
+		err := actions.DeleteNote(&vault, &mocks.MockNoteManager{}, actions.DeleteParams{
+			NotePath: "noteToDelete",
+		})
+		// Assert
+		assert.Equal(t, vault.DefaultNameErr, err)
 	})
 
 	t.Run("vault.Path returns an error", func(t *testing.T) {
@@ -28,7 +41,7 @@ func TestDeleteNote(t *testing.T) {
 		}
 		// Act
 		err := actions.DeleteNote(&vault, &mocks.MockNoteManager{}, actions.DeleteParams{
-			NotePath: "Search-text-here",
+			NotePath: "noteToDelete",
 		})
 		// Assert
 		assert.Equal(t, vault.PathError, err)
@@ -41,7 +54,7 @@ func TestDeleteNote(t *testing.T) {
 		}
 		// Act
 		err := actions.DeleteNote(&mocks.MockVaultOperator{}, &note, actions.DeleteParams{
-			NotePath: "Search-text-here",
+			NotePath: "noteToDelete",
 		})
 		// Assert
 		assert.Equal(t, note.DeleteErr, err)

@@ -10,6 +10,11 @@ type DeleteParams struct {
 }
 
 func DeleteNote(vault obsidian.VaultManager, note obsidian.NoteManager, params DeleteParams) error {
+	_, err := vault.DefaultName()
+	if err != nil {
+		return err
+	}
+
 	vaultPath, err := vault.Path()
 	if err != nil {
 		return err
