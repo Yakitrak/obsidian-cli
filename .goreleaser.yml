@@ -29,5 +29,18 @@ brews:
       name: kartikayjainwal
       email: kartikayjainwal@gmail.com
 
+aurs:
+  - homepage: https://github.com/Yakitrak/obsidian-cli
+    description: Interact with Obsidian in the terminal. Open, search, create, update and move notes!
+    maintainers:
+      - 'Kartikay Jainwal <kartikayjainwal at gmail dot com>'
+      - 'Jonathan Neidel <aur at jneidel dot com>'
+    license: 'MIT'
+    private_key: '{{ .Env.AUR_KEY }}'
+    git_url: 'ssh://aur@aur.archlinux.org/obs-bin.git'
+    package: |-
+      install -Dm755 "./obs" "${pkgdir}/usr/bin/obs"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
 checksum:
   name_template: "checksums.txt"
