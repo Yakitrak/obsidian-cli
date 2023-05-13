@@ -10,6 +10,7 @@ type CreateParams struct {
 	ShouldAppend    bool
 	ShouldOverwrite bool
 	Content         string
+	ShouldOpen      bool
 }
 
 func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params CreateParams) error {
@@ -24,11 +25,13 @@ func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params Cre
 		"overwrite": strconv.FormatBool(params.ShouldOverwrite),
 		"content":   params.Content,
 		"file":      params.NoteName,
+		"silent":    strconv.FormatBool(!params.ShouldOpen),
 	})
 
 	err = uri.Execute(obsidianUri)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
