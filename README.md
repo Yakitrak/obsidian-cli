@@ -82,7 +82,7 @@ obs search "{search-text}" --vault "{vault-name}"
 
 ### Create / Update Note
 
-Creates note (can also be a path with name) in vault. By default if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
+Creates note (can also be a path with name) in vault. By default, if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
 
 ```bash
 # Creates empty note in default obsidian and opens it
@@ -99,6 +99,9 @@ obs create "{note-name}" --content "abcde" --overwrite
 
 # Creates note in default obsidian with content - append existing note
 obs create "{note-name}" --content "abcde" --append
+
+# Creates note and opens it
+obs create "{note-name}" --content "abcde" --open
 
 ```
 
