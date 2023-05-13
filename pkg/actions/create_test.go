@@ -47,5 +47,3 @@ func TestCreateNote(t *testing.T) {
 		assert.Equal(t, err, uri.ExecuteErr)
 	})
 }
-
-// todo test for create note with open flag
