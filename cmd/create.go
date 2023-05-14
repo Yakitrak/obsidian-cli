@@ -24,6 +24,7 @@ var createNoteCmd = &cobra.Command{
 			Content:         content,
 			ShouldAppend:    shouldAppend,
 			ShouldOverwrite: shouldOverwrite,
+			ShouldOpen:      shouldOpen,
 		}
 		err := actions.CreateNote(&vault, &uri, params)
 		if err != nil {
@@ -34,6 +35,7 @@ var createNoteCmd = &cobra.Command{
 
 func init() {
 	createNoteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	createNoteCmd.Flags().BoolVarP(&shouldOpen, "open", "", false, "open created note")
 	createNoteCmd.Flags().StringVarP(&content, "content", "c", "", "text to add to note")
 	createNoteCmd.Flags().BoolVarP(&shouldAppend, "append", "a", false, "append to note")
 	createNoteCmd.Flags().BoolVarP(&shouldOverwrite, "overwrite", "o", false, "overwrite note")
