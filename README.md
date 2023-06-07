@@ -132,5 +132,8 @@ obs delete "{note-path}"
 obs delete "{note-path}" --vault "{vault-name}"
 ```
 
+## Contribution
+Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
-
+## License
+Available under [MIT License](./LICENSE)
