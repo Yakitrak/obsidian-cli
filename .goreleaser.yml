@@ -29,5 +29,15 @@ brews:
       name: kartikayjainwal
       email: kartikayjainwal@gmail.com
 
+scoops:
+  - name: obs
+    homepage: https://github.com/Yakitrak/obsidian-cli
+    bucket:
+      owner: Yakitrak
+      name: scoop-yakitrak
+    commit_author:
+      name: kartikayjainwal
+      email: kartikayjainwal@gmail.com
+
 checksum:
   name_template: "checksums.txt"
