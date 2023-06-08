@@ -19,11 +19,11 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 
 ### Windows
 You will need to have [Scoop](https://scoop.sh/) installed. On powershell run:
-```Powershell
+```
 scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
 ```
 
-```Powershell
+```
 scoop install obs
 ```
 
