@@ -17,6 +17,22 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 
 ## Install
 
+### Windows
+You will need to have [Scoop](https://scoop.sh/) installed. On powershell run:
+```Powershell
+scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
+```
+
+```Powershell
+scoop install obs
+```
+
+For full installation instructions, see [Windows installation manual](https://yakitrak.github.io/obs/docs/install/windows).
+
+### Mac and Linux
+
+You will need to have [Homebrew](https://brew.sh/) installed.
+
 ```Bash
 brew tap yakitrak/yakitrak
 ```
@@ -25,7 +41,7 @@ brew tap yakitrak/yakitrak
 brew install yakitrak/yakitrak/obs
 ```
 
-For full installation instructions, see [manual](https://yakitrak.github.io/obs/docs/install/mac-and-linux).
+For full installation instructions, see [Mac and Linux manual](https://yakitrak.github.io/obs/docs/install/mac-and-linux).
 
 ## Usage
 
