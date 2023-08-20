@@ -1,7 +1,7 @@
 # Obsidian CLI
 
 ---
-![Obs Usage](./docs/obs-usage.png)
+![Obs Usage](./docs/usage.png)
 
 ---
 ## [Installation and Usage Manual](https://yakitrak.github.io/obs/)
@@ -17,6 +17,22 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 
 ## Install
 
+### Windows
+You will need to have [Scoop](https://scoop.sh/) installed. On powershell run:
+```
+scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
+```
+
+```
+scoop install obs
+```
+
+For full installation instructions, see [Windows installation manual](https://yakitrak.github.io/obs/docs/install/windows).
+
+### Mac and Linux
+
+You will need to have [Homebrew](https://brew.sh/) installed.
+
 ```Bash
 brew tap yakitrak/yakitrak
 ```
@@ -25,7 +41,7 @@ brew tap yakitrak/yakitrak
 brew install yakitrak/yakitrak/obs
 ```
 
-For full installation instructions, see [manual](https://yakitrak.github.io/obs/docs/install/mac-and-linux).
+For full installation instructions, see [Mac and Linux manual](https://yakitrak.github.io/obs/docs/install/mac-and-linux).
 
 ## Usage
 
@@ -82,7 +98,7 @@ obs search "{search-text}" --vault "{vault-name}"
 
 ### Create / Update Note
 
-Creates note (can also be a path with name) in vault. By default if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
+Creates note (can also be a path with name) in vault. By default, if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
 
 ```bash
 # Creates empty note in default obsidian and opens it
@@ -99,6 +115,9 @@ obs create "{note-name}" --content "abcde" --overwrite
 
 # Creates note in default obsidian with content - append existing note
 obs create "{note-name}" --content "abcde" --append
+
+# Creates note and opens it
+obs create "{note-name}" --content "abcde" --open
 
 ```
 
@@ -129,5 +148,8 @@ obs delete "{note-path}"
 obs delete "{note-path}" --vault "{vault-name}"
 ```
 
+## Contribution
+Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
-
+## License
+Available under [MIT License](./LICENSE)

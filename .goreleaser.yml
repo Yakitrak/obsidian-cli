@@ -29,6 +29,16 @@ brews:
       name: kartikayjainwal
       email: kartikayjainwal@gmail.com
 
+scoops:
+  - name: obs
+    homepage: https://github.com/Yakitrak/obsidian-cli
+    bucket:
+      owner: Yakitrak
+      name: scoop-yakitrak
+    commit_author:
+      name: kartikayjainwal
+      email: kartikayjainwal@gmail.com
+      
 aurs:
   - homepage: https://github.com/Yakitrak/obsidian-cli
     description: Interact with Obsidian in the terminal. Open, search, create, update and move notes!
