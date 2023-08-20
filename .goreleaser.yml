@@ -40,7 +40,8 @@ scoops:
       email: kartikayjainwal@gmail.com
       
 aurs:
-  - homepage: https://github.com/Yakitrak/obsidian-cli
+  - name: obs-bin
+    homepage: https://github.com/Yakitrak/obsidian-cli
     description: Interact with Obsidian in the terminal. Open, search, create, update and move notes!
     maintainers:
       - 'Kartikay Jainwal <kartikayjainwal at gmail dot com>'
