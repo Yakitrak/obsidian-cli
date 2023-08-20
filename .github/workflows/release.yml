@@ -45,3 +45,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLISHER_TOKEN }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
