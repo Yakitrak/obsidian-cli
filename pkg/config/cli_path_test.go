@@ -20,8 +20,8 @@ func TestConfigCliPath(t *testing.T) {
 		obsConfigDir, obsConfigFile, err := config.CliPath()
 		// Assert
 		assert.Equal(t, nil, err)
-		assert.Equal(t, "user/config/dir/obs", obsConfigDir)
-		assert.Equal(t, "user/config/dir/obs/preferences.json", obsConfigFile)
+		assert.Equal(t, "user/config/dir/obsd", obsConfigDir)
+		assert.Equal(t, "user/config/dir/obsd/preferences.json", obsConfigFile)
 	})
 
 	t.Run("UserConfigDir func returns an error", func(t *testing.T) {

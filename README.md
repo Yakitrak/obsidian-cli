@@ -1,7 +1,7 @@
 # Obsidian CLI
 
 ---
-![Obs Usage](./docs/usage.png)
+![Obsd Usage](./docs/usage.png)
 
 ---
 ## [Installation and Usage Manual](https://yakitrak.github.io/obs/)
@@ -49,7 +49,7 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 
 ```bash
 # See All command instructions
-obs --help
+obsd --help
 ```
 
 ### Set Default Vault
@@ -57,17 +57,17 @@ obs --help
 Defines default vault for future usage. If not set, pass `--vault` flag for other commands. You don't provide the path to vault here, just the name.
 
 ```bash
-obs set-default "{vault-name}"
+obsd set-default "{vault-name}"
 ```
 
-Note: `open` and other commands in `obs` use this vault's base directory as the working directory, not the current working directory of your terminal.
+Note: `open` and other commands in `obsd` use this vault's base directory as the working directory, not the current working directory of your terminal.
 
 ### Print Default Vault
 
 Prints default vault and path. Please set this with `set-default` command if not set.
 
 ```bash
-obs print-default
+obsd print-default
 ```
 
 ### Open Note
@@ -76,10 +76,10 @@ Open given note name in Obsidian. Note can also be an absolute path from top lev
 
 ```bash
 # Opens note in obsidian
-obs open "{note-name}"
+obsd open "{note-name}"
 
 # Opens note in specified obsidian
-obs open "{note-name}" --vault "{vault-name}"
+obsd open "{note-name}" --vault "{vault-name}"
 
 ```
 
@@ -89,10 +89,10 @@ Opens obsidian search tab with given search text
 
 ```bash
 # Searches in default obsidian
-obs search "{search-text}"
+obsd search "{search-text}"
 
 # Searches in specified obsidian
-obs search "{search-text}" --vault "{vault-name}"
+obsd search "{search-text}" --vault "{vault-name}"
 
 ```
 
@@ -102,22 +102,22 @@ Creates note (can also be a path with name) in vault. By default, if the note ex
 
 ```bash
 # Creates empty note in default obsidian and opens it
-obs create "{note-name}"
+obsd create "{note-name}"
 
 # Creates empty note in given obsidian and opens it
-obs create "{note-name}"  --vault "{vault-name}"
+obsd create "{note-name}"  --vault "{vault-name}"
 
 # Creates note in default obsidian with content
-obs create "{note-name}" --content "abcde"
+obsd create "{note-name}" --content "abcde"
 
 # Creates note in default obsidian with content - overwrite existing note
-obs create "{note-name}" --content "abcde" --overwrite
+obsd create "{note-name}" --content "abcde" --overwrite
 
 # Creates note in default obsidian with content - append existing note
-obs create "{note-name}" --content "abcde" --append
+obsd create "{note-name}" --content "abcde" --append
 
 # Creates note and opens it
-obs create "{note-name}" --content "abcde" --open
+obsd create "{note-name}" --content "abcde" --open
 
 ```
 
@@ -127,13 +127,13 @@ Moves a given note(path from top level of vault) with new name given (top level 
 
 ```bash
 # Renames a note in default obsidian
-obs move "{current-note-path}" "{new-note-path}"
+obsd move "{current-note-path}" "{new-note-path}"
 
 # Renames a note and given obsidian
-obs move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
+obsd move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
 
 # Renames a note in default obsidian and opens it
-obs move "{current-note-path}" "{new-note-path}" --open
+obsd move "{current-note-path}" "{new-note-path}" --open
 ```
 
 ### Delete Note
@@ -142,10 +142,10 @@ Deletes a given note (path from top level of vault).
 
 ```bash
 # Renames a note in default obsidian
-obs delete "{note-path}" 
+obsd delete "{note-path}" 
 
 # Renames a note in given obsidian
-obs delete "{note-path}" --vault "{vault-name}"
+obsd delete "{note-path}" --vault "{vault-name}"
 ```
 
 ## Contribution
