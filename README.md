@@ -1,7 +1,7 @@
 # Obsidian CLI
 
 ---
-![Obsd Usage](./docs/usage.png)
+![obsidian-cli Usage](./docs/usage.png)
 
 ---
 ## [Installation and Usage Manual](https://yakitrak.github.io/obsidian-cli/)
