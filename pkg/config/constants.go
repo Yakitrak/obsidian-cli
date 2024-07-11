@@ -4,6 +4,6 @@ const (
 	UserConfigDirectoryNotFoundErrorMessage = "User config directory not found"
 	ObsidianConfigDirectory                 = "obsidian"
 	ObsidianConfigFile                      = "obsidian.json"
-	ObsidianCLIConfigDirectory              = "obsd"
+	ObsidianCLIConfigDirectory              = "obsidian-cli"
 	ObsidianCLIConfigFile                   = "preferences.json"
 )

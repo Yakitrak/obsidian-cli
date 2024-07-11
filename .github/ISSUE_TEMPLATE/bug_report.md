@@ -14,7 +14,7 @@ A clear and concise description of what the bug is. If possible, please create a
 Steps to reproduce the behaviour:
 1. Which command?
 2. Which flags were used?
-3. What version `obs --version`
+3. What version `obsidian-cli --version`
 4. Vault state?
 
 **Expected behaviour**

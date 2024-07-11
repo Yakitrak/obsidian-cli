@@ -1,6 +1,6 @@
 builds:
-  - id: obs
-    binary: obs
+  - id: obsidian-cli
+    binary: obsidian-cli
     goos:
       - darwin
       - linux
@@ -20,7 +20,7 @@ universal_binaries:
   - replace: true
 
 brews:
-  - name: obs
+  - name: obsidian-cli
     homepage: https://github.com/Yakitrak/obsidian-cli
     tap:
       owner: Yakitrak
@@ -30,7 +30,7 @@ brews:
       email: kartikayjainwal@gmail.com
 
 scoops:
-  - name: obs
+  - name: obsidian-cli
     homepage: https://github.com/Yakitrak/obsidian-cli
     bucket:
       owner: Yakitrak
@@ -38,19 +38,19 @@ scoops:
     commit_author:
       name: kartikayjainwal
       email: kartikayjainwal@gmail.com
-      
+
 aurs:
-  - name: obs-bin
+  - name: obsidian-cli-bin
     homepage: https://github.com/Yakitrak/obsidian-cli
     description: Interact with Obsidian in the terminal. Open, search, create, update and move notes!
     maintainers:
-      - 'Kartikay Jainwal <kartikayjainwal at gmail dot com>'
-      - 'Jonathan Neidel <aur at jneidel dot com>'
-    license: 'MIT'
-    private_key: '{{ .Env.AUR_KEY }}'
-    git_url: 'ssh://aur@aur.archlinux.org/obs-bin.git'
+      - "Kartikay Jainwal <kartikayjainwal at gmail dot com>"
+      - "Jonathan Neidel <aur at jneidel dot com>"
+    license: "MIT"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/obsidian-cli-bin.git"
     package: |-
-      install -Dm755 "./obs" "${pkgdir}/usr/bin/obs"
+      install -Dm755 "./obsidian-cli" "${pkgdir}/usr/bin/obsidian-cli"
       install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
 checksum:
