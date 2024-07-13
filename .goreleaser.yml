@@ -1,6 +1,6 @@
 builds:
-  - id: obs
-    binary: obs
+  - id: obsidian-cli
+    binary: obsidian-cli
     goos:
       - darwin
       - linux
@@ -20,7 +20,7 @@ universal_binaries:
   - replace: true
 
 brews:
-  - name: obs
+  - name: obsidian-cli
     homepage: https://github.com/Yakitrak/obsidian-cli
     tap:
       owner: Yakitrak
@@ -30,7 +30,7 @@ brews:
       email: kartikayjainwal@gmail.com
 
 scoops:
-  - name: obs
+  - name: obsidian-cli
     homepage: https://github.com/Yakitrak/obsidian-cli
     bucket:
       owner: Yakitrak
@@ -38,7 +38,7 @@ scoops:
     commit_author:
       name: kartikayjainwal
       email: kartikayjainwal@gmail.com
-      
+
 aurs:
   - name: obsidian-cli-bin
     homepage: https://github.com/Yakitrak/obsidian-cli
@@ -57,6 +57,7 @@ aurs:
       install -Dm644 obsidian-cli.bash "${pkgdir}/usr/share/bash-completion/completions/obsidian-cli"
       install -Dm644 obsidian-cli.fish "${pkgdir}/usr/share/fish/completions/obsidian-cli.fish"
       install -Dm644 _obsidian-cli "${pkgdir}/usr/share/zsh/site-functions/_obsidian-cli"
+
 
 checksum:
   name_template: "checksums.txt"

@@ -1,15 +1,15 @@
-BINARY_NAME=obs
+BINARY_NAME=obsidian-cli
 
 build-all:
-	GOOS=darwin GOARCH=amd64 go build -o bin/${BINARY_NAME}-darwin
-	GOOS=linux GOARCH=amd64 go build -o bin/${BINARY_NAME}-linux
-	GOOS=windows GOARCH=amd64 go build -o bin/${BINARY_NAME}-windows.exe
+	GOOS=darwin GOARCH=amd64 go build -o bin/darwin/${BINARY_NAME}
+	GOOS=linux GOARCH=amd64 go build -o bin/linux/${BINARY_NAME}
+	GOOS=windows GOARCH=amd64 go build -o bin/windows/${BINARY_NAME}.exe
 
 clean-all:
 	go clean
-	rm bin/${BINARY_NAME}-darwin
-	rm bin/${BINARY_NAME}-linux
-	rm bin/${BINARY_NAME}-windows.exe
+	rm bin/darwin/${BINARY_NAME}
+	rm bin/linux/${BINARY_NAME}
+	rm bin/windows/${BINARY_NAME}.exe
 
 test:
 	go test ./...
