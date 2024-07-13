@@ -1,3 +1,4 @@
+version: 2
 builds:
   - id: obsidian-cli
     binary: obsidian-cli
@@ -22,7 +23,7 @@ universal_binaries:
 brews:
   - name: obsidian-cli
     homepage: https://github.com/Yakitrak/obsidian-cli
-    tap:
+    repository:
       owner: Yakitrak
       name: homebrew-yakitrak
     commit_author:
@@ -32,7 +33,7 @@ brews:
 scoops:
   - name: obsidian-cli
     homepage: https://github.com/Yakitrak/obsidian-cli
-    bucket:
+    repository:
       owner: Yakitrak
       name: scoop-yakitrak
     commit_author:

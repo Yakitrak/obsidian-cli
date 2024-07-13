@@ -4,7 +4,7 @@
 ![obsidian-cli Usage](./docs/usage.png)
 
 ---
-## [Installation and Usage Manual](https://yakitrak.github.io/obsidian-cli/)
+## [Installation and Usage Manual](https://yakitrak.github.io/obsidian-cli-docs/)
 
 ---
 
@@ -27,7 +27,7 @@ scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
 scoop install obsidian-cli
 ```
 
-For full installation instructions, see [Windows installation manual](https://yakitrak.github.io/obsidian-cli/docs/install/windows).
+For full installation instructions, see [Windows installation manual](https://yakitrak.github.io/obsidian-cli-docs/docs/install/windows).
 
 ### Mac and Linux
 
@@ -41,7 +41,7 @@ brew tap yakitrak/yakitrak
 brew install yakitrak/yakitrak/obsidian-cli
 ```
 
-For full installation instructions, see [Mac and Linux manual](https://yakitrak.github.io/obsidian-cli/docs/install/mac-and-linux).
+For full installation instructions, see [Mac and Linux manual](https://yakitrak.github.io/obsidian-cli-docs/docs/install/mac-and-linux).
 
 ## Usage
 
