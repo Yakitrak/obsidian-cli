@@ -44,14 +44,20 @@ aurs:
     homepage: https://github.com/Yakitrak/obsidian-cli
     description: Interact with Obsidian in the terminal. Open, search, create, update and move notes!
     maintainers:
-      - "Kartikay Jainwal <kartikayjainwal at gmail dot com>"
-      - "Jonathan Neidel <aur at jneidel dot com>"
-    license: "MIT"
-    private_key: "{{ .Env.AUR_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/obsidian-cli-bin.git"
+      - 'Kartikay Jainwal <kartikayjainwal at gmail dot com>'
+      - 'Jonathan Neidel <aur at jneidel dot com>'
+    license: 'MIT'
+    private_key: '{{ .Env.AUR_KEY }}'
+    git_url: 'ssh://aur@aur.archlinux.org/obsidian-cli-bin.git'
     package: |-
       install -Dm755 "./obsidian-cli" "${pkgdir}/usr/bin/obsidian-cli"
-      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+      ./obsidian-cli completion bash >obsidian-cli.bash
+      ./obsidian-cli completion fish >obsidian-cli.fish
+      ./obsidian-cli completion zsh >_obsidian-cli
+      install -Dm644 obsidian-cli.bash "${pkgdir}/usr/share/bash-completion/completions/obsidian-cli"
+      install -Dm644 obsidian-cli.fish "${pkgdir}/usr/share/fish/completions/obsidian-cli.fish"
+      install -Dm644 _obsidian-cli "${pkgdir}/usr/share/zsh/site-functions/_obsidian-cli"
+
 
 checksum:
   name_template: "checksums.txt"
