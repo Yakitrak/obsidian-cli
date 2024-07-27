@@ -3,6 +3,7 @@ package actions
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"strconv"
+	"strings"
 )
 
 type CreateParams struct {
@@ -23,7 +24,7 @@ func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params Cre
 		"vault":     vaultName,
 		"append":    strconv.FormatBool(params.ShouldAppend),
 		"overwrite": strconv.FormatBool(params.ShouldOverwrite),
-		"content":   params.Content,
+		"content":   strings.ReplaceAll(params.Content, "\\n", "\n"),
 		"file":      params.NoteName,
 		"silent":    strconv.FormatBool(!params.ShouldOpen),
 	})
