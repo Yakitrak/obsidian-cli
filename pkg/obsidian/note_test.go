@@ -243,5 +243,48 @@ func TestUpdateNoteLinks(t *testing.T) {
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.VaultWriteError)
 	})
+}
 
+func TestNote_GetNotesList(t *testing.T) {
+	t.Run("Retrieve list of notes successfully", func(t *testing.T) {
+		// Arrange
+		testFiles := []string{"file1.md", "file2.md", "file3.md"}
+		content := []byte("This is a test note")
+		tmpDir := createTmpDirAndFiles(t, 0644, testFiles, content)
+
+		noteManager := obsidian.Note{}
+
+		// Act
+		notes, err := noteManager.GetNotesList(tmpDir)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error while retrieving notes list")
+		assert.ElementsMatch(t, testFiles, notes, "Expected notes list to match the created files")
+	})
+
+	t.Run("Empty vault directory", func(t *testing.T) {
+		// Arrange
+		tmpDir := t.TempDir()
+		noteManager := obsidian.Note{}
+
+		// Act
+		notes, err := noteManager.GetNotesList(tmpDir)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error for empty vault directory")
+		assert.Empty(t, notes, "Expected empty notes list for empty vault directory")
+	})
+
+	t.Run("Vault directory with non-Markdown files", func(t *testing.T) {
+		// Arrange
+		tmpDir := createTmpDirAndFiles(t, 0644, []string{"file1.txt", "file2.jpg"}, []byte("Non-markdown content"))
+		noteManager := obsidian.Note{}
+
+		// Act
+		notes, err := noteManager.GetNotesList(tmpDir)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error when non-Markdown files are present")
+		assert.Empty(t, notes, "Expected empty notes list when no Markdown files are present")
+	})
 }

@@ -4,24 +4,39 @@ import (
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
-type SearchParams struct {
-	SearchText string
-}
-
-func SearchNotes(vault obsidian.VaultManager, uri obsidian.UriManager, params SearchParams) error {
+func SearchNotes(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, fuzzyFinder obsidian.FuzzyFinderManager) error {
 	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return err
 	}
 
-	obsidianUri := uri.Construct(ObsSearchUrl, map[string]string{
+	vaultPath, err := vault.Path()
+	if err != nil {
+		return err
+	}
+
+	notes, err := note.GetNotesList(vaultPath)
+	if err != nil {
+		return err
+	}
+
+	index, err := fuzzyFinder.Find(notes, func(i int) string {
+		return notes[i]
+	})
+
+	if err != nil {
+		return err
+	}
+
+	obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
+		"file":  notes[index],
 		"vault": vaultName,
-		"query": params.SearchText,
 	})
 
 	err = uri.Execute(obsidianUri)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

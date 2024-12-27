@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Note struct {
@@ -16,6 +18,7 @@ type NoteManager interface {
 	Delete(string) error
 	UpdateLinks(string, string, string) error
 	GetContents(string, string) (string, error)
+	GetNotesList(string) ([]string, error)
 }
 
 func (m *Note) Move(originalPath string, newPath string) error {
@@ -115,4 +118,25 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 		return err
 	}
 	return nil
+}
+
+func (m *Note) GetNotesList(vaultPath string) ([]string, error) {
+	var notes []string
+	err := filepath.WalkDir(vaultPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".md") {
+			relPath, err := filepath.Rel(vaultPath, path)
+			if err != nil {
+				return err
+			}
+			notes = append(notes, relPath)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return notes, nil
 }

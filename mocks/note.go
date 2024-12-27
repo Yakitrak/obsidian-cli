@@ -7,11 +7,11 @@ type MockNoteManager struct {
 	GetContentsError error
 }
 
-func (m *MockNoteManager) Delete(_ string) error {
+func (m *MockNoteManager) Delete(string) error {
 	return m.DeleteErr
 }
 
-func (m *MockNoteManager) Move(_ string, _ string) error {
+func (m *MockNoteManager) Move(string, string) error {
 	return m.MoveErr
 }
 
@@ -21,4 +21,8 @@ func (m *MockNoteManager) UpdateLinks(string, string, string) error {
 
 func (m *MockNoteManager) GetContents(string, string) (string, error) {
 	return "example contents", m.GetContentsError
+}
+
+func (m *MockNoteManager) GetNotesList(string) ([]string, error) {
+	return []string{"note1", "note2", "note3"}, m.GetContentsError
 }
