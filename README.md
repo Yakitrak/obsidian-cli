@@ -83,7 +83,7 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 ### Daily Note
 
-Open daily note in Obsidian.
+Open daily note in Obsidian. It will create one (using template) if one does not exist.
 
 ```bash
 # Creates / opens daily note in obsidian vault
@@ -96,7 +96,7 @@ obsidian-cli dauly --vault "{vault-name}"
 
 ### Search Note
 
-Starts a fuzzy search in the Obsidian vault. You can hit enter on a note to open that in Obsidian
+Starts a fuzzy search displaying notes in the terminal from the vault. You can hit enter on a note to open that in Obsidian
 
 ```bash
 # Searches in default obsidian vault
