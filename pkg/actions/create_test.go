@@ -48,4 +48,40 @@ func TestCreateNote(t *testing.T) {
 	})
 }
 
-// todo test for create note with open flag
+func TestNormalizeContent(t *testing.T) {
+	t.Run("Replaces escape sequences with actual characters", func(t *testing.T) {
+		// Arrange
+		input := "Hello\\nWorld\\tTabbed\\rReturn\\\"Quote\\'SingleQuote\\\\Backslash"
+		expected := "Hello\nWorld\tTabbed\rReturn\"Quote'SingleQuote\\Backslash"
+
+		// Act
+		result := actions.NormalizeContent(input)
+
+		// Assert
+		assert.Equal(t, expected, result, "The content should have the escape sequences replaced correctly")
+	})
+
+	t.Run("Handles empty input", func(t *testing.T) {
+		// Arrange
+		input := ""
+		expected := ""
+
+		// Act
+		result := actions.NormalizeContent(input)
+
+		// Assert
+		assert.Equal(t, expected, result, "Empty input should return empty output")
+	})
+
+	t.Run("No escape sequences in input", func(t *testing.T) {
+		// Arrange
+		input := "Plain text with no escapes"
+		expected := "Plain text with no escapes"
+
+		// Act
+		result := actions.NormalizeContent(input)
+
+		// Assert
+		assert.Equal(t, expected, result, "Content without escape sequences should remain unchanged")
+	})
+}
