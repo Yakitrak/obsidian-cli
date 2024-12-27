@@ -27,8 +27,6 @@ scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
 scoop install obsidian-cli
 ```
 
-For full installation instructions, see [Windows installation manual](https://yakitrak.github.io/obsidian-cli-docs/docs/install/windows).
-
 ### Mac and Linux
 
 You will need to have [Homebrew](https://brew.sh/) installed.
