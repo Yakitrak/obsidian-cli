@@ -2,10 +2,6 @@
 
 ---
 ![obsidian-cli Usage](./docs/usage.png)
-
----
-## [Installation and Usage Manual](https://yakitrak.github.io/obsidian-cli-docs/)
-
 ---
 
 ## Description
