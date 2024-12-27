@@ -48,6 +48,54 @@ func TestDeleteNote(t *testing.T) {
 
 	})
 }
+func TestNote_GetContents(t *testing.T) {
+	tests := []struct {
+		testName           string
+		noteToCreate       string
+		noteNameToRetrieve string
+	}{
+		{"Get contents of note", "note.md", "note.md"},
+		{"Get contents of note without md", "note.md", "note"},
+	}
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
+			// Arrange
+			tempDir := t.TempDir()
+			vaultPath := "vault-folder"
+			notePath := filepath.Join(tempDir, vaultPath, test.noteToCreate)
+			fileContents := "Example file contents here"
+
+			err := os.MkdirAll(filepath.Join(tempDir, vaultPath), 0755)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = os.WriteFile(notePath, []byte(fileContents), 0644)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Act
+			noteManager := obsidian.Note{}
+			content, err := noteManager.GetContents(filepath.Join(tempDir, vaultPath), test.noteNameToRetrieve)
+
+			// Assert
+			assert.Equal(t, nil, err, "Expected no error while retrieving note contents")
+			assert.Equal(t, fileContents, content, "Expected contents to match the file contents")
+		})
+	}
+
+	t.Run("Get contents of non-existent note", func(t *testing.T) {
+		// Arrange
+		noteManager := obsidian.Note{}
+		// Act
+		contents, err := noteManager.GetContents("path", "non-existent-note")
+		// Assert
+		assert.Equal(t, obsidian.NoteDoesNotExistError, err.Error(), "Expected error while deleting non-existent note")
+		assert.Equal(t, contents, "")
+
+	})
+}
 
 func TestMoveNote(t *testing.T) {
 	originalContent := "This is the original content."

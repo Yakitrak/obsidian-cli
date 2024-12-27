@@ -3,6 +3,7 @@ package obsidian
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -14,6 +15,7 @@ type NoteManager interface {
 	Move(string, string) error
 	Delete(string) error
 	UpdateLinks(string, string, string) error
+	GetContents(string, string) (string, error)
 }
 
 func (m *Note) Move(originalPath string, newPath string) error {
@@ -41,6 +43,42 @@ func (m *Note) Delete(path string) error {
 	}
 	fmt.Println("Deleted note: ", note)
 	return nil
+}
+
+func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
+	note := AddMdSuffix(noteName)
+
+	var notePath string
+	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err // Continue to the next path if there's an error
+		}
+		if d.IsDir() {
+			return nil // Skip directories
+		}
+		if filepath.Base(path) == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
+
+	if err != nil || notePath == "" {
+		return "", errors.New(NoteDoesNotExistError)
+	}
+
+	file, err := os.Open(notePath)
+	if err != nil {
+		return "", errors.New(VaultReadError)
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return "", errors.New(VaultReadError)
+	}
+
+	return string(content), nil
 }
 
 func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
