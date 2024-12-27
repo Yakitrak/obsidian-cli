@@ -11,14 +11,14 @@ import (
 var searchCmd = &cobra.Command{
 	Use:     "search",
 	Aliases: []string{"s"},
-	Short:   "Searches note in vault",
-	Args:    cobra.ExactArgs(1),
+	Short:   "Fuzzy searches and opens note in vault",
+	Args:    cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		vault := obsidian.Vault{Name: vaultName}
+		note := obsidian.Note{}
 		uri := obsidian.Uri{}
-		searchText := args[0]
-		params := actions.SearchParams{SearchText: searchText}
-		err := actions.SearchNotes(&vault, &uri, params)
+		fuzzyFinder := obsidian.FuzzyFinder{}
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder)
 		if err != nil {
 			log.Fatal(err)
 		}

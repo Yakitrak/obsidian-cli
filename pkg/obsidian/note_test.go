@@ -48,6 +48,54 @@ func TestDeleteNote(t *testing.T) {
 
 	})
 }
+func TestNote_GetContents(t *testing.T) {
+	tests := []struct {
+		testName           string
+		noteToCreate       string
+		noteNameToRetrieve string
+	}{
+		{"Get contents of note", "note.md", "note.md"},
+		{"Get contents of note without md", "note.md", "note"},
+	}
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
+			// Arrange
+			tempDir := t.TempDir()
+			vaultPath := "vault-folder"
+			notePath := filepath.Join(tempDir, vaultPath, test.noteToCreate)
+			fileContents := "Example file contents here"
+
+			err := os.MkdirAll(filepath.Join(tempDir, vaultPath), 0755)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = os.WriteFile(notePath, []byte(fileContents), 0644)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Act
+			noteManager := obsidian.Note{}
+			content, err := noteManager.GetContents(filepath.Join(tempDir, vaultPath), test.noteNameToRetrieve)
+
+			// Assert
+			assert.Equal(t, nil, err, "Expected no error while retrieving note contents")
+			assert.Equal(t, fileContents, content, "Expected contents to match the file contents")
+		})
+	}
+
+	t.Run("Get contents of non-existent note", func(t *testing.T) {
+		// Arrange
+		noteManager := obsidian.Note{}
+		// Act
+		contents, err := noteManager.GetContents("path", "non-existent-note")
+		// Assert
+		assert.Equal(t, obsidian.NoteDoesNotExistError, err.Error(), "Expected error while deleting non-existent note")
+		assert.Equal(t, contents, "")
+
+	})
+}
 
 func TestMoveNote(t *testing.T) {
 	originalContent := "This is the original content."
@@ -195,5 +243,48 @@ func TestUpdateNoteLinks(t *testing.T) {
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.VaultWriteError)
 	})
+}
 
+func TestNote_GetNotesList(t *testing.T) {
+	t.Run("Retrieve list of notes successfully", func(t *testing.T) {
+		// Arrange
+		testFiles := []string{"file1.md", "file2.md", "file3.md"}
+		content := []byte("This is a test note")
+		tmpDir := createTmpDirAndFiles(t, 0644, testFiles, content)
+
+		noteManager := obsidian.Note{}
+
+		// Act
+		notes, err := noteManager.GetNotesList(tmpDir)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error while retrieving notes list")
+		assert.ElementsMatch(t, testFiles, notes, "Expected notes list to match the created files")
+	})
+
+	t.Run("Empty vault directory", func(t *testing.T) {
+		// Arrange
+		tmpDir := t.TempDir()
+		noteManager := obsidian.Note{}
+
+		// Act
+		notes, err := noteManager.GetNotesList(tmpDir)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error for empty vault directory")
+		assert.Empty(t, notes, "Expected empty notes list for empty vault directory")
+	})
+
+	t.Run("Vault directory with non-Markdown files", func(t *testing.T) {
+		// Arrange
+		tmpDir := createTmpDirAndFiles(t, 0644, []string{"file1.txt", "file2.jpg"}, []byte("Non-markdown content"))
+		noteManager := obsidian.Note{}
+
+		// Act
+		notes, err := noteManager.GetNotesList(tmpDir)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error when non-Markdown files are present")
+		assert.Empty(t, notes, "Expected empty notes list when no Markdown files are present")
+	})
 }
