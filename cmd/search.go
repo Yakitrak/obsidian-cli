@@ -11,7 +11,7 @@ import (
 var searchCmd = &cobra.Command{
 	Use:     "search",
 	Aliases: []string{"s"},
-	Short:   "Fuzzy searches notes in vault",
+	Short:   "Fuzzy searches and opens note in vault",
 	Args:    cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		vault := obsidian.Vault{Name: vaultName}
