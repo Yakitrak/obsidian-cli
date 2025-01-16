@@ -28,10 +28,6 @@ scoop install obsidian-cli
 You will need to have [Homebrew](https://brew.sh/) installed.
 
 ```Bash
-brew tap yakitrak/yakitrak
-```
-
-```Bash
 brew install yakitrak/yakitrak/obsidian-cli
 ```
 
