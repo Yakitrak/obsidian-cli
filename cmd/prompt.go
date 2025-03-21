@@ -50,36 +50,11 @@ Examples:
 		vault := obsidian.Vault{Name: vaultName}
 		note := obsidian.Note{}
 
-		// Parse inputs
-		var inputs []actions.ListInput
-		for _, arg := range args {
-			if strings.HasPrefix(arg, "tag:") {
-				// Handle quoted tags
-				tag := strings.TrimPrefix(arg, "tag:")
-				if strings.HasPrefix(tag, "\"") && strings.HasSuffix(tag, "\"") {
-					tag = strings.Trim(tag, "\"")
-				}
-				inputs = append(inputs, actions.ListInput{
-					Type:  actions.InputTypeTag,
-					Value: tag,
-				})
-			} else if strings.HasPrefix(arg, "find:") {
-				// Handle find input
-				searchTerm := strings.TrimPrefix(arg, "find:")
-				if strings.HasPrefix(searchTerm, "\"") && strings.HasSuffix(searchTerm, "\"") {
-					searchTerm = strings.Trim(searchTerm, "\"")
-				}
-				inputs = append(inputs, actions.ListInput{
-					Type:  actions.InputTypeFind,
-					Value: searchTerm,
-				})
-			} else {
-				// Handle file paths
-				inputs = append(inputs, actions.ListInput{
-					Type:  actions.InputTypeFile,
-					Value: arg,
-				})
-			}
+		// Parse inputs using the helper function
+		inputs, err := actions.ParseInputs(args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			os.Exit(1)
 		}
 
 		// Create a map to track unique files

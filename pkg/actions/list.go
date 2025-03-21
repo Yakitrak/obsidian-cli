@@ -34,6 +34,55 @@ type ListParams struct {
 	OnMatch       func(string) // Callback function to report matches as they're found
 }
 
+// ParseInputs parses command-line arguments into ListInput objects.
+// Returns an error if tag: or find: inputs have empty or wildcard values.
+func ParseInputs(args []string) ([]ListInput, error) {
+	var inputs []ListInput
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "tag:") {
+			// Handle quoted tags
+			tag := strings.TrimPrefix(arg, "tag:")
+			if strings.HasPrefix(tag, "\"") && strings.HasSuffix(tag, "\"") {
+				tag = strings.Trim(tag, "\"")
+			}
+
+			// Validate tag value
+			if tag == "" || tag == "*" {
+				return nil, fmt.Errorf("invalid tag value in %q: tag cannot be empty or a wildcard (*)", arg)
+			}
+
+			inputs = append(inputs, ListInput{
+				Type:  InputTypeTag,
+				Value: tag,
+			})
+		} else if strings.HasPrefix(arg, "find:") {
+			// Handle find input
+			searchTerm := strings.TrimPrefix(arg, "find:")
+			if strings.HasPrefix(searchTerm, "\"") && strings.HasSuffix(searchTerm, "\"") {
+				searchTerm = strings.Trim(searchTerm, "\"")
+			}
+
+			// Validate find value
+			if searchTerm == "" || searchTerm == "*" {
+				return nil, fmt.Errorf("invalid find value in %q: find cannot be empty or a wildcard (*)", arg)
+			}
+
+			inputs = append(inputs, ListInput{
+				Type:  InputTypeFind,
+				Value: searchTerm,
+			})
+		} else {
+			// Handle file paths
+			inputs = append(inputs, ListInput{
+				Type:  InputTypeFile,
+				Value: arg,
+			})
+		}
+	}
+
+	return inputs, nil
+}
+
 // Debug controls whether debug output is printed
 var Debug bool
 

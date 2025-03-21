@@ -10,6 +10,235 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// TestParseInputs tests the ParseInputs function
+func TestParseInputs(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectedInputs []ListInput
+		expectedError  bool
+		errorContains  string
+	}{
+		{
+			name:           "Empty args",
+			args:           []string{},
+			expectedInputs: nil,
+			expectedError:  false,
+		},
+		{
+			name: "Single file path",
+			args: []string{"path/to/file.md"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFile,
+					Value: "path/to/file.md",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Multiple file paths",
+			args: []string{"path/to/file1.md", "path/to/file2.md"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFile,
+					Value: "path/to/file1.md",
+				},
+				{
+					Type:  InputTypeFile,
+					Value: "path/to/file2.md",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Single tag",
+			args: []string{"tag:project"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeTag,
+					Value: "project",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Tag with quotes",
+			args: []string{`tag:"multi word"`},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeTag,
+					Value: "multi word",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Tag with single quotes",
+			args: []string{"tag:'multi word'"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeTag,
+					Value: "'multi word'",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Multiple tags",
+			args: []string{"tag:project", "tag:work"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeTag,
+					Value: "project",
+				},
+				{
+					Type:  InputTypeTag,
+					Value: "work",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Single find",
+			args: []string{"find:note"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFind,
+					Value: "note",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Find with quotes",
+			args: []string{`find:"complex query"`},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFind,
+					Value: "complex query",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Find with single quotes",
+			args: []string{"find:'complex query'"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFind,
+					Value: "'complex query'",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Mixed inputs",
+			args: []string{"path/to/file.md", "tag:project", "find:note"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFile,
+					Value: "path/to/file.md",
+				},
+				{
+					Type:  InputTypeTag,
+					Value: "project",
+				},
+				{
+					Type:  InputTypeFind,
+					Value: "note",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Special characters in inputs",
+			args: []string{"path/to/file-with-dashes.md", "tag:project-2023", "find:note_123"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFile,
+					Value: "path/to/file-with-dashes.md",
+				},
+				{
+					Type:  InputTypeTag,
+					Value: "project-2023",
+				},
+				{
+					Type:  InputTypeFind,
+					Value: "note_123",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name:          "Empty tag value",
+			args:          []string{"tag:"},
+			expectedError: true,
+			errorContains: "tag cannot be empty",
+		},
+		{
+			name:          "Empty find value",
+			args:          []string{"find:"},
+			expectedError: true,
+			errorContains: "find cannot be empty",
+		},
+		{
+			name:          "Tag with wildcard",
+			args:          []string{"tag:*"},
+			expectedError: true,
+			errorContains: "tag cannot be empty or a wildcard",
+		},
+		{
+			name:          "Find with wildcard",
+			args:          []string{"find:*"},
+			expectedError: true,
+			errorContains: "find cannot be empty or a wildcard",
+		},
+		{
+			name: "Malformed tag and find without colon",
+			args: []string{"tagproject", "findnote"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFile,
+					Value: "tagproject",
+				},
+				{
+					Type:  InputTypeFile,
+					Value: "findnote",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Wildcard in file path",
+			args: []string{"*"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeFile,
+					Value: "*",
+				},
+			},
+			expectedError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inputs, err := ParseInputs(tt.args)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedInputs, inputs)
+			}
+		})
+	}
+}
+
 // MockVaultManager is a mock implementation of VaultManager
 type MockVaultManager struct {
 	mock.Mock

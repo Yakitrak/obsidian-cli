@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
@@ -82,39 +81,14 @@ func runList(cmd *cobra.Command, args []string) error {
 		log.Printf("Number of input args: %d", len(args))
 	}
 
-	// Parse inputs
-	var inputs []actions.ListInput
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "tag:") {
-			// Handle quoted tags
-			tag := strings.TrimPrefix(arg, "tag:")
-			if strings.HasPrefix(tag, "\"") && strings.HasSuffix(tag, "\"") {
-				tag = strings.Trim(tag, "\"")
-			}
-			inputs = append(inputs, actions.ListInput{
-				Type:  actions.InputTypeTag,
-				Value: tag,
-			})
-		} else if strings.HasPrefix(arg, "find:") {
-			// Handle find input
-			searchTerm := strings.TrimPrefix(arg, "find:")
-			if strings.HasPrefix(searchTerm, "\"") && strings.HasSuffix(searchTerm, "\"") {
-				searchTerm = strings.Trim(searchTerm, "\"")
-			}
-			inputs = append(inputs, actions.ListInput{
-				Type:  actions.InputTypeFind,
-				Value: searchTerm,
-			})
-		} else {
-			// Handle file paths
-			inputs = append(inputs, actions.ListInput{
-				Type:  actions.InputTypeFile,
-				Value: arg,
-			})
-		}
+	// Parse inputs using the helper function
+	inputs, err := actions.ParseInputs(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		return err
 	}
 
-	// If no inputs provided, add a wildcard input
+	// If no inputs were provided, use a wildcard
 	if len(inputs) == 0 {
 		inputs = append(inputs, actions.ListInput{
 			Type:  actions.InputTypeFile,
