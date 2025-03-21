@@ -59,7 +59,13 @@ func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
 		if d.IsDir() {
 			return nil // Skip directories
 		}
-		if filepath.Base(path) == note {
+		// Get the relative path from the vault root
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err != nil {
+			return err
+		}
+		// Compare the full relative path
+		if relPath == note {
 			notePath = path
 			return filepath.SkipDir
 		}

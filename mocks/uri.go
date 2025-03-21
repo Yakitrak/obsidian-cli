@@ -1,14 +1,19 @@
 package mocks
 
+import (
+	"github.com/stretchr/testify/mock"
+)
+
 type MockUriManager struct {
-	ConstructedURI string
-	ExecuteErr     error
+	mock.Mock
 }
 
 func (m *MockUriManager) Construct(base string, params map[string]string) string {
-	return m.ConstructedURI
+	args := m.Called(base, params)
+	return args.String(0)
 }
 
 func (m *MockUriManager) Execute(uri string) error {
-	return m.ExecuteErr
+	args := m.Called(uri)
+	return args.Error(0)
 }

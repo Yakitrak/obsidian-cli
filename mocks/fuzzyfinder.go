@@ -1,13 +1,19 @@
 package mocks
 
+import (
+	"github.com/stretchr/testify/mock"
+)
+
 type MockFuzzyFinder struct {
-	SelectedIndex int
-	FindErr       error
+	mock.Mock
 }
 
 func (f *MockFuzzyFinder) Find(slice interface{}, itemFunc func(i int) string, opts ...interface{}) (int, error) {
-	if f.FindErr != nil {
-		return -1, f.FindErr
-	}
-	return f.SelectedIndex, nil
+	args := f.Called(slice, itemFunc, opts)
+	return args.Int(0), args.Error(1)
+}
+
+func (f *MockFuzzyFinder) FindMulti(slice interface{}, itemFunc func(i int) string, opts ...interface{}) ([]int, error) {
+	args := f.Called(slice, itemFunc, opts)
+	return args.Get(0).([]int), args.Error(1)
 }

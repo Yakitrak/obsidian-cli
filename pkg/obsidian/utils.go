@@ -47,3 +47,25 @@ func ShouldSkipDirectoryOrFile(info os.FileInfo) bool {
 	}
 	return false
 }
+
+// DeduplicateResults removes duplicate entries from a slice of strings
+func DeduplicateResults(results []string) []string {
+	seen := make(map[string]bool)
+	var unique []string
+	for _, result := range results {
+		if !seen[result] {
+			seen[result] = true
+			unique = append(unique, result)
+		}
+	}
+	return unique
+}
+
+// NormalizePath normalizes a path for comparison
+func NormalizePath(path string) string {
+	// Convert all path separators to forward slashes
+	path = strings.ReplaceAll(path, "\\", "/")
+	path = strings.TrimPrefix(path, "./")
+	path = strings.TrimPrefix(path, "../")
+	return path
+}

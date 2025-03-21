@@ -2,100 +2,159 @@ package actions_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
-	"testing"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestMoveNote(t *testing.T) {
 	t.Run("Successful move note", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{Name: "myVault"}
-		uri := mocks.MockUriManager{}
-		note := mocks.MockNoteManager{}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		uri := &mocks.MockUriManager{}
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("/test/vault", nil)
+		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		note.On("UpdateLinks", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://open?vault=myVault&file=newNote.md")
+		uri.On("Execute", mock.AnythingOfType("string")).Return(nil)
+
 		// Act
-		err := actions.MoveNote(&vault, &note, &uri, actions.MoveParams{
-			CurrentNoteName: "string",
-			NewNoteName:     "string",
+		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
+			CurrentNoteName: "oldNote.md",
+			NewNoteName:     "newNote.md",
 			ShouldOpen:      true,
 		})
+
 		// Assert
 		assert.NoError(t, err, "Expected no error")
+		vault.AssertExpectations(t)
+		note.AssertExpectations(t)
+		uri.AssertExpectations(t)
 	})
 
 	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{
-			DefaultNameErr: errors.New("Failed to get vault name"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Failed to get default vault name")
+
+		vault.On("DefaultName").Return("", expectedErr)
+
 		// Act
-		err := actions.MoveNote(&vault, &mocks.MockNoteManager{}, &mocks.MockUriManager{}, actions.MoveParams{
-			CurrentNoteName: "string",
-			NewNoteName:     "string",
-			ShouldOpen:      true,
+		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
+			CurrentNoteName: "oldNote.md",
+			NewNoteName:     "newNote.md",
+			ShouldOpen:      false,
 		})
+
 		// Assert
-		assert.Equal(t, err, vault.DefaultNameErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
 	})
 
 	t.Run("vault.Path returns an error", func(t *testing.T) {
 		// Arrange
-		vaultOp := &mocks.MockVaultOperator{
-			PathError: errors.New("Failed to get vault path"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Failed to get vault path")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("", expectedErr)
+
 		// Act
-		err := actions.MoveNote(vaultOp, &mocks.MockNoteManager{}, &mocks.MockUriManager{}, actions.MoveParams{
-			CurrentNoteName: "string",
-			NewNoteName:     "string",
+		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
+			CurrentNoteName: "oldNote.md",
+			NewNoteName:     "newNote.md",
 			ShouldOpen:      false,
 		})
+
 		// Assert
-		assert.Equal(t, err, vaultOp.PathError)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
 	})
 
 	t.Run("note.Move returns an error", func(t *testing.T) {
 		// Arrange
-		note := mocks.MockNoteManager{
-			MoveErr: errors.New("Failed to execute URI"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Could not move")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("/test/vault", nil)
+		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(expectedErr)
+
 		// Act
-		err := actions.MoveNote(&mocks.MockVaultOperator{}, &note, &mocks.MockUriManager{}, actions.MoveParams{
-			CurrentNoteName: "string",
-			NewNoteName:     "string",
+		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
+			CurrentNoteName: "oldNote.md",
+			NewNoteName:     "newNote.md",
 			ShouldOpen:      false,
 		})
+
 		// Assert
-		assert.Equal(t, err, note.MoveErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
+		note.AssertExpectations(t)
 	})
 
 	t.Run("note.UpdateLinks returns an error", func(t *testing.T) {
 		// Arrange
-		note := mocks.MockNoteManager{
-			UpdateLinksError: errors.New("Failed to execute URI"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Could not update links")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("/test/vault", nil)
+		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		note.On("UpdateLinks", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(expectedErr)
+
 		// Act
-		err := actions.MoveNote(&mocks.MockVaultOperator{}, &note, &mocks.MockUriManager{}, actions.MoveParams{
-			CurrentNoteName: "string",
-			NewNoteName:     "string",
+		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
+			CurrentNoteName: "oldNote.md",
+			NewNoteName:     "newNote.md",
 			ShouldOpen:      false,
 		})
+
 		// Assert
-		assert.Equal(t, err, note.UpdateLinksError)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
+		note.AssertExpectations(t)
 	})
 
 	t.Run("uri.Execute returns an error", func(t *testing.T) {
 		// Arrange
-		uriManager := &mocks.MockUriManager{
-			ExecuteErr: errors.New("Failed to execute URI"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Could not execute URI")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("/test/vault", nil)
+		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		note.On("UpdateLinks", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://open?vault=myVault&file=newNote.md")
+		uri.On("Execute", mock.AnythingOfType("string")).Return(expectedErr)
+
 		// Act
-		err := actions.MoveNote(&mocks.MockVaultOperator{}, &mocks.MockNoteManager{}, uriManager, actions.MoveParams{
-			CurrentNoteName: "string",
-			NewNoteName:     "string",
+		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
+			CurrentNoteName: "oldNote.md",
+			NewNoteName:     "newNote.md",
 			ShouldOpen:      true,
 		})
+
 		// Assert
-		assert.Equal(t, err, uriManager.ExecuteErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
+		note.AssertExpectations(t)
+		uri.AssertExpectations(t)
 	})
 }

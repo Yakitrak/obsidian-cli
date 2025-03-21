@@ -17,7 +17,6 @@ func TestUriConstruct(t *testing.T) {
 	}{
 		{"Empty map", map[string]string{}, baseUri},
 		{"One key", map[string]string{"key": "value"}, fmt.Sprintf("%s?key=value", baseUri)},
-		{"Two keys", map[string]string{"key1": "value1", "key2": "value2"}, fmt.Sprintf("%s?key1=value1&key2=value2", baseUri)},
 		{"Empty value", map[string]string{"key": ""}, baseUri},
 		{"Mix of empty and non-empty values", map[string]string{"key1": "value1", "key2": ""}, fmt.Sprintf("%s?key1=value1", baseUri)},
 	}
@@ -31,6 +30,19 @@ func TestUriConstruct(t *testing.T) {
 			assert.Equal(t, test.want, got)
 		})
 	}
+	
+	// Test with multiple key-value pairs separately due to map iteration order
+	t.Run("Multiple keys", func(t *testing.T) {
+		uriManager := obsidian.Uri{}
+		params := map[string]string{"key1": "value1", "key2": "value2"}
+		got := uriManager.Construct(baseUri, params)
+		
+		// Check that base URI is present and both key-value pairs are in the result
+		assert.Contains(t, got, baseUri)
+		assert.Contains(t, got, "key1=value1")
+		assert.Contains(t, got, "key2=value2")
+		assert.Contains(t, got, "&") // Check that params are joined with &
+	})
 }
 
 func TestUriExecute(t *testing.T) {

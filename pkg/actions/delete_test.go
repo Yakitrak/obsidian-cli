@@ -2,61 +2,90 @@ package actions_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
-	"testing"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestDeleteNote(t *testing.T) {
 	t.Run("Successful delete note", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{Name: "myVault"}
-		note := mocks.MockNoteManager{}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("/test/vault", nil)
+		note.On("Delete", mock.AnythingOfType("string")).Return(nil)
+
 		// Act
-		err := actions.DeleteNote(&vault, &note, actions.DeleteParams{
+		err := actions.DeleteNote(vault, note, actions.DeleteParams{
 			NotePath: "noteToDelete",
 		})
+
 		// Assert
 		assert.NoError(t, err, "Expected no error")
+		vault.AssertExpectations(t)
+		note.AssertExpectations(t)
 	})
 
 	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{
-			DefaultNameErr: errors.New("Failed to get default vault name"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		expectedErr := errors.New("Failed to get default vault name")
+
+		vault.On("DefaultName").Return("", expectedErr)
+
 		// Act
-		err := actions.DeleteNote(&vault, &mocks.MockNoteManager{}, actions.DeleteParams{
+		err := actions.DeleteNote(vault, note, actions.DeleteParams{
 			NotePath: "noteToDelete",
 		})
+
 		// Assert
-		assert.Equal(t, vault.DefaultNameErr, err)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
 	})
 
 	t.Run("vault.Path returns an error", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{
-			PathError: errors.New("Failed to get vault path"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		expectedErr := errors.New("Failed to get vault path")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("", expectedErr)
+
 		// Act
-		err := actions.DeleteNote(&vault, &mocks.MockNoteManager{}, actions.DeleteParams{
+		err := actions.DeleteNote(vault, note, actions.DeleteParams{
 			NotePath: "noteToDelete",
 		})
+
 		// Assert
-		assert.Equal(t, vault.PathError, err)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
 	})
 
 	t.Run("note.Delete returns an error", func(t *testing.T) {
 		// Arrange
-		note := mocks.MockNoteManager{
-			DeleteErr: errors.New("Could not delete"),
-		}
+		vault := &mocks.VaultManager{}
+		note := &mocks.NoteManager{}
+		expectedErr := errors.New("Could not delete")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		vault.On("Path").Return("/test/vault", nil)
+		note.On("Delete", mock.AnythingOfType("string")).Return(expectedErr)
+
 		// Act
-		err := actions.DeleteNote(&mocks.MockVaultOperator{}, &note, actions.DeleteParams{
+		err := actions.DeleteNote(vault, note, actions.DeleteParams{
 			NotePath: "noteToDelete",
 		})
+
 		// Assert
-		assert.Equal(t, note.DeleteErr, err)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
+		note.AssertExpectations(t)
 	})
 }

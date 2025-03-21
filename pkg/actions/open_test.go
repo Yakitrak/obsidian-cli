@@ -2,49 +2,71 @@ package actions_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
-	"testing"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestOpenNote(t *testing.T) {
 	t.Run("Successful open note", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{Name: "myVault"}
-		uri := mocks.MockUriManager{}
+		vault := &mocks.VaultManager{}
+		uri := &mocks.MockUriManager{}
+
+		vault.On("DefaultName").Return("myVault", nil)
+		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://open?vault=myVault&file=note.md", nil)
+		uri.On("Execute", mock.AnythingOfType("string")).Return(nil)
+
 		// Act
-		err := actions.OpenNote(&vault, &uri, actions.OpenParams{
+		err := actions.OpenNote(vault, uri, actions.OpenParams{
 			NoteName: "note.md",
 		})
+
 		// Assert
-		assert.Equal(t, err, nil)
+		assert.NoError(t, err)
+		vault.AssertExpectations(t)
+		uri.AssertExpectations(t)
 	})
 
 	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
 		// Arrange
-		vaultDefaultNameErr := errors.New("Failed to get vault name")
-		vaultOp := &mocks.MockVaultOperator{
-			DefaultNameErr: vaultDefaultNameErr,
-		}
+		vault := &mocks.VaultManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Failed to get vault name")
+
+		vault.On("DefaultName").Return("", expectedErr)
+
 		// Act
-		err := actions.OpenNote(vaultOp, &mocks.MockUriManager{}, actions.OpenParams{
+		err := actions.OpenNote(vault, uri, actions.OpenParams{
 			NoteName: "note.md",
 		})
+
 		// Assert
-		assert.Error(t, err, vaultDefaultNameErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
 	})
 
 	t.Run("uri.Execute returns an error", func(t *testing.T) {
 		// Arrange
-		uri := mocks.MockUriManager{
-			ExecuteErr: errors.New("Failed to execute URI"),
-		}
+		vault := &mocks.VaultManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Failed to execute URI")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://open?vault=myVault&file=note.md", nil)
+		uri.On("Execute", mock.AnythingOfType("string")).Return(expectedErr)
+
 		// Act
-		err := actions.OpenNote(&mocks.MockVaultOperator{}, &uri, actions.OpenParams{
-			NoteName: "note1.md",
+		err := actions.OpenNote(vault, uri, actions.OpenParams{
+			NoteName: "note.md",
 		})
+
 		// Assert
-		assert.Equal(t, err, uri.ExecuteErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
+		uri.AssertExpectations(t)
 	})
 }

@@ -2,43 +2,65 @@ package actions_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
-	"testing"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestDailyNote(t *testing.T) {
 	t.Run("Successful creates / opens daily note", func(t *testing.T) {
 		// Arrange
-		vault := mocks.MockVaultOperator{Name: "myVault"}
-		uri := mocks.MockUriManager{}
+		vault := &mocks.VaultManager{}
+		uri := &mocks.MockUriManager{}
+
+		vault.On("DefaultName").Return("myVault", nil)
+		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://daily?vault=myVault", nil)
+		uri.On("Execute", mock.AnythingOfType("string")).Return(nil)
+
 		// Act
-		err := actions.DailyNote(&vault, &uri)
+		err := actions.DailyNote(vault, uri)
+
 		// Assert
-		assert.Equal(t, err, nil)
+		assert.NoError(t, err)
+		vault.AssertExpectations(t)
+		uri.AssertExpectations(t)
 	})
 
 	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
 		// Arrange
-		vaultDefaultNameErr := errors.New("Failed to get vault name")
-		vaultOp := &mocks.MockVaultOperator{
-			DefaultNameErr: vaultDefaultNameErr,
-		}
+		vault := &mocks.VaultManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Failed to get vault name")
+
+		vault.On("DefaultName").Return("", expectedErr)
+
 		// Act
-		err := actions.DailyNote(vaultOp, &mocks.MockUriManager{})
+		err := actions.DailyNote(vault, uri)
+
 		// Assert
-		assert.Error(t, err, vaultDefaultNameErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
 	})
 
 	t.Run("uri.Execute returns an error", func(t *testing.T) {
 		// Arrange
-		uri := mocks.MockUriManager{
-			ExecuteErr: errors.New("Failed to execute URI"),
-		}
+		vault := &mocks.VaultManager{}
+		uri := &mocks.MockUriManager{}
+		expectedErr := errors.New("Failed to execute URI")
+
+		vault.On("DefaultName").Return("myVault", nil)
+		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://daily?vault=myVault", nil)
+		uri.On("Execute", mock.AnythingOfType("string")).Return(expectedErr)
+
 		// Act
-		err := actions.DailyNote(&mocks.MockVaultOperator{}, &uri)
+		err := actions.DailyNote(vault, uri)
+
 		// Assert
-		assert.Equal(t, err, uri.ExecuteErr)
+		assert.Equal(t, expectedErr, err)
+		vault.AssertExpectations(t)
+		uri.AssertExpectations(t)
 	})
 }
