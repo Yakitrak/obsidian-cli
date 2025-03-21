@@ -32,17 +32,15 @@ func isTerminal() bool {
 var listCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"l"},
-	Short:   "List files in vault with various filtering options",
+	Short:   "List files in vault with various filtering options, such as tag:a-tag or find:a-filename-pattern",
 	Long: `List files in your Obsidian vault with various filtering options:
-- File paths (exact matches)
-- Tag-based filtering (tag:some-tag)
-- Fuzzy search (search:query)
-- Optional recursive wikilink following
 
 Examples:
-  obsidian-cli list tag:career-pathing "./Notes/Ideas.md" search:TLS
-  obsidian-cli list tag:"some-tag" tag:'another-tag'
-  obsidian-cli list "./Notes" search:project`,
+  obsidian-cli list Notes                          # the Notes folder
+  obsidian-cli list find:joe                       # Filename containing "joe"
+  obsidian-cli list find:'n/s joe'                 # Notes in folder starting with "n" whose name contains a word starting with "s" and a word starting with "joe"
+  obsidian-cli list tag:career-pathing             # Notes tagged with "career-pathing"
+  obsidian-cli list tag:"career-pathing" -d 2      # Notes tagged with "career-pathing", notes they link to, and the notes those link to`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runList,
 }

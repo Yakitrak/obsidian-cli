@@ -17,13 +17,17 @@ import (
 
 var promptCmd = &cobra.Command{
 	Use:   "prompt",
-	Short: "List files in vault with contents formatted for LLM consumption",
+	Short: "List files in vault with contents formatted for LLM consumption, such as tag:a-tag or find:a-filename-pattern",
 	Long: `List files in your Obsidian vault with contents formatted for LLM consumption.
 Similar to the list command, but outputs file contents in a format optimized for LLMs.
 
 Examples:
-  obsidian-cli prompt find:joe
-  obsidian-cli prompt tag:career-pathing "./Notes/Ideas.md" search:TLS`,
+  obsidian-cli prompt Notes  					 						# the Notes folder
+  obsidian-cli prompt find:joe  									# Filename containing "joe"
+  obsidian-cli prompt find:'n/s joe'  						# Notes in folder starting with "n" whose name contains a word starting with "s" and a word starting with "joe"
+  obsidian-cli prompt tag:career-pathing 					# Notes tagged with "career-pathing"
+  obsidian-cli prompt tag:"career-pathing" -d 2 	# Notes tagged with "career-pathing", notes they link to, and the notes those link to
+	`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if any inputs were provided
