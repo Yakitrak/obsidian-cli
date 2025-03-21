@@ -27,6 +27,7 @@ Examples:
   obsidian-cli prompt find:'n/s joe'  						# Notes in folder starting with "n" whose name contains a word starting with "s" and a word starting with "joe"
   obsidian-cli prompt tag:career-pathing 					# Notes tagged with "career-pathing"
   obsidian-cli prompt tag:"career-pathing" -d 2 	# Notes tagged with "career-pathing", notes they link to, and the notes those link to
+  obsidian-cli prompt find:project -f --skip-anchors   # Notes containing "project" and notes they link to, excluding links with section anchors
 	`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -102,6 +103,7 @@ Examples:
 			Inputs:        inputs,
 			FollowLinks:   followLinks,
 			MaxDepth:      maxDepth,
+			SkipAnchors:   skipAnchors,
 			AbsolutePaths: absolutePaths,
 			OnMatch: func(file string) {
 				printMu.Lock()
@@ -152,6 +154,7 @@ func init() {
 	promptCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	promptCmd.Flags().BoolVarP(&followLinks, "follow", "f", false, "follow wikilinks recursively")
 	promptCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
+	promptCmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
 	promptCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
 	promptCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
 	rootCmd.AddCommand(promptCmd)

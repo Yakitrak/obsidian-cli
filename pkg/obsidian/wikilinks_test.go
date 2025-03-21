@@ -348,6 +348,94 @@ func TestFollowWikilinks(t *testing.T) {
 	})
 }
 
+func TestFollowWikilinksWithOptions(t *testing.T) {
+	// Create test mocks
+	mockNote := &MockNoteManager{}
+
+	// Setup vault path
+	vaultPath := "/test/vault"
+
+	// Notes list mock - used for building the cache
+	mockNote.On("GetNotesList", vaultPath).Return([]string{
+		"note1.md",
+		"note2.md",
+		"note3.md",
+		"folder/note4.md",
+		"folder/note5.md",
+	}, nil)
+
+	// Content mocks - with some anchored links
+	mockNote.On("GetContents", vaultPath, "note1.md").Return("Content with link to [[note2]] and anchored [[note3#section]]", nil)
+	mockNote.On("GetContents", vaultPath, "note2.md").Return("Content with link to [[folder/note4#details]] and [[folder/note5]]", nil)
+	mockNote.On("GetContents", vaultPath, "note3.md").Return("Content with link to [[note1]]", nil)
+	mockNote.On("GetContents", vaultPath, "folder/note4.md").Return("Content with no links", nil)
+	mockNote.On("GetContents", vaultPath, "folder/note5.md").Return("Content with link back to [[note2]]", nil)
+
+	// Get all notes to build the cache
+	allNotes, _ := mockNote.GetNotesList(vaultPath)
+	cache := BuildNotePathCache(allNotes)
+
+	t.Run("follow with skipAnchors=true", func(t *testing.T) {
+		visited := make(map[string]bool)
+		result, err := FollowWikilinksWithOptions(vaultPath, mockNote, "note1.md", 3, visited, cache, true)
+		
+		assert.NoError(t, err)
+		expected := []string{"note1.md", "note2.md", "folder/note5.md"}
+		assert.ElementsMatch(t, expected, result)
+	})
+
+	t.Run("follow with skipAnchors=false", func(t *testing.T) {
+		visited := make(map[string]bool)
+		result, err := FollowWikilinksWithOptions(vaultPath, mockNote, "note1.md", 3, visited, cache, false)
+		
+		assert.NoError(t, err)
+		// When skipAnchors=false, we follow all links including anchored ones
+		expected := []string{"note1.md", "note2.md", "note3.md", "folder/note4.md", "folder/note5.md"}
+		assert.ElementsMatch(t, expected, result)
+	})
+}
+
+func TestExtractWikilinksSkipAnchors(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    []string
+	}{
+		{
+			name:    "regular wikilinks",
+			content: "Link to [[Project]] and [[Todo List]]",
+			want:    []string{"Project", "Todo List"},
+		},
+		{
+			name:    "wikilinks with heading",
+			content: "Link to [[Project#section]] and [[Todo List#details]]",
+			want:    []string{},
+		},
+		{
+			name:    "wikilinks with empty heading",
+			content: "Link to [[Project#]] and [[Todo List#|With alias]]",
+			want:    []string{},
+		},
+		{
+			name:    "mix of regular and anchored wikilinks",
+			content: "Link to [[Regular Link]] and [[Anchored Link#section]]",
+			want:    []string{"Regular Link"},
+		},
+		{
+			name:    "all links have anchors",
+			content: "[[Foo#bar]] and [[Baz#qux|Display text]]",
+			want:    []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractWikilinksSkipAnchors(tt.content)
+			assert.ElementsMatch(t, tt.want, got)
+		})
+	}
+}
+
 func TestDeduplicateResults(t *testing.T) {
 	tests := []struct {
 		name     string

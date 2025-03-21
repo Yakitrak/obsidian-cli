@@ -30,6 +30,7 @@ type ListParams struct {
 	Inputs        []ListInput  // List of inputs to process
 	FollowLinks   bool         // Whether to follow wiki links
 	MaxDepth      int          // Maximum depth for following links
+	SkipAnchors   bool         // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
 	AbsolutePaths bool         // Whether to return absolute paths
 	OnMatch       func(string) // Callback function to report matches as they're found
 }
@@ -111,7 +112,7 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 
 	// If following links, get all connected files
 	if params.FollowLinks {
-		linkedFiles := followMatchedFiles(matches, vaultPath, note, params.MaxDepth)
+		linkedFiles := followMatchedFiles(matches, vaultPath, note, params)
 		debugf("Found %d total files after following links\n", len(linkedFiles))
 		// Call OnMatch for each linked file
 		debugf("Notifying OnMatch with %d files\n", len(linkedFiles))
@@ -347,7 +348,7 @@ func processFuzzyBatch(files []string, pattern string, results chan<- string) {
 }
 
 // followMatchedFiles follows wikilinks for matched files
-func followMatchedFiles(matches []string, vaultPath string, note obsidian.NoteManager, maxDepth int) []string {
+func followMatchedFiles(matches []string, vaultPath string, note obsidian.NoteManager, params ListParams) []string {
 	// Get all notes first
 	allNotes, err := note.GetNotesList(vaultPath)
 	if err != nil {
@@ -366,7 +367,7 @@ func followMatchedFiles(matches []string, vaultPath string, note obsidian.NoteMa
 
 	for _, notePath := range matches {
 		debugf("Following links for note: %s\n", notePath)
-		files, err := obsidian.FollowWikilinks(vaultPath, note, notePath, maxDepth, visited, cache)
+		files, err := obsidian.FollowWikilinksWithOptions(vaultPath, note, notePath, params.MaxDepth, visited, cache, params.SkipAnchors)
 		if err != nil {
 			debugf("Error following links for %s: %v\n", notePath, err)
 			continue

@@ -587,6 +587,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 		inputs       []ListInput
 		followLinks  bool
 		maxDepth     int
+		skipAnchors  bool
 		expected     []string
 	}{
 		{
@@ -603,6 +604,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			},
 			followLinks: false,
 			maxDepth:    0,
+			skipAnchors: false,
 			expected:    []string{"note2.md"}, // only direct tag match
 		},
 		{
@@ -619,6 +621,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			},
 			followLinks: true,
 			maxDepth:    1,
+			skipAnchors: false,
 			expected:    []string{"folder/note1.md", "folder/note2.md", "note3.md", "note4.md"},
 		},
 		{
@@ -635,7 +638,25 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			},
 			followLinks: true,
 			maxDepth:    2,
+			skipAnchors: false,
 			expected:    []string{"weekly/2025-W12.md", "daily/2025-03-17.md", "daily/2025-03-18.md", "daily/2025-03-19.md"},
+		},
+		{
+			name:  "skip anchored links",
+			files: []string{"project.md", "tasks.md", "section1.md", "section2.md"},
+			fileContents: map[string]string{
+				"project.md": "Project with links to [[tasks]] and sections [[section1#details]], [[section2#summary]]",
+				"tasks.md":   "Tasks related to the project",
+				"section1.md": "Section 1 details",
+				"section2.md": "Section 2 summary",
+			},
+			inputs: []ListInput{
+				{Type: InputTypeFile, Value: "project.md"},
+			},
+			followLinks: true,
+			maxDepth:    1,
+			skipAnchors: true,
+			expected:    []string{"project.md", "tasks.md"}, // should not include section1.md or section2.md
 		},
 	}
 
@@ -683,6 +704,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 				Inputs:      tt.inputs,
 				FollowLinks: tt.followLinks,
 				MaxDepth:    tt.maxDepth,
+				SkipAnchors: tt.skipAnchors,
 			})
 
 			// Verify results
