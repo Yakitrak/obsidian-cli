@@ -1,0 +1,163 @@
+package cmd
+
+import (
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/actions"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atotto/clipboard"
+	"github.com/spf13/cobra"
+)
+
+var promptCmd = &cobra.Command{
+	Use:   "prompt",
+	Short: "List files in vault with contents formatted for LLM consumption",
+	Long: `List files in your Obsidian vault with contents formatted for LLM consumption.
+Similar to the list command, but outputs file contents in a format optimized for LLMs.
+
+Examples:
+  obsidian-cli prompt find:joe
+  obsidian-cli prompt tag:career-pathing "./Notes/Ideas.md" search:TLS`,
+	Args: cobra.ArbitraryArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		// If no vault name is provided, get the default vault name
+		if vaultName == "" {
+			vault := &obsidian.Vault{}
+			defaultName, err := vault.DefaultName()
+			if err != nil {
+				log.Fatal(err)
+			}
+			vaultName = defaultName
+		}
+
+		vault := obsidian.Vault{Name: vaultName}
+		note := obsidian.Note{}
+	
+		// Parse inputs
+		var inputs []actions.ListInput
+		for _, arg := range args {
+			if strings.HasPrefix(arg, "tag:") {
+				// Handle quoted tags
+				tag := strings.TrimPrefix(arg, "tag:")
+				if strings.HasPrefix(tag, "\"") && strings.HasSuffix(tag, "\"") {
+					tag = strings.Trim(tag, "\"")
+				}
+				inputs = append(inputs, actions.ListInput{
+					Type:  actions.InputTypeTag,
+					Value: tag,
+				})
+			} else if strings.HasPrefix(arg, "find:") {
+				// Handle find input
+				searchTerm := strings.TrimPrefix(arg, "find:")
+				if strings.HasPrefix(searchTerm, "\"") && strings.HasSuffix(searchTerm, "\"") {
+					searchTerm = strings.Trim(searchTerm, "\"")
+				}
+				inputs = append(inputs, actions.ListInput{
+					Type:  actions.InputTypeFind,
+					Value: searchTerm,
+				})
+			} else {
+				// Handle file paths
+				inputs = append(inputs, actions.ListInput{
+					Type:  actions.InputTypeFile,
+					Value: arg,
+				})
+			}
+		}
+
+		// Create a map to track unique files
+		uniqueFiles := make(map[string]bool)
+		// Create a mutex to safely print files
+		var printMu sync.Mutex
+
+		// Get vault path
+		vaultPath, err := vault.Path()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Buffer to store output
+		var output strings.Builder
+
+		// Print initial search message if in terminal mode
+		isTerminalMode := isTerminal()
+		if isTerminalMode {
+			for _, input := range inputs {
+				switch input.Type {
+				case actions.InputTypeTag:
+					fmt.Fprintf(os.Stderr, "Searching for tag %q\n", input.Value)
+				case actions.InputTypeFind:
+					fmt.Fprintf(os.Stderr, "Searching for %q\n", input.Value)
+				case actions.InputTypeFile:
+					fmt.Fprintf(os.Stderr, "Including file %q\n", input.Value)
+				}
+			}
+		}
+
+		// Print the vault header
+		fmt.Fprintf(&output, "<obsidian-vault name=\"%s\">\n\n", vaultName)
+
+		// Call ListFiles with a callback to print files as they're found
+		_, err = actions.ListFiles(&vault, &note, actions.ListParams{
+			Inputs:        inputs,
+			FollowLinks:   followLinks,
+			MaxDepth:      maxDepth,
+			AbsolutePaths: absolutePaths,
+			OnMatch: func(file string) {
+				printMu.Lock()
+				if !uniqueFiles[file] {
+					uniqueFiles[file] = true
+
+					// Read the file contents
+					filePath := filepath.Join(vaultPath, file)
+					content, err := ioutil.ReadFile(filePath)
+					if err != nil {
+						log.Printf("Error reading file %s: %v", file, err)
+						return
+					}
+
+					// Print progress message if in terminal mode
+					if isTerminalMode {
+						fmt.Fprintf(os.Stderr, "Found %s\n", file)
+					}
+
+					// Add to output buffer
+					fmt.Fprintf(&output, "<file path=\"%s\">\n%s\n</file>\n\n", file, string(content))
+				}
+				printMu.Unlock()
+			},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Print the closing vault tag
+		fmt.Fprintf(&output, "</obsidian-vault>")
+
+		// If terminal, copy to clipboard and notify on stderr
+		if isTerminalMode {
+			err := clipboard.WriteAll(output.String())
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Fprintf(os.Stderr, "Copied %d files to clipboard in LLM-friendly format\n", len(uniqueFiles))
+		} else {
+			// If piped, print to stdout
+			fmt.Print(output.String())
+		}
+	},
+}
+
+func init() {
+	promptCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	promptCmd.Flags().BoolVarP(&followLinks, "follow", "f", false, "follow wikilinks recursively")
+	promptCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
+	promptCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
+	rootCmd.AddCommand(promptCmd)
+}
