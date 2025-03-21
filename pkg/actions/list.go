@@ -107,17 +107,20 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 
 	// Process all inputs to get matching files
 	matches := processInputs(allNotes, vaultPath, note, params)
+	debugf("Found %d initial matching files\n", len(matches))
 
 	// If following links, get all connected files
 	if params.FollowLinks {
 		linkedFiles := followMatchedFiles(matches, vaultPath, note, params.MaxDepth)
 		debugf("Found %d total files after following links\n", len(linkedFiles))
 		// Call OnMatch for each linked file
+		debugf("Notifying OnMatch with %d files\n", len(linkedFiles))
 		notifyMatches(linkedFiles, params.OnMatch)
 		return linkedFiles, nil
 	}
 
-	// Call OnMatch for each matched file
+	// Call OnMatch for each matched file - this only happens when not following links
+	debugf("Notifying OnMatch with %d files (no link following)\n", len(matches))
 	notifyMatches(matches, params.OnMatch)
 	return matches, nil
 }
@@ -214,14 +217,12 @@ func processTagInput(inputs []ListInput, allNotes []string, vaultPath string, no
 	numWorkers := determineWorkerCount(len(allNotes))
 	processBatches(allNotes, numWorkers, vaultPath, note, tags, results)
 
-	// Collect results
+	// Collect results without triggering OnMatch (it will be called later)
 	for notePath := range results {
 		mu.Lock()
 		matches = append(matches, notePath)
 		mu.Unlock()
-		if params.OnMatch != nil {
-			params.OnMatch(notePath)
-		}
+		// Don't call OnMatch here - all matching will be handled by ListFiles
 	}
 
 	return matches
@@ -296,14 +297,12 @@ func processFuzzyFindInput(input ListInput, allNotes []string, params ListParams
 	numWorkers := determineWorkerCount(len(allNotes))
 	processFuzzyBatches(allNotes, numWorkers, input.Value, results)
 
-	// Collect results
+	// Collect results without triggering OnMatch (it will be called later)
 	for notePath := range results {
 		mu.Lock()
 		matches = append(matches, notePath)
 		mu.Unlock()
-		if params.OnMatch != nil {
-			params.OnMatch(notePath)
-		}
+		// Don't call OnMatch here - all matching will be handled by ListFiles
 	}
 
 	return matches

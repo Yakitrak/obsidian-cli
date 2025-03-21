@@ -621,6 +621,22 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			maxDepth:    1,
 			expected:    []string{"folder/note1.md", "folder/note2.md", "note3.md", "note4.md"},
 		},
+		{
+			name:  "find input with depth traversal - checks callback behavior",
+			files: []string{"weekly/2025-W12.md", "daily/2025-03-17.md", "daily/2025-03-18.md", "daily/2025-03-19.md"},
+			fileContents: map[string]string{
+				"weekly/2025-W12.md": "Weekly note with links to [[daily/2025-03-17]], [[daily/2025-03-18]], and [[daily/2025-03-19]]",
+				"daily/2025-03-17.md": "Daily note for Monday",
+				"daily/2025-03-18.md": "Daily note for Tuesday",
+				"daily/2025-03-19.md": "Daily note for Wednesday",
+			},
+			inputs: []ListInput{
+				{Type: InputTypeFind, Value: "2025-W12"},
+			},
+			followLinks: true,
+			maxDepth:    2,
+			expected:    []string{"weekly/2025-W12.md", "daily/2025-03-17.md", "daily/2025-03-18.md", "daily/2025-03-19.md"},
+		},
 	}
 
 	for _, tt := range tests {

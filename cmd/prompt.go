@@ -30,6 +30,14 @@ Examples:
 	`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Enable debug output if debug flag is set
+		actions.Debug = debug
+		
+		// If maxDepth is greater than 0, enable followLinks
+		if maxDepth > 0 {
+			followLinks = true
+		}
+		
 		// Check if any inputs were provided
 		if len(args) == 0 {
 			fmt.Fprintf(os.Stderr, "Error: at least one input is required\n")
@@ -145,5 +153,6 @@ func init() {
 	promptCmd.Flags().BoolVarP(&followLinks, "follow", "f", false, "follow wikilinks recursively")
 	promptCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
 	promptCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
+	promptCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
 	rootCmd.AddCommand(promptCmd)
 }
