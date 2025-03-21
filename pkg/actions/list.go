@@ -44,7 +44,6 @@ func debugf(format string, args ...interface{}) {
 	}
 }
 
-
 // ListFiles is the main function that lists files based on the provided parameters
 func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params ListParams) ([]string, error) {
 	vaultPath, err := vault.Path()
@@ -57,11 +56,6 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 		return nil, err
 	}
 
-	// If no inputs specified and not following links, return all files
-	if len(params.Inputs) == 0 && !params.FollowLinks {
-		return allNotes, nil
-	}
-
 	// Process all inputs to get matching files
 	matches := processInputs(allNotes, vaultPath, note, params)
 
@@ -70,15 +64,23 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 		linkedFiles := followMatchedFiles(matches, vaultPath, note, params.MaxDepth)
 		debugf("Found %d total files after following links\n", len(linkedFiles))
 		// Call OnMatch for each linked file
-		for _, file := range linkedFiles {
-			if params.OnMatch != nil {
-				params.OnMatch(file)
-			}
-		}
+		notifyMatches(linkedFiles, params.OnMatch)
 		return linkedFiles, nil
 	}
 
+	// Call OnMatch for each matched file
+	notifyMatches(matches, params.OnMatch)
 	return matches, nil
+}
+
+// notifyMatches calls the OnMatch callback for each file if a callback is provided
+func notifyMatches(files []string, onMatch func(string)) {
+	if onMatch == nil {
+		return
+	}
+	for _, file := range files {
+		onMatch(file)
+	}
 }
 
 // processInputs processes all inputs and returns matching files
@@ -134,17 +136,20 @@ func addUniqueMatches(matches *[]string, newMatches []string, seen map[string]bo
 
 // processFilePathInput processes a single file path input
 func processFilePathInput(input ListInput, allNotes []string, params ListParams) []string {
-	var matches []string
 	normalizedInputPath := obsidian.NormalizePath(input.Value)
-	dirPrefix := normalizedInputPath + "/"
 
+	// Handle wildcard pattern
+	if normalizedInputPath == "*" {
+		return allNotes
+	}
+
+	// Handle regular path matching
+	var matches []string
+	dirPrefix := normalizedInputPath + "/"
 	for _, notePath := range allNotes {
 		normalizedNotePath := obsidian.NormalizePath(notePath)
 		if normalizedNotePath == normalizedInputPath || strings.HasPrefix(normalizedNotePath, dirPrefix) {
 			matches = append(matches, notePath)
-			if params.OnMatch != nil {
-				params.OnMatch(notePath)
-			}
 		}
 	}
 	return matches

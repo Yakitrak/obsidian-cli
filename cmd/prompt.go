@@ -26,6 +26,13 @@ Examples:
   obsidian-cli prompt tag:career-pathing "./Notes/Ideas.md" search:TLS`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Check if any inputs were provided
+		if len(args) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: at least one input is required\n")
+			fmt.Fprintf(os.Stderr, "Run 'obsidian-cli prompt --help' for usage.\n")
+			os.Exit(1)
+		}
+
 		// If no vault name is provided, get the default vault name
 		if vaultName == "" {
 			vault := &obsidian.Vault{}
@@ -38,7 +45,7 @@ Examples:
 
 		vault := obsidian.Vault{Name: vaultName}
 		note := obsidian.Note{}
-	
+
 		// Parse inputs
 		var inputs []actions.ListInput
 		for _, arg := range args {

@@ -60,7 +60,6 @@ func (m *MockNoteManager) UpdateLinks(vaultPath, oldNoteName, newNoteName string
 	return args.Error(0)
 }
 
-
 func TestListFiles(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -73,9 +72,9 @@ func TestListFiles(t *testing.T) {
 		validateResponse func(*testing.T, []string, error)
 	}{
 		{
-			name:            "list with multiple input types",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "list with multiple input types",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{
 					{Type: InputTypeTag, Value: "tag1"},
@@ -98,9 +97,9 @@ func TestListFiles(t *testing.T) {
 			},
 		},
 		{
-			name:            "list with multiple tags",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "list with multiple tags",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{
 					{Type: InputTypeTag, Value: "tag1"},
@@ -121,9 +120,9 @@ func TestListFiles(t *testing.T) {
 			},
 		},
 		{
-			name:            "list with quoted tag",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "list with quoted tag",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{
 					{Type: InputTypeTag, Value: "some-tag"},
@@ -142,9 +141,9 @@ func TestListFiles(t *testing.T) {
 			},
 		},
 		{
-			name:            "list with directory path",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "list with directory path",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{
 					{Type: InputTypeFile, Value: "folder"},
@@ -161,26 +160,26 @@ func TestListFiles(t *testing.T) {
 			},
 		},
 		{
-			name:            "list with no inputs",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "list with no inputs",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{},
 			},
-			expectedFiles: []string{"note1.md", "note2.md"},
+			expectedFiles: []string{},
 			setupMocks: func(v *mocks.VaultManager, n *mocks.NoteManager) {
 				v.On("Path").Return("/test/vault", nil)
 				n.On("GetNotesList", "/test/vault").Return([]string{"note1.md", "note2.md"}, nil)
 			},
 			validateResponse: func(t *testing.T, files []string, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, []string{"note1.md", "note2.md"}, files)
+				assert.Empty(t, files)
 			},
 		},
 		{
-			name:            "vault.Path returns error",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "vault.Path returns error",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{},
 			},
@@ -195,9 +194,9 @@ func TestListFiles(t *testing.T) {
 			},
 		},
 		{
-			name:            "note.GetNotesList returns error",
-			mockVault:       &mocks.VaultManager{},
-			mockNote:        &mocks.NoteManager{},
+			name:      "note.GetNotesList returns error",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
 			params: ListParams{
 				Inputs: []ListInput{},
 			},
@@ -210,6 +209,25 @@ func TestListFiles(t *testing.T) {
 				assert.Error(t, err)
 				assert.Equal(t, "Failed to get notes list", err.Error())
 				assert.Empty(t, files)
+			},
+		},
+		{
+			name:      "list with wildcard pattern",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
+			params: ListParams{
+				Inputs: []ListInput{
+					{Type: InputTypeFile, Value: "*"},
+				},
+			},
+			expectedFiles: []string{"note1.md", "note2.md", "folder/note3.md"},
+			setupMocks: func(v *mocks.VaultManager, n *mocks.NoteManager) {
+				v.On("Path").Return("/test/vault", nil)
+				n.On("GetNotesList", "/test/vault").Return([]string{"note1.md", "note2.md", "folder/note3.md"}, nil)
+			},
+			validateResponse: func(t *testing.T, files []string, err error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, []string{"note1.md", "note2.md", "folder/note3.md"}, files)
 			},
 		},
 	}
@@ -387,7 +405,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 
 			// Setup notes list
 			mockNote.On("GetNotesList", "/test/vault").Return(tt.files, nil).Once()
-			
+
 			// If following links, we need another GetNotesList call
 			if tt.followLinks {
 				mockNote.On("GetNotesList", "/test/vault").Return(tt.files, nil).Once()

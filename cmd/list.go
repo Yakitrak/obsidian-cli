@@ -72,10 +72,17 @@ func runList(cmd *cobra.Command, args []string) error {
 			log.Fatal(err)
 		}
 		vaultName = defaultName
+		if debug {
+			log.Printf("Using default vault name: %s", vaultName)
+		}
 	}
 
 	vault := obsidian.Vault{Name: vaultName}
 	note := obsidian.Note{}
+
+	if debug {
+		log.Printf("Number of input args: %d", len(args))
+	}
 
 	// Parse inputs
 	var inputs []actions.ListInput
@@ -109,6 +116,18 @@ func runList(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// If no inputs provided, add a wildcard input
+	if len(inputs) == 0 {
+		inputs = append(inputs, actions.ListInput{
+			Type:  actions.InputTypeFile,
+			Value: "*",
+		})
+	}
+
+	if debug {
+		log.Printf("Number of parsed inputs: %d", len(inputs))
+	}
+
 	// Create a map to track unique files
 	uniqueFiles := make(map[string]bool)
 	// Create a mutex to safely print files
@@ -118,6 +137,10 @@ func runList(cmd *cobra.Command, args []string) error {
 	vaultPath, err := vault.Path()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if debug {
+		log.Printf("Vault path: %s", vaultPath)
 	}
 
 	// Call ListFiles with a callback to print files as they're found
@@ -153,6 +176,5 @@ func runList(cmd *cobra.Command, args []string) error {
 		log.Fatal(err)
 	}
 
-	// No need to print files here since they're printed by the callback
 	return nil
 }
