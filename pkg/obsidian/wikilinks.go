@@ -16,6 +16,7 @@ type NotePathCache struct {
 
 // Pre-compiled regex pattern for better performance
 var wikilinkRegex = regexp.MustCompile(`\[\[(.*?)(?:\|.*?)?\]\]`) // Matches wiki-style links
+var embedRegex = regexp.MustCompile(`!\[\[(.*?)(?:\|.*?)?\]\]`)   // Matches embedded wiki-style links
 
 // BuildNotePathCache creates a cache of note paths for efficient wikilink resolution
 func BuildNotePathCache(allNotes []string) *NotePathCache {
@@ -65,36 +66,39 @@ func (c *NotePathCache) ResolveNote(link string) (string, bool) {
 	return "", false
 }
 
-// ExtractWikilinks extracts wikilinks from markdown content
-func ExtractWikilinks(content string) []string {
-	matches := wikilinkRegex.FindAllStringSubmatch(content, -1)
-	var links []string
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			link := filepath.ToSlash(match[1]) // Normalize path separators
-			links = append(links, link)
-		}
-	}
-
-	return links
+// WikilinkOptions defines options for extracting wikilinks
+type WikilinkOptions struct {
+	SkipAnchors bool // Skip links containing anchors (# symbol)
+	SkipEmbeds  bool // Skip embedded links (![[...]])
 }
 
-// ExtractWikilinksSkipAnchors extracts wikilinks from markdown content
-// but skips any wikilinks that contain anchors (# symbol)
-func ExtractWikilinksSkipAnchors(content string) []string {
-	matches := wikilinkRegex.FindAllStringSubmatch(content, -1)
+// DefaultWikilinkOptions provides standard options for wikilink extraction
+var DefaultWikilinkOptions = WikilinkOptions{
+	SkipAnchors: false,
+	SkipEmbeds:  false,
+}
+
+// ExtractWikilinks extracts wikilinks from markdown content with configurable options
+func ExtractWikilinks(content string, options WikilinkOptions) []string {
+	// If we need to skip embedded links, remove them from the content first
+	contentToProcess := content
+	if options.SkipEmbeds {
+		contentToProcess = embedRegex.ReplaceAllString(content, "")
+	}
+
+	// Extract wikilinks from the processed content
+	matches := wikilinkRegex.FindAllStringSubmatch(contentToProcess, -1)
 	var links []string
 
 	for _, match := range matches {
 		if len(match) > 1 {
 			link := filepath.ToSlash(match[1]) // Normalize path separators
-			
-			// Skip links with anchors (containing # symbol)
-			if strings.Contains(link, "#") {
+
+			// Skip links with anchors if requested
+			if options.SkipAnchors && strings.Contains(link, "#") {
 				continue
 			}
-			
+
 			links = append(links, link)
 		}
 	}
@@ -102,13 +106,32 @@ func ExtractWikilinksSkipAnchors(content string) []string {
 	return links
 }
 
-// FollowWikilinks recursively follows wikilinks up to maxDepth
-func FollowWikilinks(vaultPath string, note NoteManager, startFile string, maxDepth int, visited map[string]bool, cache *NotePathCache) ([]string, error) {
-	return FollowWikilinksWithOptions(vaultPath, note, startFile, maxDepth, visited, cache, false)
+// FollowWikilinksOptions contains options for following wikilinks
+type FollowWikilinksOptions struct {
+	WikilinkOptions     // Embed the WikilinkOptions struct
+	MaxDepth        int // Maximum depth to follow links
 }
 
-// FollowWikilinksWithOptions recursively follows wikilinks up to maxDepth with additional options
-func FollowWikilinksWithOptions(vaultPath string, note NoteManager, startFile string, maxDepth int, visited map[string]bool, cache *NotePathCache, skipAnchors bool) ([]string, error) {
+// DefaultFollowWikilinksOptions provides standard options for following wikilinks
+var DefaultFollowWikilinksOptions = FollowWikilinksOptions{
+	WikilinkOptions: DefaultWikilinkOptions,
+	MaxDepth:        -1, // -1 indicates no limit
+}
+
+// CreateWikilinksOptions is a helper function to create a FollowWikilinksOptions struct
+// from individual parameters for easier migration from legacy code
+func CreateWikilinksOptions(maxDepth int, skipAnchors bool, skipEmbeds bool) FollowWikilinksOptions {
+	return FollowWikilinksOptions{
+		WikilinkOptions: WikilinkOptions{
+			SkipAnchors: skipAnchors,
+			SkipEmbeds:  skipEmbeds,
+		},
+		MaxDepth: maxDepth,
+	}
+}
+
+// FollowWikilinks recursively follows wikilinks according to provided options
+func FollowWikilinks(vaultPath string, note NoteManager, startFile string, visited map[string]bool, cache *NotePathCache, options FollowWikilinksOptions) ([]string, error) {
 	if visited[startFile] {
 		return nil, nil
 	}
@@ -121,18 +144,19 @@ func FollowWikilinksWithOptions(vaultPath string, note NoteManager, startFile st
 
 	result := []string{startFile}
 
-	// Only follow links if maxDepth > 0
-	if maxDepth > 0 {
-		var links []string
-		if skipAnchors {
-			links = ExtractWikilinksSkipAnchors(content)
-		} else {
-			links = ExtractWikilinks(content)
-		}
-		
+	// Only follow links if maxDepth != 0
+	if options.MaxDepth != 0 {
+		links := ExtractWikilinks(content, options.WikilinkOptions)
+
 		for _, link := range links {
 			if actualPath, exists := cache.ResolveNote(link); exists {
-				if followed, err := FollowWikilinksWithOptions(vaultPath, note, actualPath, maxDepth-1, visited, cache, skipAnchors); err == nil {
+				// Create a new options with decremented MaxDepth for recursion
+				nextOptions := options
+				if nextOptions.MaxDepth > 0 {
+					nextOptions.MaxDepth--
+				}
+
+				if followed, err := FollowWikilinks(vaultPath, note, actualPath, visited, cache, nextOptions); err == nil {
 					result = append(result, followed...)
 				}
 			}

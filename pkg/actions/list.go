@@ -31,6 +31,7 @@ type ListParams struct {
 	FollowLinks   bool         // Whether to follow wiki links
 	MaxDepth      int          // Maximum depth for following links
 	SkipAnchors   bool         // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
+	SkipEmbeds    bool         // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
 	AbsolutePaths bool         // Whether to return absolute paths
 	OnMatch       func(string) // Callback function to report matches as they're found
 }
@@ -365,9 +366,12 @@ func followMatchedFiles(matches []string, vaultPath string, note obsidian.NoteMa
 	visited := make(map[string]bool)
 	var result []string
 
+	// Create wikilinks options from parameters
+	options := obsidian.CreateWikilinksOptions(params.MaxDepth, params.SkipAnchors, params.SkipEmbeds)
+
 	for _, notePath := range matches {
 		debugf("Following links for note: %s\n", notePath)
-		files, err := obsidian.FollowWikilinksWithOptions(vaultPath, note, notePath, params.MaxDepth, visited, cache, params.SkipAnchors)
+		files, err := obsidian.FollowWikilinks(vaultPath, note, notePath, visited, cache, options)
 		if err != nil {
 			debugf("Error following links for %s: %v\n", notePath, err)
 			continue

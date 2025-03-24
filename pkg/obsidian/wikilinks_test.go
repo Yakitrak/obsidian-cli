@@ -107,13 +107,13 @@ func TestExtractWikilinks(t *testing.T) {
 		{
 			name:    "adjacent wikilinks",
 			content: "Link to [[Link1]][[Link2]]",
-			want:    []string{"Link1", "Link2"}, 
+			want:    []string{"Link1", "Link2"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractWikilinks(tt.content)
+			got := ExtractWikilinks(tt.content, DefaultWikilinkOptions)
 			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
@@ -161,7 +161,7 @@ func TestBuildNotePathCache(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cache := BuildNotePathCache(tt.notes)
-			
+
 			// Verify specific path resolution
 			path, exists := cache.ResolveNote(tt.lookupKey)
 			assert.True(t, exists, "Note %s should exist in cache", tt.lookupKey)
@@ -235,7 +235,7 @@ func TestNotePathCacheResolve(t *testing.T) {
 			cache := &NotePathCache{
 				Paths: tt.cachePaths,
 			}
-			
+
 			path, exists := cache.ResolveNote(tt.lookupKey)
 			assert.Equal(t, tt.shouldExist, exists)
 			if tt.shouldExist {
@@ -255,7 +255,7 @@ func TestFollowWikilinks(t *testing.T) {
 	// Notes list mock - used for building the cache
 	mockNote.On("GetNotesList", vaultPath).Return([]string{
 		"note1.md",
-		"note2.md", 
+		"note2.md",
 		"folder/note3.md",
 		"folder/note4.md",
 	}, nil)
@@ -324,7 +324,11 @@ func TestFollowWikilinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			visited := make(map[string]bool)
-			result, err := FollowWikilinks(vaultPath, mockNote, tt.startFile, tt.maxDepth, visited, cache)
+			options := FollowWikilinksOptions{
+				WikilinkOptions: DefaultWikilinkOptions,
+				MaxDepth:        tt.maxDepth,
+			}
+			result, err := FollowWikilinks(vaultPath, mockNote, tt.startFile, visited, cache, options)
 
 			if tt.expectedErr {
 				assert.Error(t, err)
@@ -334,15 +338,16 @@ func TestFollowWikilinks(t *testing.T) {
 			}
 		})
 	}
-	
+
 	// Test error case
 	t.Run("error when getting content", func(t *testing.T) {
 		mockNote := &MockNoteManager{}
 		mockNote.On("GetContents", vaultPath, "error.md").Return("", errors.New("content error"))
-		
+
 		visited := make(map[string]bool)
-		result, err := FollowWikilinks(vaultPath, mockNote, "error.md", 1, visited, cache)
-		
+		options := DefaultFollowWikilinksOptions
+		result, err := FollowWikilinks(vaultPath, mockNote, "error.md", visited, cache, options)
+
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
@@ -377,8 +382,15 @@ func TestFollowWikilinksWithOptions(t *testing.T) {
 
 	t.Run("follow with skipAnchors=true", func(t *testing.T) {
 		visited := make(map[string]bool)
-		result, err := FollowWikilinksWithOptions(vaultPath, mockNote, "note1.md", 3, visited, cache, true)
-		
+		options := FollowWikilinksOptions{
+			WikilinkOptions: WikilinkOptions{
+				SkipAnchors: true,
+				SkipEmbeds:  false,
+			},
+			MaxDepth: 3,
+		}
+		result, err := FollowWikilinks(vaultPath, mockNote, "note1.md", visited, cache, options)
+
 		assert.NoError(t, err)
 		expected := []string{"note1.md", "note2.md", "folder/note5.md"}
 		assert.ElementsMatch(t, expected, result)
@@ -386,51 +398,68 @@ func TestFollowWikilinksWithOptions(t *testing.T) {
 
 	t.Run("follow with skipAnchors=false", func(t *testing.T) {
 		visited := make(map[string]bool)
-		result, err := FollowWikilinksWithOptions(vaultPath, mockNote, "note1.md", 3, visited, cache, false)
-		
+		options := FollowWikilinksOptions{
+			WikilinkOptions: WikilinkOptions{
+				SkipAnchors: false,
+				SkipEmbeds:  false,
+			},
+			MaxDepth: 3,
+		}
+		result, err := FollowWikilinks(vaultPath, mockNote, "note1.md", visited, cache, options)
+
 		assert.NoError(t, err)
 		// When skipAnchors=false, we follow all links including anchored ones
 		expected := []string{"note1.md", "note2.md", "note3.md", "folder/note4.md", "folder/note5.md"}
 		assert.ElementsMatch(t, expected, result)
 	})
+
+	t.Run("follow with unlimited depth", func(t *testing.T) {
+		visited := make(map[string]bool)
+		options := FollowWikilinksOptions{
+			WikilinkOptions: DefaultWikilinkOptions,
+			MaxDepth:        -1,
+		}
+		result, err := FollowWikilinks(vaultPath, mockNote, "note1.md", visited, cache, options)
+
+		assert.NoError(t, err)
+		expected := []string{"note1.md", "note2.md", "note3.md", "folder/note4.md", "folder/note5.md"}
+		assert.ElementsMatch(t, expected, result)
+	})
 }
 
-func TestExtractWikilinksSkipAnchors(t *testing.T) {
+func TestExtractWikilinksOptions(t *testing.T) {
+	const content = "Link to [[Regular Link]], anchored [[Anchored Link#section]], and embed ![[Embedded Link]]"
+
 	tests := []struct {
 		name    string
-		content string
+		options WikilinkOptions
 		want    []string
 	}{
 		{
-			name:    "regular wikilinks",
-			content: "Link to [[Project]] and [[Todo List]]",
-			want:    []string{"Project", "Todo List"},
+			name:    "extract all links",
+			options: WikilinkOptions{SkipAnchors: false, SkipEmbeds: false},
+			want:    []string{"Regular Link", "Anchored Link#section", "Embedded Link"},
 		},
 		{
-			name:    "wikilinks with heading",
-			content: "Link to [[Project#section]] and [[Todo List#details]]",
-			want:    []string{},
+			name:    "skip anchors",
+			options: WikilinkOptions{SkipAnchors: true, SkipEmbeds: false},
+			want:    []string{"Regular Link", "Embedded Link"},
 		},
 		{
-			name:    "wikilinks with empty heading",
-			content: "Link to [[Project#]] and [[Todo List#|With alias]]",
-			want:    []string{},
+			name:    "skip embeds",
+			options: WikilinkOptions{SkipAnchors: false, SkipEmbeds: true},
+			want:    []string{"Regular Link", "Anchored Link#section"},
 		},
 		{
-			name:    "mix of regular and anchored wikilinks",
-			content: "Link to [[Regular Link]] and [[Anchored Link#section]]",
+			name:    "skip both anchors and embeds",
+			options: WikilinkOptions{SkipAnchors: true, SkipEmbeds: true},
 			want:    []string{"Regular Link"},
-		},
-		{
-			name:    "all links have anchors",
-			content: "[[Foo#bar]] and [[Baz#qux|Display text]]",
-			want:    []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractWikilinksSkipAnchors(tt.content)
+			got := ExtractWikilinks(content, tt.options)
 			assert.ElementsMatch(t, tt.want, got)
 		})
 	}

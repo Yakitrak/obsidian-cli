@@ -16,6 +16,7 @@ var (
 	followLinks   bool
 	maxDepth      int
 	skipAnchors   bool
+	skipEmbeds    bool
 	absolutePaths bool
 	debug         bool
 )
@@ -41,7 +42,8 @@ Examples:
   obsidian-cli list find:'n/s joe'                 # Notes in folder starting with "n" whose name contains a word starting with "s" and a word starting with "joe"
   obsidian-cli list tag:career-pathing             # Notes tagged with "career-pathing"
   obsidian-cli list tag:"career-pathing" -d 2      # Notes tagged with "career-pathing", notes they link to, and the notes those link to
-  obsidian-cli list find:project -f --skip-anchors # Notes containing "project" and notes they link to, excluding links with section anchors`,
+  obsidian-cli list find:project -f --skip-anchors # Notes containing "project" and notes they link to, excluding links with section anchors
+  obsidian-cli list find:notes -f --skip-embeds    # Notes containing "notes" and notes they link to, excluding embedded links`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runList,
 }
@@ -51,6 +53,7 @@ func init() {
 	listCmd.Flags().BoolVarP(&followLinks, "follow", "f", false, "follow wikilinks recursively")
 	listCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
 	listCmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
+	listCmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
 	listCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
 	listCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
 	rootCmd.AddCommand(listCmd)
@@ -124,6 +127,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		FollowLinks:   followLinks,
 		MaxDepth:      maxDepth,
 		SkipAnchors:   skipAnchors,
+		SkipEmbeds:    skipEmbeds,
 		AbsolutePaths: absolutePaths,
 		OnMatch: func(file string) {
 			printMu.Lock()
