@@ -295,6 +295,68 @@ This is a #todo note`,
 			tags:    []string{"todo"},
 			want:    false,
 		},
+		// Hierarchical tag matching cases
+		{
+			name:    "search foo matches #foo, #foo/bar, #foo/bar/baz",
+			content: `#foo some text #foo/bar more #foo/bar/baz` ,
+			tags:    []string{"foo"},
+			want:    true,
+		},
+		{
+			name:    "search foo/bar matches #foo/bar and #foo/bar/baz, not #foo",
+			content: `#foo some text #foo/bar more #foo/bar/baz` ,
+			tags:    []string{"foo/bar"},
+			want:    true,
+		},
+		{
+			name:    "search foo/bar/baz matches only #foo/bar/baz",
+			content: `#foo some text #foo/bar more #foo/bar/baz` ,
+			tags:    []string{"foo/bar/baz"},
+			want:    true,
+		},
+		{
+			name:    "search foo/bar does not match #foo",
+			content: `#foo only` ,
+			tags:    []string{"foo/bar"},
+			want:    false,
+		},
+		// Frontmatter hierarchical
+		{
+			name:    "search foo matches foo, foo/bar, foo/bar/baz in frontmatter",
+			content: `---
+tags: [foo, foo/bar, foo/bar/baz]
+---
+Body` ,
+			tags:    []string{"foo"},
+			want:    true,
+		},
+		{
+			name:    "search foo/bar matches foo/bar and foo/bar/baz in frontmatter, not foo",
+			content: `---
+tags: [foo, foo/bar, foo/bar/baz]
+---
+Body` ,
+			tags:    []string{"foo/bar"},
+			want:    true,
+		},
+		{
+			name:    "search foo/bar/baz matches only foo/bar/baz in frontmatter",
+			content: `---
+tags: [foo, foo/bar, foo/bar/baz]
+---
+Body` ,
+			tags:    []string{"foo/bar/baz"},
+			want:    true,
+		},
+		{
+			name:    "search foo/bar does not match foo in frontmatter",
+			content: `---
+tags: [foo]
+---
+Body` ,
+			tags:    []string{"foo/bar"},
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
