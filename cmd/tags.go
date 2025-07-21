@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
@@ -23,17 +24,20 @@ You can also delete or rename tags across all notes in the vault:
 - Use --delete to remove tags from all notes
 - Use --rename with --to to rename tags across all notes
 - Use --dry-run to preview changes without making them
+- Use --workers to control parallelism (default: CPU count)
 
 Examples:
   obscli tags                           # List all tags
   obscli tags --delete work urgent      # Delete 'work' and 'urgent' tags
   obscli tags --rename old --to new     # Rename 'old' tag to 'new'
   obscli tags --rename foo bar --to baz # Rename both 'foo' and 'bar' to 'baz'
-  obscli tags --delete work --dry-run   # Preview deletion of 'work' tag`,
+  obscli tags --delete work --dry-run   # Preview deletion of 'work' tag
+  obscli tags --delete work --workers 4 # Delete with 4 parallel workers`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		markdownOutput, _ := cmd.Flags().GetBool("markdown")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		workers, _ := cmd.Flags().GetInt("workers")
 
 		deleteTags, _ := cmd.Flags().GetStringSlice("delete")
 		renameTags, _ := cmd.Flags().GetStringSlice("rename")
@@ -68,7 +72,7 @@ Examples:
 
 		// Handle delete operation
 		if len(deleteTags) > 0 {
-			summary, err := actions.DeleteTags(&vault, &note, deleteTags, dryRun)
+			summary, err := actions.DeleteTagsWithWorkers(&vault, &note, deleteTags, dryRun, workers)
 			if err != nil {
 				return fmt.Errorf("failed to delete tags: %w", err)
 			}
@@ -77,7 +81,7 @@ Examples:
 
 		// Handle rename operation
 		if len(renameTags) > 0 {
-			summary, err := actions.RenameTags(&vault, &note, renameTags, toTag, dryRun)
+			summary, err := actions.RenameTagsWithWorkers(&vault, &note, renameTags, toTag, dryRun, workers)
 			if err != nil {
 				return fmt.Errorf("failed to rename tags: %w", err)
 			}
@@ -222,5 +226,6 @@ func init() {
 	tagsCmd.Flags().StringSliceP("rename", "r", nil, "Rename specified tags (use with --to)")
 	tagsCmd.Flags().StringP("to", "t", "", "Destination tag name for rename operation")
 	tagsCmd.Flags().Bool("dry-run", false, "Show what would be changed without making changes")
+	tagsCmd.Flags().IntP("workers", "w", runtime.NumCPU(), "Number of parallel workers")
 	rootCmd.AddCommand(tagsCmd)
 }

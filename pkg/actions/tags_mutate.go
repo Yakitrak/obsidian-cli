@@ -1,10 +1,13 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
@@ -16,8 +19,203 @@ type TagMutationSummary struct {
 	FilesChanged []string       `json:"filesChanged,omitempty"`
 }
 
+// delta represents the result of processing a single file
+type delta struct {
+	notesTouched bool
+	tagChanges   map[string]int // tag → 1 if changed in this file
+	fileChanged  string         // empty if unchanged
+	err          error          // non-nil on any failure
+}
+
+// parallelProcessor defines the interface for processing files in parallel
+type parallelProcessor func(ctx context.Context, vaultPath, notePath string) delta
+
+// runInParallel processes files using a worker pool and aggregates results
+func runInParallel(ctx context.Context, cancel context.CancelFunc, vaultPath string, allNotes []string, processor parallelProcessor) (TagMutationSummary, error) {
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, allNotes, processor, runtime.NumCPU())
+}
+
+// runInParallelWithWorkers processes files using a worker pool with specified worker count
+func runInParallelWithWorkers(ctx context.Context, cancel context.CancelFunc, vaultPath string, allNotes []string, processor parallelProcessor, workerCount int) (TagMutationSummary, error) {
+	if workerCount < 1 {
+		workerCount = 1
+	}
+
+	jobs := make(chan string, len(allNotes))
+	results := make(chan delta, len(allNotes))
+
+	// Start workers
+	var wg sync.WaitGroup
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for notePath := range jobs {
+				select {
+				case <-ctx.Done():
+					return
+				case results <- processor(ctx, vaultPath, notePath):
+				}
+			}
+		}()
+	}
+
+	// Send jobs
+	go func() {
+		defer close(jobs)
+		for _, notePath := range allNotes {
+			select {
+			case <-ctx.Done():
+				return
+			case jobs <- notePath:
+			}
+		}
+	}()
+
+	// Close results when all workers are done
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Aggregate results
+	summary := TagMutationSummary{
+		TagChanges:   make(map[string]int),
+		FilesChanged: make([]string, 0),
+	}
+
+	var firstError error
+	var firstErrOnce sync.Once
+
+	for delta := range results {
+		if delta.err != nil {
+			firstErrOnce.Do(func() {
+				firstError = delta.err
+				// Cancel context to stop other workers
+				cancel()
+			})
+			continue
+		}
+
+		if delta.notesTouched {
+			summary.NotesTouched++
+		}
+
+		for tag, count := range delta.tagChanges {
+			summary.TagChanges[tag] += count
+		}
+
+		if delta.fileChanged != "" {
+			summary.FilesChanged = append(summary.FilesChanged, delta.fileChanged)
+		}
+	}
+
+	return summary, firstError
+}
+
+// processDeleteFile handles deletion of tags from a single file
+func processDeleteFile(tagsToDelete []string, dryRun bool) parallelProcessor {
+	return func(ctx context.Context, vaultPath, notePath string) delta {
+		select {
+		case <-ctx.Done():
+			return delta{err: ctx.Err()}
+		default:
+		}
+
+		full := filepath.Join(vaultPath, notePath)
+		data, err := os.ReadFile(full)
+		if err != nil {
+			// Skip files we can't read, don't treat as fatal error
+			return delta{}
+		}
+		content := string(data)
+
+		newContent, changed := obsidian.RemoveTags(content, tagsToDelete)
+		if !changed {
+			return delta{}
+		}
+
+		result := delta{
+			notesTouched: true,
+			tagChanges:   make(map[string]int),
+			fileChanged:  notePath,
+		}
+
+		// Track which tags were actually changed in this file
+		for _, tag := range tagsToDelete {
+			if hasTag(content, tag) {
+				result.tagChanges[tag] = 1
+			}
+		}
+
+		// Write the file if not dry run
+		if !dryRun {
+			err = obsidian.WriteFileAtomic(full, []byte(newContent), 0644)
+			if err != nil {
+				result.err = fmt.Errorf("failed to write file %s: %w", notePath, err)
+				return result
+			}
+		}
+
+		return result
+	}
+}
+
+// processRenameFile handles renaming of tags in a single file
+func processRenameFile(fromTags []string, toTag string, dryRun bool) parallelProcessor {
+	return func(ctx context.Context, vaultPath, notePath string) delta {
+		select {
+		case <-ctx.Done():
+			return delta{err: ctx.Err()}
+		default:
+		}
+
+		full := filepath.Join(vaultPath, notePath)
+		data, err := os.ReadFile(full)
+		if err != nil {
+			// Skip files we can't read, don't treat as fatal error
+			return delta{}
+		}
+		content := string(data)
+
+		newContent, changed := obsidian.ReplaceTags(content, fromTags, toTag)
+		if !changed {
+			return delta{}
+		}
+
+		result := delta{
+			notesTouched: true,
+			tagChanges:   make(map[string]int),
+			fileChanged:  notePath,
+		}
+
+		// Track which tags were actually changed in this file
+		for _, tag := range fromTags {
+			if hasTag(content, tag) {
+				result.tagChanges[tag] = 1
+			}
+		}
+
+		// Write the file if not dry run
+		if !dryRun {
+			err = obsidian.WriteFileAtomic(full, []byte(newContent), 0644)
+			if err != nil {
+				result.err = fmt.Errorf("failed to write file %s: %w", notePath, err)
+				return result
+			}
+		}
+
+		return result
+	}
+}
+
 // DeleteTags removes specified tags from all notes in the vault
 func DeleteTags(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToDelete []string, dryRun bool) (TagMutationSummary, error) {
+	return DeleteTagsWithWorkers(vault, note, tagsToDelete, dryRun, runtime.NumCPU())
+}
+
+// DeleteTagsWithWorkers removes specified tags from all notes in the vault using specified worker count
+func DeleteTagsWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToDelete []string, dryRun bool, workers int) (TagMutationSummary, error) {
 	if len(tagsToDelete) == 0 {
 		return TagMutationSummary{}, fmt.Errorf("no tags specified for deletion")
 	}
@@ -48,48 +246,20 @@ func DeleteTags(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToDe
 		return TagMutationSummary{}, fmt.Errorf("failed to get notes list: %w", err)
 	}
 
-	summary := TagMutationSummary{
-		TagChanges:   make(map[string]int),
-		FilesChanged: make([]string, 0),
-	}
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	for _, notePath := range allNotes {
-		full := filepath.Join(vaultPath, notePath)
-		data, err := os.ReadFile(full)
-		if err != nil {
-			continue // Skip notes we can't read
-		}
-		content := string(data)
-
-		newContent, changed := obsidian.RemoveTags(content, tagsToDelete)
-		if !changed {
-			continue
-		}
-
-		summary.NotesTouched++
-		summary.FilesChanged = append(summary.FilesChanged, notePath)
-
-		// Track which tags were actually changed in this file
-		for _, tag := range tagsToDelete {
-			if hasTag(content, tag) {
-				summary.TagChanges[tag]++
-			}
-		}
-
-		// Write the file if not dry run
-		if !dryRun {
-			err = obsidian.WriteFileAtomic(full, []byte(newContent), 0644)
-			if err != nil {
-				return summary, fmt.Errorf("failed to write file %s: %w", notePath, err)
-			}
-		}
-	}
-
-	return summary, nil
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, allNotes, processDeleteFile(tagsToDelete, dryRun), workers)
 }
 
 // RenameTags replaces specified tags with a new tag in all notes in the vault
 func RenameTags(vault obsidian.VaultManager, note obsidian.NoteManager, fromTags []string, toTag string, dryRun bool) (TagMutationSummary, error) {
+	return RenameTagsWithWorkers(vault, note, fromTags, toTag, dryRun, runtime.NumCPU())
+}
+
+// RenameTagsWithWorkers replaces specified tags with a new tag in all notes in the vault using specified worker count
+func RenameTagsWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManager, fromTags []string, toTag string, dryRun bool, workers int) (TagMutationSummary, error) {
 	if len(fromTags) == 0 {
 		return TagMutationSummary{}, fmt.Errorf("no source tags specified for rename")
 	}
@@ -135,44 +305,11 @@ func RenameTags(vault obsidian.VaultManager, note obsidian.NoteManager, fromTags
 		return TagMutationSummary{}, fmt.Errorf("failed to get notes list: %w", err)
 	}
 
-	summary := TagMutationSummary{
-		TagChanges:   make(map[string]int),
-		FilesChanged: make([]string, 0),
-	}
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	for _, notePath := range allNotes {
-		full := filepath.Join(vaultPath, notePath)
-		data, err := os.ReadFile(full)
-		if err != nil {
-			continue // Skip notes we can't read
-		}
-		content := string(data)
-
-		newContent, changed := obsidian.ReplaceTags(content, fromTags, toTag)
-		if !changed {
-			continue
-		}
-
-		summary.NotesTouched++
-		summary.FilesChanged = append(summary.FilesChanged, notePath)
-
-		// Track which tags were actually changed in this file
-		for _, tag := range fromTags {
-			if hasTag(content, tag) {
-				summary.TagChanges[tag]++
-			}
-		}
-
-		// Write the file if not dry run
-		if !dryRun {
-			err = obsidian.WriteFileAtomic(full, []byte(newContent), 0644)
-			if err != nil {
-				return summary, fmt.Errorf("failed to write file %s: %w", notePath, err)
-			}
-		}
-	}
-
-	return summary, nil
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, allNotes, processRenameFile(fromTags, toTag, dryRun), workers)
 }
 
 // isValidTagForOperation checks if a tag is valid for mutation operations
