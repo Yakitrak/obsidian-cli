@@ -88,7 +88,7 @@ Open daily note in Obsidian. It will create one (using template) if one does not
 obsidian-cli daily
 
 # Creates / opens daily note in specified obsidian vault
-obsidian-cli dauly --vault "{vault-name}"
+obsidian-cli daily --vault "{vault-name}"
 
 ```
 
@@ -163,11 +163,108 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --open
 Deletes a given note (path from top level of vault).
 
 ```bash
-# Renames a note in default obsidian
+# Deletes a note in default obsidian
 obsidian-cli delete "{note-path}"
 
-# Renames a note in given obsidian
+# Deletes a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
+```
+
+### List Files
+
+List files in your vault with various filtering options. Files can be filtered by folder, filename patterns, or tags.
+
+```bash
+# List files in the Notes folder
+obsidian-cli list Notes
+
+# Find files with "project" in the filename
+obsidian-cli list find:project
+
+# Find notes tagged with "career-pathing"
+obsidian-cli list tag:career-pathing
+
+# Find notes tagged with "career-pathing" and follow wikilinks 2 levels deep
+obsidian-cli list tag:"career-pathing" -d 2
+
+# Find notes containing "project" and follow links, skipping anchored links
+obsidian-cli list find:project -f --skip-anchors
+
+# Find notes containing "notes" and follow links, skipping embedded links
+obsidian-cli list find:notes -f --skip-embeds
+```
+
+### File Information
+
+Show detailed information about a file including its frontmatter and all tags.
+
+```bash
+# Show file info in default vault
+obsidian-cli info "Notes/Project.md"
+
+# Show file info in specified vault
+obsidian-cli info "Notes/Project.md" --vault "{vault-name}"
+```
+
+### Prompt (LLM Format)
+
+List files with contents formatted for LLM consumption. Similar to the list command but outputs file contents in a format optimized for LLMs. When run in a terminal, the output is automatically copied to clipboard.
+
+**Tag Suppression**: By default, files tagged with `no-prompt` are excluded from output. This behavior can be controlled with `--suppress-tags` and `--no-suppress` flags.
+
+```bash
+# Format files in the Notes folder for LLM consumption
+obsidian-cli prompt Notes
+
+# Find and format files with "joe" in the filename
+obsidian-cli prompt find:joe
+
+# Find and format notes tagged with "career-pathing"
+obsidian-cli prompt tag:career-pathing
+
+# Find and format notes with tag, following links 2 levels deep
+obsidian-cli prompt tag:"career-pathing" -d 2
+
+# Find and format notes with "project", following links but skipping anchors
+obsidian-cli prompt find:project -f --skip-anchors
+
+# Tag suppression examples
+obsidian-cli prompt tag:work --suppress-tags private,draft    # Exclude files with private or draft tags
+obsidian-cli prompt Notes --no-suppress                       # Don't exclude any tags (including no-prompt)
+obsidian-cli prompt find:project --suppress-tags no-prompt,private  # Custom suppression list
+```
+
+### Manage Tags
+
+List, delete, or rename tags across your vault. By default, shows all tags with individual and aggregate counts.
+
+**Note:** Delete and rename operations only affect tags with non-zero "Indiv" counts (exact tag matches). Tags with zero individual count are parent tags in hierarchies (e.g., `context` when only `context/work` exists) and won't be modified.
+
+```bash
+# List all tags with counts
+obsidian-cli tags
+
+# List tags as JSON
+obsidian-cli tags --json
+
+# List tags as markdown table
+obsidian-cli tags --markdown
+
+# Delete specific tags from all notes (multiple syntaxes supported)
+obsidian-cli tags --delete work urgent              # Space-separated
+obsidian-cli tags --delete work,urgent              # Comma-separated
+obsidian-cli tags --delete work --delete urgent     # Repeated flags
+
+# Rename tags across all notes (multiple syntaxes supported)
+obsidian-cli tags --rename old --to new
+obsidian-cli tags --rename foo bar --to baz         # Multiple source tags
+obsidian-cli tags --rename foo,bar --to baz         # Comma-separated
+
+# Preview changes without making them
+obsidian-cli tags --delete work urgent --dry-run
+
+# Control parallelism with custom worker count
+obsidian-cli tags --delete work urgent --workers 4
 ```
 
 ## YAML formatting changes when editing tags

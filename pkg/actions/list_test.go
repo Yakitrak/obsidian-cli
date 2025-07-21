@@ -628,7 +628,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			name:  "find input with depth traversal - checks callback behavior",
 			files: []string{"weekly/2025-W12.md", "daily/2025-03-17.md", "daily/2025-03-18.md", "daily/2025-03-19.md"},
 			fileContents: map[string]string{
-				"weekly/2025-W12.md": "Weekly note with links to [[daily/2025-03-17]], [[daily/2025-03-18]], and [[daily/2025-03-19]]",
+				"weekly/2025-W12.md":  "Weekly note with links to [[daily/2025-03-17]], [[daily/2025-03-18]], and [[daily/2025-03-19]]",
 				"daily/2025-03-17.md": "Daily note for Monday",
 				"daily/2025-03-18.md": "Daily note for Tuesday",
 				"daily/2025-03-19.md": "Daily note for Wednesday",
@@ -645,8 +645,8 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			name:  "skip anchored links",
 			files: []string{"project.md", "tasks.md", "section1.md", "section2.md"},
 			fileContents: map[string]string{
-				"project.md": "Project with links to [[tasks]] and sections [[section1#details]], [[section2#summary]]",
-				"tasks.md":   "Tasks related to the project",
+				"project.md":  "Project with links to [[tasks]] and sections [[section1#details]], [[section2#summary]]",
+				"tasks.md":    "Tasks related to the project",
 				"section1.md": "Section 1 details",
 				"section2.md": "Section 2 summary",
 			},
@@ -705,6 +705,289 @@ func TestListFilesWithWikilinks(t *testing.T) {
 				FollowLinks: tt.followLinks,
 				MaxDepth:    tt.maxDepth,
 				SkipAnchors: tt.skipAnchors,
+			})
+
+			// Verify results
+			assert.NoError(t, err)
+			assert.ElementsMatch(t, tt.expected, result)
+
+			// Verify all mock expectations were met
+			mockVault.AssertExpectations(t)
+			mockNote.AssertExpectations(t)
+		})
+	}
+}
+
+// Test cases for tag suppression functionality
+func TestHasAnySuppressedTags(t *testing.T) {
+	tests := []struct {
+		name           string
+		content        string
+		suppressedTags []string
+		expected       bool
+	}{
+		{
+			name:           "no suppressed tags",
+			content:        "Regular content",
+			suppressedTags: []string{},
+			expected:       false,
+		},
+		{
+			name:           "nil suppressed tags",
+			content:        "Regular content",
+			suppressedTags: nil,
+			expected:       false,
+		},
+		{
+			name:           "hashtag matches suppressed tag",
+			content:        "Content with #no-prompt tag",
+			suppressedTags: []string{"no-prompt"},
+			expected:       true,
+		},
+		{
+			name:           "frontmatter tag matches suppressed tag",
+			content:        "---\ntags: [no-prompt, work]\n---\nContent",
+			suppressedTags: []string{"no-prompt"},
+			expected:       true,
+		},
+		{
+			name:           "case insensitive matching",
+			content:        "Content with #No-Prompt tag",
+			suppressedTags: []string{"no-prompt"},
+			expected:       true,
+		},
+		{
+			name:           "multiple suppressed tags, one matches",
+			content:        "Content with #private tag",
+			suppressedTags: []string{"no-prompt", "private", "draft"},
+			expected:       true,
+		},
+		{
+			name:           "no matching tags",
+			content:        "Content with #work tag",
+			suppressedTags: []string{"no-prompt", "private"},
+			expected:       false,
+		},
+		{
+			name:           "mixed frontmatter and hashtag",
+			content:        "---\ntags: [work, project]\n---\nContent with #private",
+			suppressedTags: []string{"private"},
+			expected:       true,
+		},
+		{
+			name:           "hierarchical tag matching",
+			content:        "Content with #context/private",
+			suppressedTags: []string{"context/private"},
+			expected:       true,
+		},
+		{
+			name:           "whitespace in suppressed tags",
+			content:        "Content with #no-prompt",
+			suppressedTags: []string{" no-prompt ", ""},
+			expected:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasAnySuppressedTags(tt.content, tt.suppressedTags)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFilterSuppressedFiles(t *testing.T) {
+	tests := []struct {
+		name           string
+		files          []string
+		fileContents   map[string]string
+		suppressedTags []string
+		expected       []string
+	}{
+		{
+			name:  "no suppressed tags",
+			files: []string{"note1.md", "note2.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content",
+				"note2.md": "Content with #work",
+			},
+			suppressedTags: []string{},
+			expected:       []string{"note1.md", "note2.md"},
+		},
+		{
+			name:  "filter no-prompt tag",
+			files: []string{"note1.md", "note2.md", "note3.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content",
+				"note2.md": "Content with #no-prompt",
+				"note3.md": "Content with #work",
+			},
+			suppressedTags: []string{"no-prompt"},
+			expected:       []string{"note1.md", "note3.md"},
+		},
+		{
+			name:  "filter multiple tags",
+			files: []string{"note1.md", "note2.md", "note3.md", "note4.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content",
+				"note2.md": "---\ntags: [no-prompt]\n---\nContent",
+				"note3.md": "Content with #private",
+				"note4.md": "Content with #work",
+			},
+			suppressedTags: []string{"no-prompt", "private"},
+			expected:       []string{"note1.md", "note4.md"},
+		},
+		{
+			name:  "include file on read error",
+			files: []string{"note1.md", "note2.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content with #no-prompt",
+				// note2.md will cause a read error
+			},
+			suppressedTags: []string{"no-prompt"},
+			expected:       []string{"note2.md"}, // included despite error
+		},
+		{
+			name:  "case insensitive filtering",
+			files: []string{"note1.md", "note2.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content with #No-Prompt",
+				"note2.md": "Content with #work",
+			},
+			suppressedTags: []string{"no-prompt"},
+			expected:       []string{"note2.md"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock note manager
+			mockNote := &MockNoteManager{}
+
+			// Only setup mocks if we have suppressed tags (otherwise function returns early)
+			if len(tt.suppressedTags) > 0 {
+				// Setup mock expectations
+				for file, content := range tt.fileContents {
+					mockNote.On("GetContents", "/test/vault", file).Return(content, nil)
+				}
+
+				// For files not in fileContents, return an error to simulate read failure
+				for _, file := range tt.files {
+					if _, exists := tt.fileContents[file]; !exists {
+						mockNote.On("GetContents", "/test/vault", file).Return("", errors.New("read error"))
+					}
+				}
+			}
+
+			result := filterSuppressedFiles(tt.files, "/test/vault", mockNote, tt.suppressedTags)
+			assert.ElementsMatch(t, tt.expected, result)
+
+			mockNote.AssertExpectations(t)
+		})
+	}
+}
+
+func TestListFilesWithSuppressedTags(t *testing.T) {
+	tests := []struct {
+		name           string
+		files          []string
+		fileContents   map[string]string
+		inputs         []ListInput
+		suppressedTags []string
+		expected       []string
+	}{
+		{
+			name:  "default no-prompt suppression",
+			files: []string{"note1.md", "note2.md", "note3.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content",
+				"note2.md": "Content with #no-prompt",
+				"note3.md": "Content with #work",
+			},
+			inputs: []ListInput{
+				{Type: InputTypeFile, Value: "*"},
+			},
+			suppressedTags: []string{"no-prompt"},
+			expected:       []string{"note1.md", "note3.md"},
+		},
+		{
+			name:  "tag search with suppression",
+			files: []string{"note1.md", "note2.md", "note3.md", "note4.md"},
+			fileContents: map[string]string{
+				"note1.md": "---\ntags: [work]\n---\nContent",
+				"note2.md": "---\ntags: [work, no-prompt]\n---\nContent",
+				"note3.md": "Content with #work",
+				"note4.md": "Content with #other",
+			},
+			inputs: []ListInput{
+				{Type: InputTypeTag, Value: "work"},
+			},
+			suppressedTags: []string{"no-prompt"},
+			expected:       []string{"note1.md", "note3.md"}, // note2.md excluded despite having work tag
+		},
+		{
+			name:  "multiple suppressed tags",
+			files: []string{"note1.md", "note2.md", "note3.md", "note4.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content",
+				"note2.md": "Content with #no-prompt",
+				"note3.md": "Content with #private",
+				"note4.md": "Content with #draft",
+			},
+			inputs: []ListInput{
+				{Type: InputTypeFile, Value: "*"},
+			},
+			suppressedTags: []string{"no-prompt", "private", "draft"},
+			expected:       []string{"note1.md"},
+		},
+		{
+			name:  "no suppression",
+			files: []string{"note1.md", "note2.md", "note3.md"},
+			fileContents: map[string]string{
+				"note1.md": "Content",
+				"note2.md": "Content with #no-prompt",
+				"note3.md": "Content with #private",
+			},
+			inputs: []ListInput{
+				{Type: InputTypeFile, Value: "*"},
+			},
+			suppressedTags: []string{}, // no suppression
+			expected:       []string{"note1.md", "note2.md", "note3.md"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock vault and note managers
+			mockVault := &MockVaultManager{}
+			mockNote := &MockNoteManager{}
+
+			// Setup mock expectations
+			mockVault.On("Path").Return("/test/vault", nil)
+			mockNote.On("GetNotesList", "/test/vault").Return(tt.files, nil)
+
+			// Setup content expectations for tag inputs
+			for _, input := range tt.inputs {
+				if input.Type == InputTypeTag {
+					for _, file := range tt.files {
+						content := tt.fileContents[file]
+						mockNote.On("GetContents", "/test/vault", file).Return(content, nil).Maybe()
+					}
+				}
+			}
+
+			// Setup content expectations for suppression filtering
+			if len(tt.suppressedTags) > 0 {
+				for file, content := range tt.fileContents {
+					mockNote.On("GetContents", "/test/vault", file).Return(content, nil).Maybe()
+				}
+			}
+
+			// Run the test
+			result, err := ListFiles(mockVault, mockNote, ListParams{
+				Inputs:         tt.inputs,
+				SuppressedTags: tt.suppressedTags,
+				FollowLinks:    false,
 			})
 
 			// Verify results

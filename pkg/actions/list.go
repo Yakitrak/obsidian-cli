@@ -27,13 +27,14 @@ type ListInput struct {
 
 // ListParams represents parameters for listing files
 type ListParams struct {
-	Inputs        []ListInput  // List of inputs to process
-	FollowLinks   bool         // Whether to follow wiki links
-	MaxDepth      int          // Maximum depth for following links
-	SkipAnchors   bool         // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
-	SkipEmbeds    bool         // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
-	AbsolutePaths bool         // Whether to return absolute paths
-	OnMatch       func(string) // Callback function to report matches as they're found
+	Inputs         []ListInput  // List of inputs to process
+	FollowLinks    bool         // Whether to follow wiki links
+	MaxDepth       int          // Maximum depth for following links
+	SkipAnchors    bool         // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
+	SkipEmbeds     bool         // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
+	AbsolutePaths  bool         // Whether to return absolute paths
+	SuppressedTags []string     // Tags to exclude from results
+	OnMatch        func(string) // Callback function to report matches as they're found
 }
 
 // ParseInputs parses command-line arguments into ListInput objects.
@@ -95,6 +96,61 @@ func debugf(format string, args ...interface{}) {
 	}
 }
 
+// hasAnySuppressedTags checks if a file contains any of the suppressed tags
+func hasAnySuppressedTags(content string, suppressedTags []string) bool {
+	if len(suppressedTags) == 0 {
+		return false
+	}
+
+	// Extract all tags from the file
+	allTags := extractAllTags(content)
+
+	// Normalize suppressed tags for comparison
+	normalizedSuppressed := make(map[string]bool)
+	for _, tag := range suppressedTags {
+		normalized := strings.ToLower(strings.TrimSpace(tag))
+		if normalized != "" {
+			normalizedSuppressed[normalized] = true
+		}
+	}
+
+	// Check if any tag in the file matches a suppressed tag
+	for _, tag := range allTags {
+		normalized := strings.ToLower(strings.TrimSpace(tag))
+		if normalizedSuppressed[normalized] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// filterSuppressedFiles removes files that contain suppressed tags
+func filterSuppressedFiles(files []string, vaultPath string, note obsidian.NoteManager, suppressedTags []string) []string {
+	if len(suppressedTags) == 0 {
+		return files
+	}
+
+	var filtered []string
+	for _, file := range files {
+		content, err := note.GetContents(vaultPath, file)
+		if err != nil {
+			debugf("Error reading file %s for suppression check: %v\n", file, err)
+			// Include the file if we can't read it (safer default)
+			filtered = append(filtered, file)
+			continue
+		}
+
+		if !hasAnySuppressedTags(content, suppressedTags) {
+			filtered = append(filtered, file)
+		} else {
+			debugf("Suppressing file %s due to suppressed tags\n", file)
+		}
+	}
+
+	return filtered
+}
+
 // ListFiles is the main function that lists files based on the provided parameters
 func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params ListParams) ([]string, error) {
 	vaultPath, err := vault.Path()
@@ -111,10 +167,19 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 	matches := processInputs(allNotes, vaultPath, note, params)
 	debugf("Found %d initial matching files\n", len(matches))
 
+	// Filter out suppressed files
+	matches = filterSuppressedFiles(matches, vaultPath, note, params.SuppressedTags)
+	debugf("After suppression filtering: %d files\n", len(matches))
+
 	// If following links, get all connected files
 	if params.FollowLinks {
 		linkedFiles := followMatchedFiles(matches, vaultPath, note, params)
 		debugf("Found %d total files after following links\n", len(linkedFiles))
+
+		// Apply suppression filter to linked files as well
+		linkedFiles = filterSuppressedFiles(linkedFiles, vaultPath, note, params.SuppressedTags)
+		debugf("After suppression filtering linked files: %d files\n", len(linkedFiles))
+
 		// Call OnMatch for each linked file
 		debugf("Notifying OnMatch with %d files\n", len(linkedFiles))
 		notifyMatches(linkedFiles, params.OnMatch)

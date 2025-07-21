@@ -15,11 +15,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	suppressTags []string
+	noSuppress   bool
+)
+
 var promptCmd = &cobra.Command{
 	Use:   "prompt",
 	Short: "List files in vault with contents formatted for LLM consumption, such as tag:a-tag or find:a-filename-pattern",
 	Long: `List files in your Obsidian vault with contents formatted for LLM consumption.
 Similar to the list command, but outputs file contents in a format optimized for LLMs.
+
+By default, files tagged with "no-prompt" are excluded from output. This can be controlled with --suppress-tags and --no-suppress flags.
 
 Examples:
   obsidian-cli prompt Notes  					 						# the Notes folder
@@ -30,17 +37,19 @@ Examples:
   obsidian-cli prompt find:project -f --skip-anchors   # Notes containing "project" and notes they link to, excluding links with section anchors
   obsidian-cli prompt find:notes -f --skip-embeds      # Notes containing "notes" and notes they link to, excluding embedded links
   obsidian-cli prompt find:docs -f --skip-anchors --skip-embeds  # Skip both anchored and embedded links
+  obsidian-cli prompt tag:foo --suppress-tags private,draft     # Find tag:foo but exclude files with private or draft tags
+  obsidian-cli prompt Notes --no-suppress                        # Don't exclude any tags (including no-prompt)
 	`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Enable debug output if debug flag is set
 		actions.Debug = debug
-		
+
 		// If maxDepth is greater than 0, enable followLinks
 		if maxDepth > 0 {
 			followLinks = true
 		}
-		
+
 		// Check if any inputs were provided
 		if len(args) == 0 {
 			fmt.Fprintf(os.Stderr, "Error: at least one input is required\n")
@@ -66,6 +75,18 @@ Examples:
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			os.Exit(1)
+		}
+
+		// Configure suppressed tags
+		var suppressedTags []string
+		if !noSuppress {
+			// Default suppression
+			suppressedTags = append(suppressedTags, "no-prompt")
+			// Add any additional suppressed tags
+			suppressedTags = append(suppressedTags, suppressTags...)
+		} else if len(suppressTags) > 0 {
+			// Only use explicitly specified tags when --no-suppress is used
+			suppressedTags = suppressTags
 		}
 
 		// Create a map to track unique files
@@ -95,6 +116,9 @@ Examples:
 					fmt.Fprintf(os.Stderr, "Including file %q\n", input.Value)
 				}
 			}
+			if len(suppressedTags) > 0 {
+				fmt.Fprintf(os.Stderr, "Suppressing files with tags: %v\n", suppressedTags)
+			}
 		}
 
 		// Print the vault header
@@ -102,12 +126,13 @@ Examples:
 
 		// Call ListFiles with a callback to print files as they're found
 		_, err = actions.ListFiles(&vault, &note, actions.ListParams{
-			Inputs:        inputs,
-			FollowLinks:   followLinks,
-			MaxDepth:      maxDepth,
-			SkipAnchors:   skipAnchors,
-			SkipEmbeds:    skipEmbeds,
-			AbsolutePaths: absolutePaths,
+			Inputs:         inputs,
+			FollowLinks:    followLinks,
+			MaxDepth:       maxDepth,
+			SkipAnchors:    skipAnchors,
+			SkipEmbeds:     skipEmbeds,
+			AbsolutePaths:  absolutePaths,
+			SuppressedTags: suppressedTags,
 			OnMatch: func(file string) {
 				printMu.Lock()
 				if !uniqueFiles[file] {
@@ -161,5 +186,7 @@ func init() {
 	promptCmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
 	promptCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
 	promptCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
+	promptCmd.Flags().StringSliceVar(&suppressTags, "suppress-tags", nil, "additional tags to suppress/exclude from output (comma-separated)")
+	promptCmd.Flags().BoolVar(&noSuppress, "no-suppress", false, "disable all tag suppression, including default no-prompt tag")
 	rootCmd.AddCommand(promptCmd)
 }

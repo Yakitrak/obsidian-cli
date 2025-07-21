@@ -43,6 +43,16 @@ Examples:
 		renameTags, _ := cmd.Flags().GetStringSlice("rename")
 		toTag, _ := cmd.Flags().GetString("to")
 
+		// Support space-separated tags as positional arguments
+		// If --delete or --rename was used and we have positional args, merge them
+		if len(args) > 0 {
+			if len(deleteTags) > 0 {
+				deleteTags = append(deleteTags, args...)
+			} else if len(renameTags) > 0 {
+				renameTags = append(renameTags, args...)
+			}
+		}
+
 		// Validate flag combinations
 		if len(deleteTags) > 0 && len(renameTags) > 0 {
 			return fmt.Errorf("cannot use --delete and --rename together")
