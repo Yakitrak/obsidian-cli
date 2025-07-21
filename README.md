@@ -278,6 +278,81 @@ When tag-editing operations (delete/rename) touch the YAML front-matter, the blo
 
 This is cosmetic—note content is unaffected—but if you rely on exact front-matter formatting be aware the tool will produce canonical YAML instead of preserving original whitespace/comments.
 
+## MCP Server
+
+Obsidian CLI can run as a Model Context Protocol (MCP) server, exposing its functionality as tools that can be used by MCP clients like Claude Desktop, Cursor, or VS Code.
+
+### What is MCP?
+
+The Model Context Protocol (MCP) is a protocol that allows AI assistants to interact with external tools and data sources in a standardized way. When obsidian-cli runs as an MCP server, AI assistants can use its commands as tools to interact with your Obsidian vault.
+
+### Starting the MCP Server
+
+```bash
+# Start MCP server for default vault
+obsidian-cli mcp
+
+# Start MCP server for specific vault
+obsidian-cli mcp --vault "MyVault"
+
+# Start with debug output
+obsidian-cli mcp --debug
+
+# Suppress specific tags from results
+obsidian-cli mcp --suppress-tags "no-prompt,private"
+
+# Allow all tags (disable default suppression)
+obsidian-cli mcp --no-suppress
+```
+
+### Available MCP Tools
+
+The MCP server exposes the following tools:
+
+- **`list_files`**: List files matching inputs (find:pattern, tag:tagname, or literal folder/file names)
+- **`file_info`**: Get information about a specific file (word count, dates, tags, etc.)
+- **`print_note`**: Print the full contents of a note file
+- **`search_text`**: Search for text within all notes in the vault
+- **`list_tags`**: List all tags found in the vault
+- **`open_in_os`**: Open a file in the default operating system application
+- **`daily_note_path`**: Get the path to a daily note for a specific date
+
+### Claude Desktop Configuration
+
+To use obsidian-cli as an MCP server with Claude Desktop, add this to your Claude configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "obsidian-cli": {
+      "command": "/path/to/obsidian-cli",
+      "args": ["mcp", "--vault", "YourVaultName"]
+    }
+  }
+}
+```
+
+Replace `/path/to/obsidian-cli` with the actual path to your obsidian-cli executable and `YourVaultName` with your vault name.
+
+### Other MCP Clients
+
+The MCP server works with any MCP-compatible client. The server communicates over stdin/stdout using the standard MCP protocol.
+
+### Example Usage in AI Assistants
+
+Once configured, you can ask AI assistants to:
+
+- "List all notes tagged with 'project'"
+- "Show me the contents of my daily note"
+- "Search for notes containing 'meeting notes'"
+- "What tags are available in my vault?"
+- "Show me information about the file 'Ideas/New Project.md'"
+
+The AI assistant will use the appropriate MCP tools to interact with your Obsidian vault and provide the requested information.
+
 ## Contribution
 
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.

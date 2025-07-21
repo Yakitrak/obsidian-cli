@@ -46,6 +46,9 @@ github.com/gdamore/tcell/v2/terminfo/w/wy99_ansi
 github.com/gdamore/tcell/v2/terminfo/x/xfce
 github.com/gdamore/tcell/v2/terminfo/x/xterm
 github.com/gdamore/tcell/v2/terminfo/x/xterm_kitty
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
 # github.com/inconshreveable/mousetrap v1.1.0
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
@@ -60,6 +63,11 @@ github.com/ktr0731/go-fuzzyfinder/scoring
 # github.com/lucasb-eyer/go-colorful v1.2.0
 ## explicit; go 1.12
 github.com/lucasb-eyer/go-colorful
+# github.com/mark3labs/mcp-go v0.34.0
+## explicit; go 1.23
+github.com/mark3labs/mcp-go/mcp
+github.com/mark3labs/mcp-go/server
+github.com/mark3labs/mcp-go/util
 # github.com/mattn/go-runewidth v0.0.16
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
@@ -78,6 +86,9 @@ github.com/rivo/uniseg
 # github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 ## explicit
 github.com/skratchdot/open-golang/open
+# github.com/spf13/cast v1.7.1
+## explicit; go 1.19
+github.com/spf13/cast
 # github.com/spf13/cobra v1.8.1
 ## explicit; go 1.15
 github.com/spf13/cobra
@@ -92,8 +103,11 @@ github.com/stretchr/objx
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/mock
-# golang.org/x/sys v0.28.0
-## explicit; go 1.18
+# github.com/yosida95/uritemplate/v3 v3.0.2
+## explicit; go 1.14
+github.com/yosida95/uritemplate/v3
+# golang.org/x/sys v0.34.0
+## explicit; go 1.23.0
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
