@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
@@ -12,14 +13,44 @@ import (
 
 var tagsCmd = &cobra.Command{
 	Use:   "tags",
-	Short: "List all tags in the vault",
-	Long: `List all tags found in the vault, showing both individual counts (notes that contain this exact tag)
-and aggregate counts (notes that contain this tag or any descendant tag).
+	Short: "List, delete, or rename tags in the vault",
+	Long: `Manage tags in the vault. By default, lists all tags found in the vault, showing both individual counts 
+(notes that contain this exact tag) and aggregate counts (notes that contain this tag or any descendant tag).
 
-Tags are sorted by aggregate count in descending order, with hierarchical tags grouped together.`,
+Tags are sorted by aggregate count in descending order, with hierarchical tags grouped together.
+
+You can also delete or rename tags across all notes in the vault:
+- Use --delete to remove tags from all notes
+- Use --rename with --to to rename tags across all notes
+- Use --dry-run to preview changes without making them
+
+Examples:
+  obscli tags                           # List all tags
+  obscli tags --delete work urgent      # Delete 'work' and 'urgent' tags
+  obscli tags --rename old --to new     # Rename 'old' tag to 'new'
+  obscli tags --rename foo bar --to baz # Rename both 'foo' and 'bar' to 'baz'
+  obscli tags --delete work --dry-run   # Preview deletion of 'work' tag`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		markdownOutput, _ := cmd.Flags().GetBool("markdown")
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+
+		deleteTags, _ := cmd.Flags().GetStringSlice("delete")
+		renameTags, _ := cmd.Flags().GetStringSlice("rename")
+		toTag, _ := cmd.Flags().GetString("to")
+
+		// Validate flag combinations
+		if len(deleteTags) > 0 && len(renameTags) > 0 {
+			return fmt.Errorf("cannot use --delete and --rename together")
+		}
+
+		if len(renameTags) > 0 && toTag == "" {
+			return fmt.Errorf("--rename requires --to destination tag")
+		}
+
+		if len(deleteTags) == 0 && len(renameTags) == 0 && toTag != "" {
+			return fmt.Errorf("--to can only be used with --rename")
+		}
 
 		// If no vault name is provided, get the default vault name
 		if vaultName == "" {
@@ -35,7 +66,25 @@ Tags are sorted by aggregate count in descending order, with hierarchical tags g
 		vault := obsidian.Vault{Name: vaultName}
 		note := obsidian.Note{}
 
-		// Get tags
+		// Handle delete operation
+		if len(deleteTags) > 0 {
+			summary, err := actions.DeleteTags(&vault, &note, deleteTags, dryRun)
+			if err != nil {
+				return fmt.Errorf("failed to delete tags: %w", err)
+			}
+			return outputMutationSummary(summary, "delete", dryRun, jsonOutput, markdownOutput)
+		}
+
+		// Handle rename operation
+		if len(renameTags) > 0 {
+			summary, err := actions.RenameTags(&vault, &note, renameTags, toTag, dryRun)
+			if err != nil {
+				return fmt.Errorf("failed to rename tags: %w", err)
+			}
+			return outputMutationSummary(summary, "rename", dryRun, jsonOutput, markdownOutput)
+		}
+
+		// Default: list tags
 		tagSummaries, err := actions.Tags(&vault, &note)
 		if err != nil {
 			return fmt.Errorf("failed to get tags: %w", err)
@@ -95,9 +144,83 @@ func outputTagsMarkdown(tagSummaries []actions.TagSummary) error {
 	return nil
 }
 
+func outputMutationSummary(summary actions.TagMutationSummary, operation string, dryRun bool, jsonOutput bool, markdownOutput bool) error {
+	if jsonOutput {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(summary)
+	}
+
+	if markdownOutput {
+		return outputMutationSummaryMarkdown(summary, operation, dryRun)
+	}
+
+	return outputMutationSummaryTable(summary, operation, dryRun)
+}
+
+func outputMutationSummaryTable(summary actions.TagMutationSummary, operation string, dryRun bool) error {
+	verb := operation + "d"
+	if dryRun {
+		verb = "would " + operation
+	}
+
+	if summary.NotesTouched == 0 {
+		fmt.Printf("No tags %s.\n", verb)
+		return nil
+	}
+
+	fmt.Printf("%s tags in %d note(s):\n", strings.ToUpper(string(verb[0]))+verb[1:], summary.NotesTouched)
+
+	if len(summary.TagChanges) > 0 {
+		fmt.Println("\nTag changes:")
+		for tag, count := range summary.TagChanges {
+			fmt.Printf("  %s: %d note(s)\n", tag, count)
+		}
+	}
+
+	if !dryRun && len(summary.FilesChanged) > 0 {
+		fmt.Printf("\nFiles modified: %d\n", len(summary.FilesChanged))
+	}
+
+	return nil
+}
+
+func outputMutationSummaryMarkdown(summary actions.TagMutationSummary, operation string, dryRun bool) error {
+	verb := operation + "d"
+	if dryRun {
+		verb = "would " + operation
+	}
+
+	if summary.NotesTouched == 0 {
+		fmt.Printf("No tags %s.\n", verb)
+		return nil
+	}
+
+	fmt.Printf("## %s tags in %d note(s)\n\n", strings.ToUpper(string(verb[0]))+verb[1:], summary.NotesTouched)
+
+	if len(summary.TagChanges) > 0 {
+		fmt.Println("| Tag | Notes Changed |")
+		fmt.Println("|-----|---------------|")
+		for tag, count := range summary.TagChanges {
+			fmt.Printf("| %s | %d |\n", tag, count)
+		}
+		fmt.Println()
+	}
+
+	if !dryRun && len(summary.FilesChanged) > 0 {
+		fmt.Printf("**Files modified:** %d\n", len(summary.FilesChanged))
+	}
+
+	return nil
+}
+
 func init() {
 	tagsCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	tagsCmd.Flags().Bool("json", false, "Output tags as JSON")
 	tagsCmd.Flags().Bool("markdown", false, "Output tags as markdown table")
+	tagsCmd.Flags().StringSliceP("delete", "d", nil, "Delete specified tags from all notes")
+	tagsCmd.Flags().StringSliceP("rename", "r", nil, "Rename specified tags (use with --to)")
+	tagsCmd.Flags().StringP("to", "t", "", "Destination tag name for rename operation")
+	tagsCmd.Flags().Bool("dry-run", false, "Show what would be changed without making changes")
 	rootCmd.AddCommand(tagsCmd)
 }
