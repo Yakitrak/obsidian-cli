@@ -14,25 +14,28 @@ import (
 
 var tagsCmd = &cobra.Command{
 	Use:   "tags",
-	Short: "List, delete, or rename tags in the vault",
+	Short: "List, add, delete, or rename tags in the vault",
 	Long: `Manage tags in the vault. By default, lists all tags found in the vault, showing both individual counts 
 (notes that contain this exact tag) and aggregate counts (notes that contain this tag or any descendant tag).
 
 Tags are sorted by aggregate count in descending order, with hierarchical tags grouped together.
 
-You can also delete or rename tags across all notes in the vault:
-- Use --delete to remove tags from all notes
-- Use --rename with --to to rename tags across all notes
+You can also add, delete, or rename tags:
+- Use --add to add tags to specific notes (requires input criteria)
+- Use --delete to remove tags from all notes that have them
+- Use --rename with --to to rename tags across all notes that have them
 - Use --dry-run to preview changes without making them
 - Use --workers to control parallelism (default: CPU count)
 
 Examples:
-  obscli tags                           # List all tags
-  obscli tags --delete work urgent      # Delete 'work' and 'urgent' tags
-  obscli tags --rename old --to new     # Rename 'old' tag to 'new'
-  obscli tags --rename foo bar --to baz # Rename both 'foo' and 'bar' to 'baz'
-  obscli tags --delete work --dry-run   # Preview deletion of 'work' tag
-  obscli tags --delete work --workers 4 # Delete with 4 parallel workers`,
+  obscli tags                                    # List all tags
+  obscli tags --add work,urgent tag:project     # Add 'work' and 'urgent' tags to notes tagged 'project'
+  obscli tags --add important find:meeting      # Add 'important' tag to notes with 'meeting' in filename
+  obscli tags --add done "Notes/Project.md"     # Add 'done' tag to specific file
+  obscli tags --delete work urgent              # Delete 'work' and 'urgent' tags from all notes
+  obscli tags --rename old --to new             # Rename 'old' tag to 'new'
+  obscli tags --add urgent tag:project --dry-run # Preview adding 'urgent' tag to notes tagged 'project'
+  obscli tags --delete work --workers 4         # Delete with 4 parallel workers`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		markdownOutput, _ := cmd.Flags().GetBool("markdown")
@@ -41,21 +44,34 @@ Examples:
 
 		deleteTags, _ := cmd.Flags().GetStringSlice("delete")
 		renameTags, _ := cmd.Flags().GetStringSlice("rename")
+		addTags, _ := cmd.Flags().GetStringSlice("add")
 		toTag, _ := cmd.Flags().GetString("to")
 
-		// Support space-separated tags as positional arguments
-		// If --delete or --rename was used and we have positional args, merge them
+		// Support space-separated tags as positional arguments for delete/rename
+		// For --add, positional args are input criteria (tag:, find:, paths), not additional tags
 		if len(args) > 0 {
 			if len(deleteTags) > 0 {
 				deleteTags = append(deleteTags, args...)
 			} else if len(renameTags) > 0 {
 				renameTags = append(renameTags, args...)
 			}
+			// NOTE: For --add, args are treated as input criteria, not additional tags
 		}
 
 		// Validate flag combinations
-		if len(deleteTags) > 0 && len(renameTags) > 0 {
-			return fmt.Errorf("cannot use --delete and --rename together")
+		operationCount := 0
+		if len(deleteTags) > 0 {
+			operationCount++
+		}
+		if len(renameTags) > 0 {
+			operationCount++
+		}
+		if len(addTags) > 0 {
+			operationCount++
+		}
+
+		if operationCount > 1 {
+			return fmt.Errorf("cannot use --delete, --rename, and --add together")
 		}
 
 		if len(renameTags) > 0 && toTag == "" {
@@ -64,6 +80,10 @@ Examples:
 
 		if len(deleteTags) == 0 && len(renameTags) == 0 && toTag != "" {
 			return fmt.Errorf("--to can only be used with --rename")
+		}
+
+		if len(addTags) > 0 && len(args) == 0 {
+			return fmt.Errorf("--add requires input criteria (e.g., tag:project, find:meeting, file paths)")
 		}
 
 		// If no vault name is provided, get the default vault name
@@ -96,6 +116,41 @@ Examples:
 				return fmt.Errorf("failed to rename tags: %w", err)
 			}
 			return outputMutationSummary(summary, "rename", dryRun, jsonOutput, markdownOutput)
+		}
+
+		// Handle add operation
+		if len(addTags) > 0 {
+			// Parse input criteria to get matching files
+			inputs, err := actions.ParseInputs(args)
+			if err != nil {
+				return fmt.Errorf("error parsing input criteria: %w", err)
+			}
+
+			// Get list of files matching the input criteria
+			matchingFiles, err := actions.ListFiles(&vault, &note, actions.ListParams{
+				Inputs:         inputs,
+				FollowLinks:    false,
+				MaxDepth:       0,
+				SkipAnchors:    false,
+				SkipEmbeds:     false,
+				AbsolutePaths:  false,
+				SuppressedTags: []string{},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get matching files: %w", err)
+			}
+
+			if len(matchingFiles) == 0 {
+				fmt.Println("No files match the specified criteria.")
+				return nil
+			}
+
+			// Add tags to the specific matching files
+			summary, err := actions.AddTagsToFilesWithWorkers(&vault, &note, addTags, matchingFiles, dryRun, workers)
+			if err != nil {
+				return fmt.Errorf("failed to add tags: %w", err)
+			}
+			return outputMutationSummary(summary, "add", dryRun, jsonOutput, markdownOutput)
 		}
 
 		// Default: list tags
@@ -234,6 +289,7 @@ func init() {
 	tagsCmd.Flags().Bool("markdown", false, "Output tags as markdown table")
 	tagsCmd.Flags().StringSliceP("delete", "d", nil, "Delete specified tags from all notes")
 	tagsCmd.Flags().StringSliceP("rename", "r", nil, "Rename specified tags (use with --to)")
+	tagsCmd.Flags().StringSliceP("add", "a", nil, "Add specified tags to matching notes (requires input criteria)")
 	tagsCmd.Flags().StringP("to", "t", "", "Destination tag name for rename operation")
 	tagsCmd.Flags().Bool("dry-run", false, "Show what would be changed without making changes")
 	tagsCmd.Flags().IntP("workers", "w", runtime.NumCPU(), "Number of parallel workers")

@@ -347,3 +347,145 @@ This is about #work.`
 	assert.NoError(t, err)
 	assert.Equal(t, originalContent, string(actualContent))
 }
+
+func TestAddTagsIntegration(t *testing.T) {
+	tests := []struct {
+		name            string
+		tagsToAdd       []string
+		fileContent     string
+		expectedChanged bool
+		shouldContain   []string
+	}{
+		{
+			name:      "add tags to existing frontmatter",
+			tagsToAdd: []string{"urgent", "project"},
+			fileContent: `---
+title: Test Note
+tags: [work]
+---
+# Test Note
+Some content here.`,
+			expectedChanged: true,
+			shouldContain:   []string{"work", "urgent", "project"},
+		},
+		{
+			name:      "add tags to note without frontmatter",
+			tagsToAdd: []string{"new-tag"},
+			fileContent: `# Test Note
+This is a note without frontmatter.`,
+			expectedChanged: true,
+			shouldContain:   []string{"new-tag"},
+		},
+		{
+			name:      "avoid duplicate tags",
+			tagsToAdd: []string{"work", "duplicate"},
+			fileContent: `---
+title: Test Note
+tags: [work, existing]
+---
+# Test Note
+Some content here.`,
+			expectedChanged: true,
+			shouldContain:   []string{"work", "existing", "duplicate"},
+		},
+		{
+			name:      "no change when all tags already exist",
+			tagsToAdd: []string{"work", "existing"},
+			fileContent: `---
+title: Test Note
+tags: [work, existing]
+---
+# Test Note
+Some content here.`,
+			expectedChanged: false,
+			shouldContain:   []string{"work", "existing"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temp directory and file
+			tempDir, err := os.MkdirTemp("", "add_tags_test")
+			assert.NoError(t, err)
+			defer os.RemoveAll(tempDir)
+
+			testFile := filepath.Join(tempDir, "test.md")
+			err = os.WriteFile(testFile, []byte(tt.fileContent), 0644)
+			assert.NoError(t, err)
+
+			// Mock vault and note
+			vault := &obsidian.Vault{Name: tempDir}
+			note := &obsidian.Note{}
+
+			// Execute add tags
+			summary, err := AddTagsToFiles(vault, note, tt.tagsToAdd, []string{"test.md"}, false)
+			assert.NoError(t, err)
+
+			if tt.expectedChanged {
+				assert.Equal(t, 1, summary.NotesTouched)
+				assert.Greater(t, len(summary.TagChanges), 0)
+			} else {
+				assert.Equal(t, 0, summary.NotesTouched)
+			}
+
+			// Check file content
+			actualContent, err := os.ReadFile(testFile)
+			assert.NoError(t, err)
+			actualStr := string(actualContent)
+
+			for _, shouldContain := range tt.shouldContain {
+				assert.Contains(t, actualStr, shouldContain, "Should contain tag: %s", shouldContain)
+			}
+		})
+	}
+}
+
+func TestAddTagsWithEmptyTags(t *testing.T) {
+	vault := &obsidian.Vault{Name: "/tmp"}
+	note := &obsidian.Note{}
+
+	_, err := AddTagsToFiles(vault, note, []string{}, []string{"test.md"}, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no tags specified")
+}
+
+func TestAddTagsWithEmptyFiles(t *testing.T) {
+	vault := &obsidian.Vault{Name: "/tmp"}
+	note := &obsidian.Note{}
+
+	_, err := AddTagsToFiles(vault, note, []string{"test"}, []string{}, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no files specified")
+}
+
+func TestAddTagsDryRun(t *testing.T) {
+	// Create temp directory and file
+	tempDir, err := os.MkdirTemp("", "add_tags_dry_run_test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	originalContent := `---
+title: Test Note
+tags: [existing]
+---
+# Test Note
+Some content here.`
+
+	testFile := filepath.Join(tempDir, "test.md")
+	err = os.WriteFile(testFile, []byte(originalContent), 0644)
+	assert.NoError(t, err)
+
+	// Mock vault and note
+	vault := &obsidian.Vault{Name: tempDir}
+	note := &obsidian.Note{}
+
+	// Execute dry run add
+	summary, err := AddTagsToFiles(vault, note, []string{"new-tag"}, []string{"test.md"}, true)
+	assert.NoError(t, err)
+	assert.Greater(t, summary.NotesTouched, 0)
+
+	// Check file was not modified
+	actualContent, err := os.ReadFile(testFile)
+	assert.NoError(t, err)
+	assert.Equal(t, originalContent, string(actualContent))
+}

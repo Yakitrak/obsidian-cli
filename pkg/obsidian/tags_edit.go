@@ -56,6 +56,31 @@ func ReplaceTags(content string, fromTags []string, toTag string) (string, bool)
 	return result, frontmatterChanged || hashtagsChanged
 }
 
+// AddTags adds specified tags to markdown content frontmatter
+func AddTags(content string, tagsToAdd []string) (string, bool) {
+	if len(tagsToAdd) == 0 {
+		return content, false
+	}
+
+	// Normalize tags for comparison
+	normalizedAdd := make([]string, len(tagsToAdd))
+	for i, tag := range tagsToAdd {
+		normalizedAdd[i] = strings.TrimSpace(tag)
+		if normalizedAdd[i] == "" {
+			// Skip empty tags
+			normalizedAdd = append(normalizedAdd[:i], normalizedAdd[i+1:]...)
+		}
+	}
+
+	if len(normalizedAdd) == 0 {
+		return content, false
+	}
+
+	// Process frontmatter
+	result, changed := addFrontmatterTags(content, normalizedAdd)
+	return result, changed
+}
+
 // removeFrontmatterTags removes tags from YAML frontmatter
 func removeFrontmatterTags(content string, tagsToDelete []string) (string, bool) {
 	matches := frontmatterRegex.FindStringSubmatch(content)
@@ -187,6 +212,74 @@ func replaceFrontmatterTags(content string, fromTags []string, toTag string) (st
 
 	// Update frontmatter
 	frontmatter["tags"] = newTags
+	return rebuildContentWithFrontmatter(content, frontmatter)
+}
+
+// addFrontmatterTags adds tags to YAML frontmatter
+func addFrontmatterTags(content string, tagsToAdd []string) (string, bool) {
+	matches := frontmatterRegex.FindStringSubmatch(content)
+	var frontmatter map[string]interface{}
+	var err error
+
+	if len(matches) < 2 {
+		// No frontmatter found, create new frontmatter
+		frontmatter = make(map[string]interface{})
+	} else {
+		// Parse existing frontmatter
+		frontmatterYAML := matches[1]
+		err = yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter)
+		if err != nil {
+			// If we can't parse existing frontmatter, create new
+			frontmatter = make(map[string]interface{})
+		}
+	}
+
+	// Get existing tags
+	var existingTags []string
+	if tagsField, exists := frontmatter["tags"]; exists {
+		existingTags = normalizeTags(tagsField)
+	}
+
+	// Create set of normalized existing tags for deduplication
+	existingSet := make(map[string]bool)
+	for _, tag := range existingTags {
+		normalizedTag := strings.ToLower(strings.TrimSpace(tag))
+		existingSet[normalizedTag] = true
+	}
+
+	// Add new tags, avoiding duplicates
+	var newTags []string
+	newTags = append(newTags, existingTags...) // Start with existing tags
+	changed := false
+
+	for _, tagToAdd := range tagsToAdd {
+		normalizedTag := strings.ToLower(strings.TrimSpace(tagToAdd))
+		if !existingSet[normalizedTag] {
+			newTags = append(newTags, tagToAdd)
+			existingSet[normalizedTag] = true
+			changed = true
+		}
+	}
+
+	if !changed {
+		return content, false
+	}
+
+	// Update frontmatter
+	frontmatter["tags"] = newTags
+
+	// Handle case where there was no original frontmatter
+	if len(matches) < 2 {
+		// Create new frontmatter block
+		yamlBytes, err := yaml.Marshal(frontmatter)
+		if err != nil {
+			return content, false
+		}
+		newContent := "---\n" + string(yamlBytes) + "---\n" + content
+		return newContent, true
+	}
+
+	// Rebuild with existing frontmatter
 	return rebuildContentWithFrontmatter(content, frontmatter)
 }
 

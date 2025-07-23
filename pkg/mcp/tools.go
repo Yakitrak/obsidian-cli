@@ -441,6 +441,217 @@ func OpenInOSTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 	}
 }
 
+// DeleteTagsTool implements the delete_tags MCP tool (destructive; optional dryRun).
+func DeleteTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		tagsRaw, ok := args["tags"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("tags parameter is required and must be an array"), nil
+		}
+
+		var tags []string
+		for _, v := range tagsRaw {
+			if s, ok := v.(string); ok {
+				tags = append(tags, s)
+			} else {
+				return mcp.NewToolResultError("all tags must be strings"), nil
+			}
+		}
+
+		dryRun, _ := args["dryRun"].(bool)
+
+		if !config.ReadWrite && !dryRun {
+			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
+		}
+
+		note := obsidian.Note{}
+
+		summary, err := actions.DeleteTags(config.Vault, &note, tags, dryRun)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error deleting tags: %s", err)), nil
+		}
+
+		// Build human-readable summary
+		var sb strings.Builder
+		if dryRun {
+			sb.WriteString("[DRY RUN] ")
+		}
+		fmt.Fprintf(&sb, "Notes touched: %d\n", summary.NotesTouched)
+		if len(summary.TagChanges) > 0 {
+			sb.WriteString("Tag deletions:\n")
+			for tag, cnt := range summary.TagChanges {
+				fmt.Fprintf(&sb, "  – %s: %d note(s)\n", tag, cnt)
+			}
+		}
+		if len(summary.FilesChanged) > 0 {
+			sb.WriteString("Files changed:\n")
+			for _, f := range summary.FilesChanged {
+				fmt.Fprintf(&sb, "  %s\n", f)
+			}
+		}
+
+		return mcp.NewToolResultText(sb.String()), nil
+	}
+}
+
+// RenameTagsTool implements the rename_tag MCP tool.
+func RenameTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		fromRaw, ok := args["fromTags"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("fromTags parameter is required and must be an array"), nil
+		}
+
+		var fromTags []string
+		for _, v := range fromRaw {
+			if s, ok := v.(string); ok {
+				fromTags = append(fromTags, s)
+			} else {
+				return mcp.NewToolResultError("all fromTags values must be strings"), nil
+			}
+		}
+
+		toTag, ok := args["toTag"].(string)
+		if !ok || strings.TrimSpace(toTag) == "" {
+			return mcp.NewToolResultError("toTag parameter is required and must be a non-empty string"), nil
+		}
+
+		dryRun, _ := args["dryRun"].(bool)
+
+		if !config.ReadWrite && !dryRun {
+			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
+		}
+
+		note := obsidian.Note{}
+
+		summary, err := actions.RenameTags(config.Vault, &note, fromTags, toTag, dryRun)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error renaming tags: %s", err)), nil
+		}
+
+		// Build human-readable summary
+		var sb strings.Builder
+		if dryRun {
+			sb.WriteString("[DRY RUN] ")
+		}
+		fmt.Fprintf(&sb, "Notes touched: %d\n", summary.NotesTouched)
+		if len(summary.TagChanges) > 0 {
+			sb.WriteString("Tag renames:\n")
+			for tag, cnt := range summary.TagChanges {
+				fmt.Fprintf(&sb, "  – %s → %s : %d note(s)\n", tag, toTag, cnt)
+			}
+		}
+		if len(summary.FilesChanged) > 0 {
+			sb.WriteString("Files changed:\n")
+			for _, f := range summary.FilesChanged {
+				fmt.Fprintf(&sb, "  %s\n", f)
+			}
+		}
+
+		return mcp.NewToolResultText(sb.String()), nil
+	}
+}
+
+// AddTagsTool implements the add_tags MCP tool (destructive; optional dryRun).
+func AddTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		// Extract tags to add
+		tagsRaw, ok := args["tags"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("tags parameter is required and must be an array"), nil
+		}
+
+		var tags []string
+		for _, v := range tagsRaw {
+			if s, ok := v.(string); ok {
+				tags = append(tags, s)
+			} else {
+				return mcp.NewToolResultError("all tags must be strings"), nil
+			}
+		}
+
+		// Extract input criteria
+		inputsRaw, ok := args["inputs"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("inputs parameter is required and must be an array"), nil
+		}
+
+		inputs := make([]string, len(inputsRaw))
+		for i, v := range inputsRaw {
+			s, ok := v.(string)
+			if !ok {
+				return mcp.NewToolResultError("all inputs must be strings"), nil
+			}
+			inputs[i] = s
+		}
+
+		dryRun, _ := args["dryRun"].(bool)
+
+		if !config.ReadWrite && !dryRun {
+			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
+		}
+
+		// Parse input criteria to get matching files
+		parsedInputs, err := actions.ParseInputs(inputs)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error parsing input criteria: %s", err)), nil
+		}
+
+		note := obsidian.Note{}
+
+		// Get list of files matching the input criteria
+		matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
+			Inputs:         parsedInputs,
+			FollowLinks:    false,
+			MaxDepth:       0,
+			SkipAnchors:    false,
+			SkipEmbeds:     false,
+			AbsolutePaths:  false,
+			SuppressedTags: []string{},
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error getting matching files: %s", err)), nil
+		}
+
+		if len(matchingFiles) == 0 {
+			return mcp.NewToolResultText("No files match the specified criteria."), nil
+		}
+
+		// Add tags to the specific matching files
+		summary, err := actions.AddTagsToFiles(config.Vault, &note, tags, matchingFiles, dryRun)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error adding tags: %s", err)), nil
+		}
+
+		// Build human-readable summary
+		var sb strings.Builder
+		if dryRun {
+			sb.WriteString("[DRY RUN] ")
+		}
+		fmt.Fprintf(&sb, "Notes touched: %d\n", summary.NotesTouched)
+		if len(summary.TagChanges) > 0 {
+			sb.WriteString("Tag additions:\n")
+			for tag, cnt := range summary.TagChanges {
+				fmt.Fprintf(&sb, "  + %s: %d note(s)\n", tag, cnt)
+			}
+		}
+		if len(summary.FilesChanged) > 0 {
+			sb.WriteString("Files changed:\n")
+			for _, f := range summary.FilesChanged {
+				fmt.Fprintf(&sb, "  %s\n", f)
+			}
+		}
+
+		return mcp.NewToolResultText(sb.String()), nil
+	}
+}
+
 // DailyNotePathTool implements the daily_note_path MCP tool
 func DailyNotePathTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

@@ -392,3 +392,139 @@ func normalizeFrontmatterTags(tags interface{}) []string {
 
 	return result
 }
+
+// processAddFile handles addition of tags to a single file
+func processAddFile(tagsToAdd []string, dryRun bool) parallelProcessor {
+	return func(ctx context.Context, vaultPath, notePath string) delta {
+		select {
+		case <-ctx.Done():
+			return delta{err: ctx.Err()}
+		default:
+		}
+
+		full := filepath.Join(vaultPath, notePath)
+		data, err := os.ReadFile(full)
+		if err != nil {
+			// Skip files we can't read, don't treat as fatal error
+			return delta{}
+		}
+		content := string(data)
+
+		newContent, changed := obsidian.AddTags(content, tagsToAdd)
+		if !changed {
+			return delta{}
+		}
+
+		result := delta{
+			notesTouched: true,
+			tagChanges:   make(map[string]int),
+			fileChanged:  notePath,
+		}
+
+		// Track which tags were actually added to this file
+		for _, tag := range tagsToAdd {
+			normalizedTag := normalizeTagForComparison(tag)
+			if !hasTag(content, tag) { // Tag wasn't present before
+				result.tagChanges[normalizedTag] = 1
+			}
+		}
+
+		// Write the file if not dry run
+		if !dryRun {
+			err = obsidian.WriteFileAtomic(full, []byte(newContent), 0644)
+			if err != nil {
+				result.err = fmt.Errorf("failed to write file %s: %w", notePath, err)
+				return result
+			}
+		}
+
+		return result
+	}
+}
+
+// AddTags adds specified tags to all notes in the vault
+func AddTags(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToAdd []string, dryRun bool) (TagMutationSummary, error) {
+	return AddTagsWithWorkers(vault, note, tagsToAdd, dryRun, runtime.NumCPU())
+}
+
+// AddTagsWithWorkers adds specified tags to all notes in the vault using specified worker count
+func AddTagsWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToAdd []string, dryRun bool, workers int) (TagMutationSummary, error) {
+	if len(tagsToAdd) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no tags specified for addition")
+	}
+
+	// Validate tags
+	for _, tag := range tagsToAdd {
+		if !isValidTagForOperation(tag) {
+			return TagMutationSummary{}, fmt.Errorf("invalid tag: %s", tag)
+		}
+	}
+
+	vaultPath, err := vault.Path()
+	if err != nil {
+		// If vault.Path() failed (e.g., during unit tests), attempt to use vault.Name directly if it is an existing directory.
+		if v, ok := vault.(*obsidian.Vault); ok {
+			if stat, statErr := os.Stat(v.Name); statErr == nil && stat.IsDir() {
+				vaultPath = v.Name
+			} else {
+				return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+			}
+		} else {
+			return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+		}
+	}
+
+	allNotes, err := note.GetNotesList(vaultPath)
+	if err != nil {
+		return TagMutationSummary{}, fmt.Errorf("failed to get notes list: %w", err)
+	}
+
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, allNotes, processAddFile(tagsToAdd, dryRun), workers)
+}
+
+// AddTagsToFiles adds specified tags to a specific list of files
+func AddTagsToFiles(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToAdd []string, files []string, dryRun bool) (TagMutationSummary, error) {
+	return AddTagsToFilesWithWorkers(vault, note, tagsToAdd, files, dryRun, runtime.NumCPU())
+}
+
+// AddTagsToFilesWithWorkers adds specified tags to a specific list of files using specified worker count
+func AddTagsToFilesWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToAdd []string, files []string, dryRun bool, workers int) (TagMutationSummary, error) {
+	if len(tagsToAdd) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no tags specified for addition")
+	}
+
+	if len(files) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no files specified")
+	}
+
+	// Validate tags
+	for _, tag := range tagsToAdd {
+		if !isValidTagForOperation(tag) {
+			return TagMutationSummary{}, fmt.Errorf("invalid tag: %s", tag)
+		}
+	}
+
+	vaultPath, err := vault.Path()
+	if err != nil {
+		// If vault.Path() failed (e.g., during unit tests), attempt to use vault.Name directly if it is an existing directory.
+		if v, ok := vault.(*obsidian.Vault); ok {
+			if stat, statErr := os.Stat(v.Name); statErr == nil && stat.IsDir() {
+				vaultPath = v.Name
+			} else {
+				return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+			}
+		} else {
+			return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+		}
+	}
+
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, files, processAddFile(tagsToAdd, dryRun), workers)
+}

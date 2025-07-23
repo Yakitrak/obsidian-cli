@@ -66,3 +66,32 @@ func TestConfig(t *testing.T) {
 		t.Error("Expected read-write to be true")
 	}
 }
+
+func TestRegisterAllWithReadWrite(t *testing.T) {
+	// Create a test server
+	s := server.NewMCPServer(
+		"test-obsidian-cli",
+		"v0.15.0",
+		server.WithToolCapabilities(false),
+	)
+
+	// Create a test config with ReadWrite enabled
+	vault := &obsidian.Vault{Name: "test-vault"}
+	config := Config{
+		Vault:          vault,
+		VaultPath:      "/tmp/test-vault",
+		Debug:          false,
+		SuppressedTags: []string{"no-prompt"},
+		ReadWrite:      true, // Enable destructive operations
+	}
+
+	// Test that RegisterAll doesn't return an error
+	err := RegisterAll(s, config)
+	if err != nil {
+		t.Errorf("RegisterAll returned error: %v", err)
+	}
+
+	// TODO: In the future, we could test that specific tools like add_tags, delete_tags,
+	// and rename_tag are registered when ReadWrite is true, but that would require
+	// reflection or exposing the registered tools from the MCP server
+}
