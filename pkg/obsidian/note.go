@@ -1,6 +1,7 @@
 package obsidian
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -94,7 +95,7 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 			return nil
 		}
 
-		content, err := os.ReadFile(path)
+		originalContent, err := os.ReadFile(path)
 		if err != nil {
 			return errors.New(VaultReadError)
 		}
@@ -102,13 +103,17 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 		oldNoteLinkTexts := GenerateNoteLinkTexts(oldNoteName)
 		newNoteLinkTexts := GenerateNoteLinkTexts(newNoteName)
 
-		content = ReplaceContent(content, map[string]string{
+		updatedContent := ReplaceContent(originalContent, map[string]string{
 			oldNoteLinkTexts[0]: newNoteLinkTexts[0],
 			oldNoteLinkTexts[1]: newNoteLinkTexts[1],
 			oldNoteLinkTexts[2]: newNoteLinkTexts[2],
 		})
 
-		err = os.WriteFile(path, content, info.Mode())
+		if bytes.Equal(originalContent, updatedContent) {
+			return nil
+		}
+
+		err = os.WriteFile(path, updatedContent, info.Mode())
 		if err != nil {
 			return errors.New(VaultWriteError)
 		}
