@@ -186,6 +186,71 @@ func TestFuzzyMatch(t *testing.T) {
 	}
 }
 
+func TestFuzzyMatchWildcards(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "directory and content wildcard match",
+			pattern:  "notes/*pyramid*",
+			path:     "Notes/Great Pyramid Plans.md",
+			expected: true,
+		},
+		{
+			name:     "content-only wildcard match",
+			pattern:  "*pyramid*",
+			path:     "Archive/How to build a pyramid.md",
+			expected: true,
+		},
+		{
+			name:     "question-mark in directory",
+			pattern:  "n?tes/*pyramid*",
+			path:     "Notes/Great Pyramid.md",
+			expected: true,
+		},
+		{
+			name:     "question-mark in content exact length",
+			pattern:  "notes/????.md",
+			path:     "Notes/2024.md",
+			expected: true,
+		},
+		{
+			name:     "question-mark in content insufficient length",
+			pattern:  "notes/????.md",
+			path:     "Notes/24.md",
+			expected: false,
+		},
+		{
+			name:     "wildcard with different directory should not match",
+			pattern:  "notes/*pyramid*",
+			path:     "Projects/pyramid.md",
+			expected: false,
+		},
+		{
+			name:     "prefix wildcard anchored",
+			pattern:  "pyramid*",
+			path:     "Notes/pyramids.md",
+			expected: true,
+		},
+		{
+			name:     "suffix wildcard anchored",
+			pattern:  "*pyramid",
+			path:     "Notes/Great pyramid",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FuzzyMatch(tt.pattern, tt.path)
+			assert.Equal(t, tt.expected, result, "pattern: %s, path: %s", tt.pattern, tt.path)
+		})
+	}
+}
+
 func TestSplitWords(t *testing.T) {
 	tests := []struct {
 		name     string

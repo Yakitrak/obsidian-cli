@@ -28,9 +28,9 @@ The server exposes read-only tools by default:
 - file_info: Get information about a specific file
 - print_note: Print the contents of a note
 - daily_note_path: Get the path to today's daily note
-- search_text: Search for text within notes
+- search_text: Search for text within notes. This tools is not recommended if you have access to other search tools.
 - list_tags: List all tags in the vault
-- open_in_os: Open a file in the default OS application
+- open_in_os: Open a file in the default OS application. Use this only when you don't have integrated file opening in your editor.
 
 Example MCP client configuration (e.g., for Claude Desktop):
 {

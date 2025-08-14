@@ -1,6 +1,7 @@
 package obsidian
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -13,7 +14,7 @@ func FuzzyMatch(pattern, path string) bool {
 
 	// Handle the directory and content differently based on pattern format
 	hasDirectorySpecifier := strings.Contains(pattern, "/")
-	
+
 	// Prevent patterns with multiple slashes (not supported)
 	if hasDirectorySpecifier && strings.Count(pattern, "/") > 1 {
 		return false
@@ -26,12 +27,12 @@ func FuzzyMatch(pattern, path string) bool {
 	// Handle directory-specific search
 	if hasDirectorySpecifier {
 		dirPattern, contentPattern := splitDirectoryAndContent(patternLower)
-		
+
 		// First check if directory part matches
 		if !matchesDirectory(dirPattern, pathLower) {
 			return false
 		}
-		
+
 		// If we have a content part to match as well
 		if contentPattern != "" {
 			// Split path to get content section (everything after first /)
@@ -39,13 +40,13 @@ func FuzzyMatch(pattern, path string) bool {
 			if len(parts) < 2 {
 				return false // No content section in path
 			}
-			
+
 			return matchesContent(contentPattern, parts[1])
 		}
-		
+
 		return true // Only directory matched, but that's all we asked for
 	}
-	
+
 	// Content-only search (no directory specifier)
 	return matchesContentOnly(patternLower, pathLower)
 }
@@ -68,27 +69,37 @@ func matchesDirectory(dirPattern string, path string) bool {
 	if len(pathParts) == 0 {
 		return false
 	}
-	
+
 	firstPathSegment := pathParts[0]
-	
+
+	// Support wildcard matching in directory patterns
+	if containsWildcards(dirPattern) {
+		return wildcardMatch(dirPattern, firstPathSegment)
+	}
+
 	// Single character directory match allows prefix matching
 	if len(dirPattern) == 1 {
 		return strings.HasPrefix(firstPathSegment, dirPattern)
 	}
-	
+
 	// Otherwise, exact directory match is required
 	return firstPathSegment == dirPattern
 }
 
 // matchesContent checks if content words match sequentially with word boundaries
 func matchesContent(contentPattern string, content string) bool {
+	// If pattern contains wildcards, use wildcard matching against the content
+	if containsWildcards(contentPattern) {
+		return wildcardMatch(contentPattern, content)
+	}
+
 	patternWords := splitWords(contentPattern)
-	
+
 	// No words to match
 	if len(patternWords) == 0 {
 		return true
 	}
-	
+
 	// Try to match all pattern words in order
 	searchText := content
 	for _, word := range patternWords {
@@ -109,14 +120,19 @@ func matchesContent(contentPattern string, content string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // matchesContentOnly checks if a pattern matches anywhere in the path
 func matchesContentOnly(pattern string, path string) bool {
+	// If pattern contains wildcards, use wildcard matching against the whole path (match anywhere)
+	if containsWildcards(pattern) {
+		return wildcardMatchAnywhere(pattern, path)
+	}
+
 	patternWords := splitWords(pattern)
-	
+
 	// Try to match all pattern words in order
 	searchText := path
 	for _, word := range patternWords {
@@ -137,7 +153,7 @@ func matchesContentOnly(pattern string, path string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -179,4 +195,61 @@ func splitWords(text string) []string {
 	}
 
 	return result
+}
+
+// containsWildcards returns true if the pattern contains '*' or '?'
+func containsWildcards(pattern string) bool {
+	return strings.ContainsAny(pattern, "*?")
+}
+
+// wildcardMatch matches text against a shell-style wildcard pattern supporting '*' and '?'
+// The match is anchored to the full string.
+func wildcardMatch(pattern string, text string) bool {
+	// Escape regex special characters except for '*' and '?'
+	var builder strings.Builder
+	builder.WriteString("^")
+	for _, ch := range pattern {
+		switch ch {
+		case '*':
+			builder.WriteString(".*")
+		case '?':
+			builder.WriteString(".")
+		case '.', '+', '(', ')', '|', '[', ']', '{', '}', '^', '$', '\\':
+			builder.WriteString("\\")
+			builder.WriteRune(ch)
+		default:
+			builder.WriteRune(ch)
+		}
+	}
+	builder.WriteString("$")
+
+	rx, err := regexp.Compile(builder.String())
+	if err != nil {
+		// Fallback: no match on invalid regex
+		return false
+	}
+	return rx.MatchString(text)
+}
+
+// wildcardMatchAnywhere matches text if the wildcard pattern appears anywhere in the text
+func wildcardMatchAnywhere(pattern string, text string) bool {
+	var builder strings.Builder
+	for _, ch := range pattern {
+		switch ch {
+		case '*':
+			builder.WriteString(".*")
+		case '?':
+			builder.WriteString(".")
+		case '.', '+', '(', ')', '|', '[', ']', '{', '}', '^', '$', '\\':
+			builder.WriteString("\\")
+			builder.WriteRune(ch)
+		default:
+			builder.WriteRune(ch)
+		}
+	}
+	rx, err := regexp.Compile(builder.String())
+	if err != nil {
+		return false
+	}
+	return rx.MatchString(text)
 }

@@ -49,36 +49,39 @@ func (m *Note) Delete(path string) error {
 }
 
 func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
-	note := AddMdSuffix(noteName)
-
-	var notePath string
-	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err // Continue to the next path if there's an error
-		}
-		if d.IsDir() {
-			return nil // Skip directories
-		}
-		// Get the relative path from the vault root
-		relPath, err := filepath.Rel(vaultPath, path)
-		if err != nil {
-			return err
-		}
-		// Compare the full relative path
-		if relPath == note {
-			notePath = path
-			return filepath.SkipDir
-		}
-		return nil
-	})
-
-	if err != nil || notePath == "" {
-		return "", errors.New(NoteDoesNotExistError)
-	}
-
-	file, err := os.Open(notePath)
+	// First, try the fast path: treat noteName as a vault-relative path and open directly.
+	// This covers the common case where callers pass entries from GetNotesList (relative paths).
+	candidate := filepath.Join(vaultPath, AddMdSuffix(noteName))
+	file, err := os.Open(candidate)
 	if err != nil {
-		return "", errors.New(VaultReadError)
+		// Fall back to a full scan (legacy behavior) in case callers passed a non-relative path
+		// or a differently cased path on case-insensitive filesystems.
+		var notePath string
+		walkErr := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			relPath, err := filepath.Rel(vaultPath, path)
+			if err != nil {
+				return err
+			}
+			if relPath == AddMdSuffix(noteName) {
+				notePath = path
+				return filepath.SkipDir
+			}
+			return nil
+		})
+		if walkErr != nil || notePath == "" {
+			return "", errors.New(NoteDoesNotExistError)
+		}
+		var openErr error
+		file, openErr = os.Open(notePath)
+		if openErr != nil {
+			return "", errors.New(VaultReadError)
+		}
 	}
 	defer file.Close()
 

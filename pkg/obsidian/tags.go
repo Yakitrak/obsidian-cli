@@ -148,22 +148,32 @@ func HasAnyTags(content string, tags []string) bool {
 		return false
 	}
 
+	// Pre-normalize search tags once
+	normalizedSearch := make([]string, 0, len(tags))
+	for _, t := range tags {
+		nt := strings.ToLower(strings.TrimSpace(t))
+		if nt != "" {
+			normalizedSearch = append(normalizedSearch, nt)
+		}
+	}
+	if len(normalizedSearch) == 0 {
+		return false
+	}
+
 	// Check frontmatter tags (hierarchical)
 	frontmatter, err := ExtractFrontmatter(content)
 	if err != nil {
 		// Could log the error here if desired, but for now we ignore frontmatter errors and continue
 	} else if frontmatter != nil {
-		if hasFrontmatterTag(frontmatter, tags) {
+		if hasFrontmatterTag(frontmatter, normalizedSearch) {
 			return true
 		}
 	}
 
 	// Check inline hashtags in non-code content (hierarchical)
 	// Note: ExtractHashtags returns hashtags with the leading '#', so we strip it for matching.
-	nonCodeContent := extractNonCodeContent(content)
-	hashtags := ExtractHashtags(nonCodeContent)
-	for _, tag := range tags {
-		normTag := strings.ToLower(strings.TrimSpace(tag))
+	hashtags := ExtractHashtags(content)
+	for _, normTag := range normalizedSearch {
 		for _, hashtag := range hashtags {
 			cleanHashtag := strings.TrimSpace(strings.TrimPrefix(hashtag, "#"))
 			lowerHashtag := strings.ToLower(cleanHashtag)
