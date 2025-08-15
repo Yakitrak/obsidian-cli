@@ -186,6 +186,21 @@ obsidian-cli frontmatter edit "{note-name}" --key "status" --value "in-progress"
 obsidian-cli frontmatter edit "{note-name}" --vault "{vault-name}" --key "tags" --value "project"
 ```
 
+### Frontmatter View
+
+View a specific YAML frontmatter key from a note, or check if it matches/includes an expected value.
+
+```bash
+# View value of a frontmatter key (prints YAML/scalar)
+obsidian-cli frontmatter view "{note-name}" --key "tags"
+
+# Check whether a key matches/includes a value (prints true/false)
+obsidian-cli frontmatter view "{note-name}" --key "tags" --value "project"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter view "{note-name}" --vault "{vault-name}" --key "status"
+```
+
 ## Contribution
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 

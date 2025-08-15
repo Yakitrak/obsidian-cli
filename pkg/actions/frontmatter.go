@@ -17,6 +17,65 @@ type FrontmatterEditParams struct {
 	Value    string
 }
 
+type FrontmatterValue struct {
+	Value any
+	Found bool
+}
+
+// GetFrontmatterValue locates a note and returns the value for a specific frontmatter key.
+func GetFrontmatterValue(vault obsidian.VaultManager, noteName string, key string) (*FrontmatterValue, error) {
+	if noteName == "" {
+		return nil, errors.New("note name is required")
+	}
+	if key == "" {
+		return nil, errors.New("key is required")
+	}
+
+	// Ensure default vault is set
+	if _, err := vault.DefaultName(); err != nil {
+		return nil, err
+	}
+	vaultPath, err := vault.Path()
+	if err != nil {
+		return nil, err
+	}
+
+	// Find note path
+	targetFile := obsidian.AddMdSuffix(noteName)
+	var notePath string
+	err = filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if filepath.Base(path) == targetFile {
+			notePath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	if err != nil || notePath == "" {
+		return nil, errors.New(obsidian.NoteDoesNotExistError)
+	}
+
+	data, err := os.ReadFile(notePath)
+	if err != nil {
+		return nil, errors.New(obsidian.VaultReadError)
+	}
+
+	fmMap, _, _, err := parseFrontmatter(string(data))
+	if err != nil {
+		return nil, err
+	}
+	if fmMap == nil {
+		return &FrontmatterValue{Value: nil, Found: false}, nil
+	}
+	val, ok := fmMap[key]
+	return &FrontmatterValue{Value: val, Found: ok}, nil
+}
+
 // EditFrontmatter finds the note in the vault and edits/creates the specified frontmatter key.
 func EditFrontmatter(vault obsidian.VaultManager, params FrontmatterEditParams) error {
 	if params.NoteName == "" {
