@@ -34,6 +34,6 @@ func init() {
 	frontmatterEditCmd.Flags().StringVarP(&fmKey, "key", "k", "", "frontmatter key to set")
 	frontmatterEditCmd.Flags().StringVarP(&fmValue, "value", "V", "", "frontmatter value (YAML)")
 	frontmatterEditCmd.MarkFlagRequired("key")
-	frontmatterEditCmd.MarkFlagRequired("value")
+	// --value is now optional to allow adding empty keys
 	frontmatterCmd.AddCommand(frontmatterEditCmd)
 }
