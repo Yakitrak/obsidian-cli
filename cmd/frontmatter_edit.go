@@ -56,6 +56,8 @@ func init() {
 	frontmatterEditCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	frontmatterEditCmd.Flags().StringVarP(&fmKey, "key", "k", "", "frontmatter key to set")
 	frontmatterEditCmd.Flags().StringVarP(&fmValue, "value", "V", "", "frontmatter value (YAML)")
-	frontmatterEditCmd.MarkFlagRequired("key")
+	if err := frontmatterEditCmd.MarkFlagRequired("key"); err != nil {
+		log.Fatalf("failed to mark --key as required: %v", err)
+	}
 	frontmatterCmd.AddCommand(frontmatterEditCmd)
 }

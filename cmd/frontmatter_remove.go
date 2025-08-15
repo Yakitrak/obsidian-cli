@@ -26,6 +26,8 @@ var frontmatterRemoveCmd = &cobra.Command{
 func init() {
 	frontmatterRemoveCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	frontmatterRemoveCmd.Flags().StringVarP(&fmRemoveKey, "key", "k", "", "frontmatter key to remove")
-	frontmatterRemoveCmd.MarkFlagRequired("key")
+	if err := frontmatterRemoveCmd.MarkFlagRequired("key"); err != nil {
+		log.Fatalf("failed to mark --key as required: %v", err)
+	}
 	frontmatterCmd.AddCommand(frontmatterRemoveCmd)
 }
