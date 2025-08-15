@@ -168,6 +168,24 @@ obsidian-cli delete "{note-path}"
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
+### Frontmatter Edit
+
+Edits or creates a YAML frontmatter key in a note. Value can be a YAML literal (string/number/bool), a sequence like `[a, b]`, or a comma-separated list for tags.
+
+```bash
+# Set tags to a single tag
+obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project"
+
+# Set tags to multiple tags via comma-separated shorthand
+obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project,urgent"
+
+# Set an arbitrary key using YAML syntax
+obsidian-cli frontmatter edit "{note-name}" --key "status" --value "in-progress"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter edit "{note-name}" --vault "{vault-name}" --key "tags" --value "project"
+```
+
 ## Contribution
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
