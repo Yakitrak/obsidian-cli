@@ -170,9 +170,19 @@ obsidian-cli delete "{note-path}" --vault "{vault-name}"
 
 ### Frontmatter Edit
 
-Edits or creates a YAML frontmatter key in a note. Value can be a YAML literal (string/number/bool), a sequence like `[a, b]`, or a comma-separated list for tags.
+Edits or creates a YAML frontmatter key in a note. The value is optional:
+- If omitted and key is `tags`, an empty list will be set: []
+- If omitted for other keys, an empty string will be set: ""
+
+Value (when provided) can be a YAML literal (string/number/bool), a sequence like `[a, b]`, or a comma-separated list for tags.
 
 ```bash
+# Add an empty tags key
+obsidian-cli frontmatter edit "{note-name}" --key "tags"
+
+# Add an empty custom key
+obsidian-cli frontmatter edit "{note-name}" --key "status"
+
 # Set tags to a single tag
 obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project"
 
@@ -199,6 +209,41 @@ obsidian-cli frontmatter view "{note-name}" --key "tags" --value "project"
 
 # Specify a vault explicitly
 obsidian-cli frontmatter view "{note-name}" --vault "{vault-name}" --key "status"
+```
+
+### Frontmatter Clear
+
+Clear the content/value of a frontmatter key, keeping the key present.
+
+```bash
+# Clear tags (becomes an empty list if it was a list; otherwise becomes empty string)
+obsidian-cli frontmatter clear "{note-name}" --key "tags"
+```
+
+### Frontmatter Remove
+
+Remove a frontmatter key entirely. If this was the last key, the whole frontmatter block is removed.
+
+```bash
+# Remove the tags key from frontmatter
+obsidian-cli frontmatter remove "{note-name}" --key "tags"
+```
+
+### Frontmatter Add Empty
+
+Add an empty key to frontmatter (creates frontmatter section if missing).
+- For tags it creates an empty list: []
+- For other keys it creates an empty string: ""
+
+```bash
+# Add an empty tags key (becomes: tags: [])
+obsidian-cli frontmatter add-empty "{note-name}" --key "tags"
+
+# Add an empty custom key (becomes: key: "")
+obsidian-cli frontmatter add-empty "{note-name}" --key "status"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter add-empty "{note-name}" --vault "{vault-name}" --key "reviewer"
 ```
 
 ## Contribution
