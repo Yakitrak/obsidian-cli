@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"strings"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
@@ -18,6 +19,28 @@ var frontmatterEditCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		v := obsidian.Vault{Name: vaultName}
 		note := args[0]
+
+		// Support adding multiple empty keys at once using comma-separated --key when --value is omitted
+		if fmValue == "" && strings.Contains(fmKey, ",") {
+			parts := strings.Split(fmKey, ",")
+			for _, p := range parts {
+				k := strings.TrimSpace(p)
+				if k == "" {
+					continue
+				}
+				params := actions.FrontmatterEditParams{
+					NoteName: note,
+					Key:      k,
+					Value:    "",
+				}
+				if err := actions.EditFrontmatter(&v, params); err != nil {
+					log.Fatal(err)
+				}
+			}
+			return
+		}
+
+		// Default: single key edit (value may be empty or provided)
 		params := actions.FrontmatterEditParams{
 			NoteName: note,
 			Key:      fmKey,
@@ -34,6 +57,5 @@ func init() {
 	frontmatterEditCmd.Flags().StringVarP(&fmKey, "key", "k", "", "frontmatter key to set")
 	frontmatterEditCmd.Flags().StringVarP(&fmValue, "value", "V", "", "frontmatter value (YAML)")
 	frontmatterEditCmd.MarkFlagRequired("key")
-	// --value is now optional to allow adding empty keys
 	frontmatterCmd.AddCommand(frontmatterEditCmd)
 }
