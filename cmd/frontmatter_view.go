@@ -92,6 +92,8 @@ func init() {
 	frontmatterViewCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	frontmatterViewCmd.Flags().StringVarP(&fmViewKey, "key", "k", "", "frontmatter key to view")
 	frontmatterViewCmd.Flags().StringVarP(&fmViewExpect, "value", "V", "", "expected value for boolean check")
-	frontmatterViewCmd.MarkFlagRequired("key")
+	if err := frontmatterViewCmd.MarkFlagRequired("key"); err != nil {
+		log.Fatalf("failed to mark --key as required: %v", err)
+	}
 	frontmatterCmd.AddCommand(frontmatterViewCmd)
 }
