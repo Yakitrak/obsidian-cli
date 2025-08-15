@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDeleteNote(t *testing.T) {
@@ -242,6 +243,80 @@ func TestUpdateNoteLinks(t *testing.T) {
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.VaultWriteError)
+	})
+}
+
+func TestUpdateLinks_PreservesTimestamps(t *testing.T) {
+	t.Run("Only writes files with actual link changes", func(t *testing.T) {
+		// Arrange
+		tmpDir := t.TempDir()
+		oldTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+		
+		// Create files with different content
+		fileWithLinks := filepath.Join(tmpDir, "with_links.md")
+		fileWithoutLinks := filepath.Join(tmpDir, "without_links.md")
+		fileWithOtherLinks := filepath.Join(tmpDir, "other_links.md")
+		
+		// File that contains the old note name - should be updated
+		err := os.WriteFile(fileWithLinks, []byte("Content with [[OldNote]] reference"), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		// File with no relevant links - should NOT be updated
+		err = os.WriteFile(fileWithoutLinks, []byte("Content with no links"), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		// File with other links - should NOT be updated
+		err = os.WriteFile(fileWithOtherLinks, []byte("Content with [[SomeOtherNote]] reference"), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		// Set all files to old timestamp
+		for _, file := range []string{fileWithLinks, fileWithoutLinks, fileWithOtherLinks} {
+			err = os.Chtimes(file, oldTime, oldTime)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		
+		// Record original timestamps
+		getModTime := func(path string) time.Time {
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return info.ModTime()
+		}
+		
+		originalWithLinks := getModTime(fileWithLinks)
+		originalWithoutLinks := getModTime(fileWithoutLinks)
+		originalOtherLinks := getModTime(fileWithOtherLinks)
+		
+		// Act
+		noteManager := obsidian.Note{}
+		err = noteManager.UpdateLinks(tmpDir, "OldNote", "newnote")
+		assert.NoError(t, err)
+		
+		// Assert timestamps
+		newWithLinks := getModTime(fileWithLinks)
+		newWithoutLinks := getModTime(fileWithoutLinks)
+		newOtherLinks := getModTime(fileWithOtherLinks)
+		
+		// File with links should have new timestamp
+		assert.True(t, newWithLinks.After(originalWithLinks), "File with links should have updated timestamp")
+		
+		// Files without relevant links should preserve timestamps
+		assert.Equal(t, originalWithoutLinks, newWithoutLinks, "File without links should preserve timestamp")
+		assert.Equal(t, originalOtherLinks, newOtherLinks, "File with other links should preserve timestamp")
+		
+		// Verify content was actually updated in the changed file
+		content, err := os.ReadFile(fileWithLinks)
+		assert.NoError(t, err)
+		assert.Contains(t, string(content), "[[newnote]]", "Links should be updated in changed file")
 	})
 }
 
