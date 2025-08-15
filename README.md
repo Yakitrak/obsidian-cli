@@ -183,6 +183,9 @@ obsidian-cli frontmatter edit "{note-name}" --key "tags"
 # Add an empty custom key
 obsidian-cli frontmatter edit "{note-name}" --key "status"
 
+# Add multiple empty keys at once (comma-separated keys)
+obsidian-cli frontmatter edit "{note-name}" --key "tags,status,reviewer"
+
 # Set tags to a single tag
 obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project"
 
@@ -227,23 +230,6 @@ Remove a frontmatter key entirely. If this was the last key, the whole frontmatt
 ```bash
 # Remove the tags key from frontmatter
 obsidian-cli frontmatter remove "{note-name}" --key "tags"
-```
-
-### Frontmatter Add Empty
-
-Add an empty key to frontmatter (creates frontmatter section if missing).
-- For tags it creates an empty list: []
-- For other keys it creates an empty string: ""
-
-```bash
-# Add an empty tags key (becomes: tags: [])
-obsidian-cli frontmatter add-empty "{note-name}" --key "tags"
-
-# Add an empty custom key (becomes: key: "")
-obsidian-cli frontmatter add-empty "{note-name}" --key "status"
-
-# Specify a vault explicitly
-obsidian-cli frontmatter add-empty "{note-name}" --vault "{vault-name}" --key "reviewer"
 ```
 
 ## Contribution
