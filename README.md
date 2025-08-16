@@ -221,6 +221,12 @@ Clear the content/value of a frontmatter key, keeping the key present.
 ```bash
 # Clear tags (becomes an empty list if it was a list; otherwise becomes empty string)
 obsidian-cli frontmatter clear "{note-name}" --key "tags"
+
+# Clear multiple keys (comma-separated)
+obsidian-cli frontmatter clear "{note-name}" --key "date, status, tags"
+
+# Clear multiple keys (bracketed list)
+obsidian-cli frontmatter clear "{note-name}" --key "[date, status, tags]"
 ```
 
 ### Frontmatter Remove
@@ -230,6 +236,12 @@ Remove a frontmatter key entirely. If this was the last key, the whole frontmatt
 ```bash
 # Remove the tags key from frontmatter
 obsidian-cli frontmatter remove "{note-name}" --key "tags"
+
+# Remove multiple keys (comma-separated)
+obsidian-cli frontmatter remove "{note-name}" --key "date, status, tags"
+
+# Remove multiple keys (bracketed list)
+obsidian-cli frontmatter remove "{note-name}" --key "[date, status, tags]"
 ```
 
 ## Contribution
