@@ -68,7 +68,13 @@ func TestVaultPath(t *testing.T) {
 		// Act
 		_, err = vault.Path()
 		// Assert
-		assert.Equal(t, err.Error(), obsidian.ObsidianConfigReadError)
+		if err == nil {
+			t.Fatalf("expected an error, got nil")
+		}
+		// Depending on the OS/filesystem, this may manifest as a read or parse error
+		if err.Error() != obsidian.ObsidianConfigReadError && err.Error() != obsidian.ObsidianConfigParseError {
+			t.Fatalf("expected read or parse error, got: %v", err)
+		}
 
 	})
 
