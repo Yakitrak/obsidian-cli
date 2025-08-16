@@ -168,6 +168,82 @@ obsidian-cli delete "{note-path}"
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
+### Frontmatter Edit
+
+Edits or creates a YAML frontmatter key in a note. The value is optional:
+- If omitted and key is `tags`, an empty list will be set: []
+- If omitted for other keys, an empty string will be set: ""
+
+Value (when provided) can be a YAML literal (string/number/bool), a sequence like `[a, b]`, or a comma-separated list for tags.
+
+```bash
+# Add an empty tags key
+obsidian-cli frontmatter edit "{note-name}" --key "tags"
+
+# Add an empty custom key
+obsidian-cli frontmatter edit "{note-name}" --key "status"
+
+# Add multiple empty keys at once (comma-separated keys)
+obsidian-cli frontmatter edit "{note-name}" --key "tags,status,reviewer"
+
+# Set tags to a single tag
+obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project"
+
+# Set tags to multiple tags via comma-separated shorthand
+obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project,urgent"
+
+# Set an arbitrary key using YAML syntax
+obsidian-cli frontmatter edit "{note-name}" --key "status" --value "in-progress"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter edit "{note-name}" --vault "{vault-name}" --key "tags" --value "project"
+```
+
+### Frontmatter View
+
+View a specific YAML frontmatter key from a note, or check if it matches/includes an expected value.
+
+```bash
+# View value of a frontmatter key (prints YAML/scalar)
+obsidian-cli frontmatter view "{note-name}" --key "tags"
+
+# Check whether a key matches/includes a value (prints true/false)
+obsidian-cli frontmatter view "{note-name}" --key "tags" --value "project"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter view "{note-name}" --vault "{vault-name}" --key "status"
+```
+
+### Frontmatter Clear
+
+Clear the content/value of a frontmatter key, keeping the key present.
+
+```bash
+# Clear tags (becomes an empty list if it was a list; otherwise becomes empty string)
+obsidian-cli frontmatter clear "{note-name}" --key "tags"
+
+# Clear multiple keys (comma-separated)
+obsidian-cli frontmatter clear "{note-name}" --key "date, status, tags"
+
+# Clear multiple keys (bracketed list)
+obsidian-cli frontmatter clear "{note-name}" --key "[date, status, tags]"
+```
+
+### Frontmatter Remove
+
+Remove a frontmatter key entirely. If this was the last key, the whole frontmatter block is removed.
+
+```bash
+# Remove the tags key from frontmatter
+obsidian-cli frontmatter remove "{note-name}" --key "tags"
+
+# Remove multiple keys (comma-separated)
+obsidian-cli frontmatter remove "{note-name}" --key "date, status, tags"
+
+# Remove multiple keys (bracketed list)
+obsidian-cli frontmatter remove "{note-name}" --key "[date, status, tags]"
+```
+
 ## Contribution
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
