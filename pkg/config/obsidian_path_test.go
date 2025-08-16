@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/Yakitrak/obsidian-cli/pkg/config"
 	"github.com/stretchr/testify/assert"
+	"path/filepath"
 	"testing"
 )
 
@@ -17,6 +18,7 @@ func TestConfigObsidianPath(t *testing.T) {
 		obsConfigFile, err := config.ObsidianFile()
 		// Assert
 		assert.Equal(t, nil, err)
+		obsConfigFile = filepath.ToSlash(obsConfigFile)
 		assert.Equal(t, "user/config/dir/obsidian/obsidian.json", obsConfigFile)
 	})
 
