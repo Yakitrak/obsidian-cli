@@ -467,6 +467,32 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		assert.Contains(t, matches[0].MatchLine, "filename match")
 	})
 
+	t.Run("Search notes prioritizes content over filename matches", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		vaultPath := "vault-folder"
+		fullVaultPath := filepath.Join(tempDir, vaultPath)
+
+		err := os.MkdirAll(fullVaultPath, 0755)
+		assert.NoError(t, err)
+
+		// Create a file that matches both filename and content
+		err = os.WriteFile(filepath.Join(fullVaultPath, "test-note.md"), []byte("This contains test content\nAnother line"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.SearchNotesWithSnippets(fullVaultPath, "test")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1) // Should only have content match, not filename match
+		assert.Equal(t, "test-note.md", matches[0].FilePath)
+		assert.Equal(t, 1, matches[0].LineNumber) // Should be content match (line 1)
+		assert.Contains(t, matches[0].MatchLine, "test content")
+		assert.NotContains(t, matches[0].MatchLine, "filename match")
+	})
+
 	t.Run("Search with no matches", func(t *testing.T) {
 		// Arrange
 		tempDir := t.TempDir()

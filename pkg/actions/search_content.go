@@ -84,11 +84,11 @@ func formatPathWithLine(match obsidian.NoteMatch) string {
 }
 
 func formatSingleMatch(match obsidian.NoteMatch, maxPathLength int) string {
+	pathWithLine := formatPathWithLine(match)
 	if match.LineNumber == 0 {
-		// Filename match - just show the file path
-		return fmt.Sprintf("%-*s", maxPathLength, match.FilePath)
+		// Filename match - show path and indicate it's a filename match
+		return fmt.Sprintf("%-*s | %s", maxPathLength, pathWithLine, match.MatchLine)
 	}
 	// Content match - show path:line | snippet
-	pathWithLine := formatPathWithLine(match)
 	return fmt.Sprintf("%-*s | %s", maxPathLength, pathWithLine, match.MatchLine)
 }
