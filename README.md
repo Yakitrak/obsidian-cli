@@ -135,11 +135,14 @@ obsidian-cli search-content "search term" --vault "{vault-name}"
 
 ### Print Note
 
-Prints the contents of given note name in Obsidian.
+Prints the contents of given note name or path in Obsidian.
 
 ```bash
 # Prints note in default vault
 obsidian-cli print "{note-name}"
+
+# Prints note by path in default vault
+obsidian-cli print "{note-path}"
 
 # Prints note in specified obsidian
 obsidian-cli print "{note-name}" --vault "{vault-name}"

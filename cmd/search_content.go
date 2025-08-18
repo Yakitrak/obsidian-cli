@@ -11,7 +11,7 @@ import (
 
 var searchContentCmd = &cobra.Command{
 	Use:     "search-content [search term]",
-	Short:   "Search for notes containing specific content",
+	Short:   "Search node content for search term",
 	Args:    cobra.ExactArgs(1),
 	Aliases: []string{"sc"},
 	Run: func(cmd *cobra.Command, args []string) {
