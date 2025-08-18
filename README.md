@@ -120,6 +120,19 @@ obsidian-cli search --vault "{vault-name}"
 
 ```
 
+### Search Note Content
+
+Searches for notes containing search term in the content of notes. It will display a list of matching notes with the line number and a snippet of the matching line. You can hit enter on a note to open that in Obsidian.
+
+```bash
+# Searches for content in default obsidian vault
+obsidian-cli search-content "search term"
+
+# Searches for content in specified obsidian vault
+obsidian-cli search-content "search term" --vault "{vault-name}"
+
+```
+
 ### Print Note
 
 Prints the contents of given note name in Obsidian.

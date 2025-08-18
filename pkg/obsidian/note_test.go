@@ -2,12 +2,13 @@ package obsidian_test
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDeleteNote(t *testing.T) {
@@ -251,30 +252,30 @@ func TestUpdateLinks_PreservesTimestamps(t *testing.T) {
 		// Arrange
 		tmpDir := t.TempDir()
 		oldTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-		
+
 		// Create files with different content
 		fileWithLinks := filepath.Join(tmpDir, "with_links.md")
 		fileWithoutLinks := filepath.Join(tmpDir, "without_links.md")
 		fileWithOtherLinks := filepath.Join(tmpDir, "other_links.md")
-		
+
 		// File that contains the old note name - should be updated
 		err := os.WriteFile(fileWithLinks, []byte("Content with [[OldNote]] reference"), 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
-		
+
 		// File with no relevant links - should NOT be updated
 		err = os.WriteFile(fileWithoutLinks, []byte("Content with no links"), 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
-		
+
 		// File with other links - should NOT be updated
 		err = os.WriteFile(fileWithOtherLinks, []byte("Content with [[SomeOtherNote]] reference"), 0644)
 		if err != nil {
 			t.Fatal(err)
 		}
-		
+
 		// Set all files to old timestamp
 		for _, file := range []string{fileWithLinks, fileWithoutLinks, fileWithOtherLinks} {
 			err = os.Chtimes(file, oldTime, oldTime)
@@ -282,7 +283,7 @@ func TestUpdateLinks_PreservesTimestamps(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		
+
 		// Record original timestamps
 		getModTime := func(path string) time.Time {
 			info, err := os.Stat(path)
@@ -291,28 +292,28 @@ func TestUpdateLinks_PreservesTimestamps(t *testing.T) {
 			}
 			return info.ModTime()
 		}
-		
+
 		originalWithLinks := getModTime(fileWithLinks)
 		originalWithoutLinks := getModTime(fileWithoutLinks)
 		originalOtherLinks := getModTime(fileWithOtherLinks)
-		
+
 		// Act
 		noteManager := obsidian.Note{}
 		err = noteManager.UpdateLinks(tmpDir, "OldNote", "newnote")
 		assert.NoError(t, err)
-		
+
 		// Assert timestamps
 		newWithLinks := getModTime(fileWithLinks)
 		newWithoutLinks := getModTime(fileWithoutLinks)
 		newOtherLinks := getModTime(fileWithOtherLinks)
-		
+
 		// File with links should have new timestamp
 		assert.True(t, newWithLinks.After(originalWithLinks), "File with links should have updated timestamp")
-		
+
 		// Files without relevant links should preserve timestamps
 		assert.Equal(t, originalWithoutLinks, newWithoutLinks, "File without links should preserve timestamp")
 		assert.Equal(t, originalOtherLinks, newOtherLinks, "File with other links should preserve timestamp")
-		
+
 		// Verify content was actually updated in the changed file
 		content, err := os.ReadFile(fileWithLinks)
 		assert.NoError(t, err)
@@ -361,5 +362,117 @@ func TestNote_GetNotesList(t *testing.T) {
 		// Assert
 		assert.NoError(t, err, "Expected no error when non-Markdown files are present")
 		assert.Empty(t, notes, "Expected empty notes list when no Markdown files are present")
+	})
+}
+
+func TestSearchNotesWithSnippets(t *testing.T) {
+	t.Run("Search notes with content matches", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		vaultPath := "vault-folder"
+		fullVaultPath := filepath.Join(tempDir, vaultPath)
+
+		err := os.MkdirAll(fullVaultPath, 0755)
+		assert.NoError(t, err)
+
+		// Create test files
+		testFiles := map[string]string{
+			"note1.md":   "This is a test file\nwith some content\nand more lines",
+			"note2.md":   "Another test document\nwith different content",
+			"readme.txt": "This should be ignored",
+		}
+
+		for filename, content := range testFiles {
+			err = os.WriteFile(filepath.Join(fullVaultPath, filename), []byte(content), 0644)
+			assert.NoError(t, err)
+		}
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.SearchNotesWithSnippets(fullVaultPath, "test")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 2) // Should find 2 matches (one in each .md file)
+
+		// Check that matches contain expected data
+		foundFiles := make(map[string]bool)
+		for _, match := range matches {
+			foundFiles[match.FilePath] = true
+			assert.Greater(t, match.LineNumber, 0)
+			assert.Contains(t, match.MatchLine, "test")
+		}
+
+		assert.True(t, foundFiles["note1.md"])
+		assert.True(t, foundFiles["note2.md"])
+	})
+
+	t.Run("Search notes with filename matches", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		vaultPath := "vault-folder"
+		fullVaultPath := filepath.Join(tempDir, vaultPath)
+
+		err := os.MkdirAll(fullVaultPath, 0755)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(fullVaultPath, "test-note.md"), []byte("Some content"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.SearchNotesWithSnippets(fullVaultPath, "test")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		assert.Equal(t, "test-note.md", matches[0].FilePath)
+		assert.Equal(t, 0, matches[0].LineNumber) // 0 indicates filename match
+		assert.Contains(t, matches[0].MatchLine, "filename match")
+	})
+
+	t.Run("Search with no matches", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		vaultPath := "vault-folder"
+		fullVaultPath := filepath.Join(tempDir, vaultPath)
+
+		err := os.MkdirAll(fullVaultPath, 0755)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(fullVaultPath, "note.md"), []byte("Some content"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.SearchNotesWithSnippets(fullVaultPath, "nonexistent")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Empty(t, matches)
+	})
+
+	t.Run("Search with long lines gets truncated", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		vaultPath := "vault-folder"
+		fullVaultPath := filepath.Join(tempDir, vaultPath)
+
+		err := os.MkdirAll(fullVaultPath, 0755)
+		assert.NoError(t, err)
+
+		longLine := "This is a very long line that contains the word test and should be truncated because it exceeds the maximum length limit"
+		err = os.WriteFile(filepath.Join(fullVaultPath, "note.md"), []byte(longLine), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.SearchNotesWithSnippets(fullVaultPath, "test")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		assert.Less(t, len(matches[0].MatchLine), len(longLine))
+		assert.Contains(t, matches[0].MatchLine, "test")
 	})
 }
