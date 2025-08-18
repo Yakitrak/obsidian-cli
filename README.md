@@ -1,12 +1,12 @@
 # Obsidian CLI
 
 ---
-![obsidian-cli Usage](./docs/usage.png)
----
+
+## ![obsidian-cli Usage](./docs/usage.png)
 
 ## Description
 
-Obsidian is a powerful and extensible knowledge base application 
+Obsidian is a powerful and extensible knowledge base application
 that works on top of your local folder of plain text notes. This CLI tool (written in Go) will let you interact with the application using the terminal. You are currently able to open, search, move, create, update and delete notes.
 
 ---
@@ -14,7 +14,9 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 ## Install
 
 ### Windows
+
 You will need to have [Scoop](https://scoop.sh/) installed. On powershell run:
+
 ```
 scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
 ```
@@ -61,8 +63,23 @@ Note: `open` and other commands in `obsidian-cli` use this vault's base director
 Prints default vault and path. Please set this with `set-default` command if not set.
 
 ```bash
+# print the default vault name and path
 obsidian-cli print-default
+
+# print only the vault path
+obsidian-cli print-default --path-only
 ```
+
+You can add this to your shell configuration file (like `~/.zshrc`) to quickly navigate to the default vault:
+
+```bash
+obs_cd() {
+    local result=$(obsidian-cli print-default --path-only)
+    [ -n "$result" ] && cd -- "$result"
+}
+```
+
+Then you can use `obs_cd` to navigate to the default vault directory within your terminal.
 
 ### Open Note
 
@@ -96,20 +113,36 @@ Starts a fuzzy search displaying notes in the terminal from the vault. You can h
 
 ```bash
 # Searches in default obsidian vault
-obsidian-cli search 
+obsidian-cli search
 
 # Searches in specified obsidian vault
 obsidian-cli search --vault "{vault-name}"
 
 ```
 
+### Search Note Content
+
+Searches for notes containing search term in the content of notes. It will display a list of matching notes with the line number and a snippet of the matching line. You can hit enter on a note to open that in Obsidian.
+
+```bash
+# Searches for content in default obsidian vault
+obsidian-cli search-content "search term"
+
+# Searches for content in specified obsidian vault
+obsidian-cli search-content "search term" --vault "{vault-name}"
+
+```
+
 ### Print Note
 
-Prints the contents of given note name in Obsidian.
+Prints the contents of given note name or path in Obsidian.
 
 ```bash
 # Prints note in default vault
 obsidian-cli print "{note-name}"
+
+# Prints note by path in default vault
+obsidian-cli print "{note-path}"
 
 # Prints note in specified obsidian
 obsidian-cli print "{note-name}" --vault "{vault-name}"
@@ -162,14 +195,16 @@ Deletes a given note (path from top level of vault).
 
 ```bash
 # Renames a note in default obsidian
-obsidian-cli delete "{note-path}" 
+obsidian-cli delete "{note-path}"
 
 # Renames a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
 ## Contribution
+
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
 ## License
+
 Available under [MIT License](./LICENSE)

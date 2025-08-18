@@ -1,10 +1,13 @@
 package mocks
 
+import "github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+
 type MockNoteManager struct {
 	DeleteErr        error
 	MoveErr          error
 	UpdateLinksError error
 	GetContentsError error
+	NoMatches        bool
 }
 
 func (m *MockNoteManager) Delete(string) error {
@@ -25,4 +28,17 @@ func (m *MockNoteManager) GetContents(string, string) (string, error) {
 
 func (m *MockNoteManager) GetNotesList(string) ([]string, error) {
 	return []string{"note1", "note2", "note3"}, m.GetContentsError
+}
+
+func (m *MockNoteManager) SearchNotesWithSnippets(string, string) ([]obsidian.NoteMatch, error) {
+	if m.GetContentsError != nil {
+		return nil, m.GetContentsError
+	}
+	if m.NoMatches {
+		return []obsidian.NoteMatch{}, nil
+	}
+	return []obsidian.NoteMatch{
+		{FilePath: "note1.md", LineNumber: 5, MatchLine: "example match line"},
+		{FilePath: "note2.md", LineNumber: 10, MatchLine: "another match"},
+	}, nil
 }

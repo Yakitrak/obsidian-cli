@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
-	"log"
 )
 
+var printPathOnly bool
 var printDefaultCmd = &cobra.Command{
 	Use:     "print-default",
 	Aliases: []string{"pd"},
@@ -22,11 +24,18 @@ var printDefaultCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		if printPathOnly {
+			fmt.Print(path)
+			return
+		}
+
 		fmt.Println("Default vault name: ", name)
 		fmt.Println("Default vault path: ", path)
 	},
 }
 
 func init() {
+	printDefaultCmd.Flags().BoolVar(&printPathOnly, "path-only", false, "print only the vault path")
 	rootCmd.AddCommand(printDefaultCmd)
 }
