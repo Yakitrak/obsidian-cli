@@ -67,6 +67,15 @@ func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
 		if d.IsDir() {
 			return nil // Skip directories
 		}
+		
+		// Check for full path match first
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err == nil && relPath == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+		
+		// Fall back to basename match for backward compatibility
 		if filepath.Base(path) == note {
 			notePath = path
 			return filepath.SkipDir

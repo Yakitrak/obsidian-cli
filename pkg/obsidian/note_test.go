@@ -87,6 +87,42 @@ func TestNote_GetContents(t *testing.T) {
 		})
 	}
 
+	t.Run("Get contents by full path", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		vaultPath := "vault-folder"
+		subDir := "02 Personal/Hobbies/Cooking"
+		noteName := "Cookies.md"
+		fullNotePath := filepath.Join(subDir, noteName)
+		actualNotePath := filepath.Join(tempDir, vaultPath, fullNotePath)
+		fileContents := "Cookie recipe content here"
+
+		err := os.MkdirAll(filepath.Dir(actualNotePath), 0755)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = os.WriteFile(actualNotePath, []byte(fileContents), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Act - test with full path
+		noteManager := obsidian.Note{}
+		content, err := noteManager.GetContents(filepath.Join(tempDir, vaultPath), fullNotePath)
+
+		// Assert
+		assert.Equal(t, nil, err, "Expected no error while retrieving note contents by full path")
+		assert.Equal(t, fileContents, content, "Expected contents to match the file contents")
+
+		// Act - test with just filename (should still work for backward compatibility)
+		content2, err2 := noteManager.GetContents(filepath.Join(tempDir, vaultPath), "Cookies")
+
+		// Assert
+		assert.Equal(t, nil, err2, "Expected no error while retrieving note contents by filename")
+		assert.Equal(t, fileContents, content2, "Expected contents to match the file contents")
+	})
+
 	t.Run("Get contents of non-existent note", func(t *testing.T) {
 		// Arrange
 		noteManager := obsidian.Note{}
