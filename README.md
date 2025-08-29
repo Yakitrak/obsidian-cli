@@ -1,12 +1,12 @@
 # Obsidian CLI
 
 ---
-
-## ![obsidian-cli Usage](./docs/usage.png)
+![obsidian-cli Usage](./docs/usage.png)
+---
 
 ## Description
 
-Obsidian is a powerful and extensible knowledge base application
+Obsidian is a powerful and extensible knowledge base application 
 that works on top of your local folder of plain text notes. This CLI tool (written in Go) will let you interact with the application using the terminal. You are currently able to open, search, move, create, update and delete notes.
 
 ---
@@ -14,9 +14,7 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 ## Install
 
 ### Windows
-
 You will need to have [Scoop](https://scoop.sh/) installed. On powershell run:
-
 ```
 scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
 ```
@@ -63,23 +61,8 @@ Note: `open` and other commands in `obsidian-cli` use this vault's base director
 Prints default vault and path. Please set this with `set-default` command if not set.
 
 ```bash
-# print the default vault name and path
 obsidian-cli print-default
-
-# print only the vault path
-obsidian-cli print-default --path-only
 ```
-
-You can add this to your shell configuration file (like `~/.zshrc`) to quickly navigate to the default vault:
-
-```bash
-obs_cd() {
-    local result=$(obsidian-cli print-default --path-only)
-    [ -n "$result" ] && cd -- "$result"
-}
-```
-
-Then you can use `obs_cd` to navigate to the default vault directory within your terminal.
 
 ### Open Note
 
@@ -113,36 +96,20 @@ Starts a fuzzy search displaying notes in the terminal from the vault. You can h
 
 ```bash
 # Searches in default obsidian vault
-obsidian-cli search
+obsidian-cli search 
 
 # Searches in specified obsidian vault
 obsidian-cli search --vault "{vault-name}"
 
 ```
 
-### Search Note Content
-
-Searches for notes containing search term in the content of notes. It will display a list of matching notes with the line number and a snippet of the matching line. You can hit enter on a note to open that in Obsidian.
-
-```bash
-# Searches for content in default obsidian vault
-obsidian-cli search-content "search term"
-
-# Searches for content in specified obsidian vault
-obsidian-cli search-content "search term" --vault "{vault-name}"
-
-```
-
 ### Print Note
 
-Prints the contents of given note name or path in Obsidian.
+Prints the contents of given note name in Obsidian.
 
 ```bash
 # Prints note in default vault
 obsidian-cli print "{note-name}"
-
-# Prints note by path in default vault
-obsidian-cli print "{note-path}"
 
 # Prints note in specified obsidian
 obsidian-cli print "{note-name}" --vault "{vault-name}"
@@ -195,16 +162,90 @@ Deletes a given note (path from top level of vault).
 
 ```bash
 # Renames a note in default obsidian
-obsidian-cli delete "{note-path}"
+obsidian-cli delete "{note-path}" 
 
 # Renames a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
-## Contribution
+### Frontmatter Edit
 
+Edits or creates a YAML frontmatter key in a note. The value is optional:
+- If omitted and key is `tags`, an empty list will be set: []
+- If omitted for other keys, an empty string will be set: ""
+
+Value (when provided) can be a YAML literal (string/number/bool), a sequence like `[a, b]`, or a comma-separated list for tags.
+
+```bash
+# Add an empty tags key
+obsidian-cli frontmatter edit "{note-name}" --key "tags"
+
+# Add an empty custom key
+obsidian-cli frontmatter edit "{note-name}" --key "status"
+
+# Add multiple empty keys at once (comma-separated keys)
+obsidian-cli frontmatter edit "{note-name}" --key "tags,status,reviewer"
+
+# Set tags to a single tag
+obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project"
+
+# Set tags to multiple tags via comma-separated shorthand
+obsidian-cli frontmatter edit "{note-name}" --key "tags" --value "project,urgent"
+
+# Set an arbitrary key using YAML syntax
+obsidian-cli frontmatter edit "{note-name}" --key "status" --value "in-progress"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter edit "{note-name}" --vault "{vault-name}" --key "tags" --value "project"
+```
+
+### Frontmatter View
+
+View a specific YAML frontmatter key from a note, or check if it matches/includes an expected value.
+
+```bash
+# View value of a frontmatter key (prints YAML/scalar)
+obsidian-cli frontmatter view "{note-name}" --key "tags"
+
+# Check whether a key matches/includes a value (prints true/false)
+obsidian-cli frontmatter view "{note-name}" --key "tags" --value "project"
+
+# Specify a vault explicitly
+obsidian-cli frontmatter view "{note-name}" --vault "{vault-name}" --key "status"
+```
+
+### Frontmatter Clear
+
+Clear the content/value of a frontmatter key, keeping the key present.
+
+```bash
+# Clear tags (becomes an empty list if it was a list; otherwise becomes empty string)
+obsidian-cli frontmatter clear "{note-name}" --key "tags"
+
+# Clear multiple keys (comma-separated)
+obsidian-cli frontmatter clear "{note-name}" --key "date, status, tags"
+
+# Clear multiple keys (bracketed list)
+obsidian-cli frontmatter clear "{note-name}" --key "[date, status, tags]"
+```
+
+### Frontmatter Remove
+
+Remove a frontmatter key entirely. If this was the last key, the whole frontmatter block is removed.
+
+```bash
+# Remove the tags key from frontmatter
+obsidian-cli frontmatter remove "{note-name}" --key "tags"
+
+# Remove multiple keys (comma-separated)
+obsidian-cli frontmatter remove "{note-name}" --key "date, status, tags"
+
+# Remove multiple keys (bracketed list)
+obsidian-cli frontmatter remove "{note-name}" --key "[date, status, tags]"
+```
+
+## Contribution
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
 ## License
-
 Available under [MIT License](./LICENSE)
