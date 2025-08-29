@@ -14,6 +14,8 @@ clean-all:
 test:
 	go test ./...
 
-test_coverage:
+test-coverage:
 	go test ./... -coverprofile=coverage.out
 
+update-usage-image:
+	freeze --execute "go run main.go --help" --theme dracula  --output docs/usage.png

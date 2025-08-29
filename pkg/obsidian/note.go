@@ -14,12 +14,19 @@ import (
 type Note struct {
 }
 
+type NoteMatch struct {
+	FilePath   string
+	LineNumber int
+	MatchLine  string
+}
+
 type NoteManager interface {
 	Move(string, string) error
 	Delete(string) error
 	UpdateLinks(string, string, string) error
 	GetContents(string, string) (string, error)
 	GetNotesList(string) ([]string, error)
+	SearchNotesWithSnippets(string, string) ([]NoteMatch, error)
 }
 
 func (m *Note) Move(originalPath string, newPath string) error {
@@ -60,6 +67,15 @@ func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
 		if d.IsDir() {
 			return nil // Skip directories
 		}
+
+		// Check for full path match first
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err == nil && relPath == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+
+		// Fall back to basename match for backward compatibility
 		if filepath.Base(path) == note {
 			notePath = path
 			return filepath.SkipDir
@@ -144,4 +160,81 @@ func (m *Note) GetNotesList(vaultPath string) ([]string, error) {
 		return nil, err
 	}
 	return notes, nil
+}
+
+func (m *Note) SearchNotesWithSnippets(vaultPath string, query string) ([]NoteMatch, error) {
+	var matches []NoteMatch
+	queryLower := strings.ToLower(query)
+
+	err := filepath.WalkDir(vaultPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".md") {
+			relPath, err := filepath.Rel(vaultPath, path)
+			if err != nil {
+				return err
+			}
+
+			fileNameMatches := strings.Contains(strings.ToLower(relPath), queryLower)
+			var hasContentMatch bool
+
+			// Check file size to avoid reading very large files (>10MB)
+			if info, err := d.Info(); err == nil && info.Size() < 10*1024*1024 {
+				content, err := os.ReadFile(path)
+				if err == nil {
+					lines := strings.Split(string(content), "\n")
+					for lineNum, line := range lines {
+						if strings.Contains(strings.ToLower(line), queryLower) {
+							hasContentMatch = true
+							matchLine := strings.TrimSpace(line)
+							if len(matchLine) > 80 {
+								// Find the query position and center around it
+								queryPos := strings.Index(strings.ToLower(matchLine), queryLower)
+								if queryPos != -1 {
+									start := queryPos - 20
+									end := queryPos + len(query) + 20
+									if start < 0 {
+										start = 0
+									}
+									if end > len(matchLine) {
+										end = len(matchLine)
+									}
+									if start > 0 {
+										matchLine = "..." + matchLine[start:]
+									}
+									if end < len(strings.TrimSpace(line)) {
+										matchLine = matchLine[:end-start] + "..."
+									}
+								} else {
+									matchLine = matchLine[:80] + "..."
+								}
+							}
+
+							matches = append(matches, NoteMatch{
+								FilePath:   relPath,
+								LineNumber: lineNum + 1,
+								MatchLine:  matchLine,
+							})
+						}
+					}
+				}
+			}
+
+			// Only add filename match if there are no content matches
+			if fileNameMatches && !hasContentMatch {
+				matches = append(matches, NoteMatch{
+					FilePath:   relPath,
+					LineNumber: 0,
+					MatchLine:  fmt.Sprintf("(filename match: %s)", filepath.Base(relPath)),
+				})
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
