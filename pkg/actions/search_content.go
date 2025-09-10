@@ -2,11 +2,12 @@ package actions
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
-func SearchNotesContent(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, fuzzyFinder obsidian.FuzzyFinderManager, searchTerm string) error {
+func SearchNotesContent(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, fuzzyFinder obsidian.FuzzyFinderManager, searchTerm string, useEditor bool) error {
 	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return err
@@ -28,11 +29,15 @@ func SearchNotesContent(vault obsidian.VaultManager, note obsidian.NoteManager, 
 	}
 
 	if len(matches) == 1 {
+		fmt.Printf("Opening note: %s\n", matches[0].FilePath)
+		if useEditor {
+			filePath := filepath.Join(vaultPath, matches[0].FilePath)
+			return obsidian.OpenInEditor(filePath)
+		}
 		obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
 			"file":  matches[0].FilePath,
 			"vault": vaultName,
 		})
-		fmt.Printf("Opening note: %s\n", matches[0].FilePath)
 		return uri.Execute(obsidianUri)
 	}
 
@@ -46,6 +51,10 @@ func SearchNotesContent(vault obsidian.VaultManager, note obsidian.NoteManager, 
 	}
 
 	selectedMatch := matches[index]
+	if useEditor {
+		filePath := filepath.Join(vaultPath, selectedMatch.FilePath)
+		return obsidian.OpenInEditor(filePath)
+	}
 	obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
 		"file":  selectedMatch.FilePath,
 		"vault": vaultName,

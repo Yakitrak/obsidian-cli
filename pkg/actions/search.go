@@ -1,10 +1,11 @@
 package actions
 
 import (
+	"path/filepath"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
-func SearchNotes(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, fuzzyFinder obsidian.FuzzyFinderManager) error {
+func SearchNotes(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, fuzzyFinder obsidian.FuzzyFinderManager, useEditor bool) error {
 	vaultName, err := vault.DefaultName()
 	if err != nil {
 		return err
@@ -26,6 +27,12 @@ func SearchNotes(vault obsidian.VaultManager, note obsidian.NoteManager, uri obs
 
 	if err != nil {
 		return err
+	}
+
+	if useEditor {
+		// Open in editor instead of Obsidian
+		filePath := filepath.Join(vaultPath, notes[index])
+		return obsidian.OpenInEditor(filePath)
 	}
 
 	obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{

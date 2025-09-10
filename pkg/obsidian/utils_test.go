@@ -5,6 +5,7 @@ import (
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -116,4 +117,71 @@ func TestShouldSkipDirectoryOrFile(t *testing.T) {
 			assert.Equal(t, test.want, got)
 		})
 	}
+}
+
+func TestOpenInEditor(t *testing.T) {
+	// Create a temporary file for testing
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.md")
+	err := os.WriteFile(testFile, []byte("# Test Note\n\nThis is a test note."), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	t.Run("Uses EDITOR environment variable", func(t *testing.T) {
+		// Set EDITOR to a command that will succeed and exit quickly
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		
+		os.Setenv("EDITOR", "true") // 'true' command always succeeds and exits immediately
+		
+		err := obsidian.OpenInEditor(testFile)
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("Falls back to vim when EDITOR not set", func(t *testing.T) {
+		// Unset EDITOR environment variable
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		
+		os.Unsetenv("EDITOR")
+		
+		// We can't easily test vim opening in a test environment without it hanging
+		// So we'll skip this test if vim exists and would actually run
+		// This test serves more as documentation of the expected behavior
+		t.Skip("Skipping vim fallback test to avoid hanging in test environment")
+	})
+
+	t.Run("Handles nonexistent file", func(t *testing.T) {
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		
+		// Use a command that will fail when given a nonexistent file
+		os.Setenv("EDITOR", "ls") // ls will fail on nonexistent file
+		
+		nonexistentFile := filepath.Join(tempDir, "nonexistent.md")
+		err := obsidian.OpenInEditor(nonexistentFile)
+		
+		// We expect this to fail
+		if err == nil {
+			t.Error("Expected error for nonexistent file, got nil")
+		}
+	})
+
+	t.Run("Handles editor command failure", func(t *testing.T) {
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		
+		// Use a command that will always fail
+		os.Setenv("EDITOR", "false") // 'false' command always fails
+		
+		err := obsidian.OpenInEditor(testFile)
+		
+		// We expect this to fail
+		if err == nil {
+			t.Error("Expected error for failing editor command, got nil")
+		}
+	})
 }

@@ -3,6 +3,7 @@ package obsidian
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -46,4 +47,19 @@ func ShouldSkipDirectoryOrFile(info os.FileInfo) bool {
 		return true
 	}
 	return false
+}
+
+// OpenInEditor opens the specified file path in the user's preferred editor
+func OpenInEditor(filePath string) error {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim" // Default fallback
+	}
+	
+	cmd := exec.Command(editor, filePath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	return cmd.Run()
 }

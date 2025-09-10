@@ -2,6 +2,7 @@ package actions_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/Yakitrak/obsidian-cli/mocks"
@@ -17,7 +18,7 @@ func TestSearchNotes(t *testing.T) {
 		note := mocks.MockNoteManager{}
 		fuzzyFinder := mocks.MockFuzzyFinder{}
 		// Act
-		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder)
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, false)
 		// Assert
 		assert.NoError(t, err, "Expected no error")
 	})
@@ -31,7 +32,7 @@ func TestSearchNotes(t *testing.T) {
 			FindErr: errors.New("Fuzzy find error"),
 		}
 		// Act
-		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder)
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, false)
 		// Assert
 		assert.Equal(t, err, fuzzyFinder.FindErr)
 	})
@@ -45,7 +46,7 @@ func TestSearchNotes(t *testing.T) {
 		note := mocks.MockNoteManager{}
 		fuzzyFinder := mocks.MockFuzzyFinder{}
 		// Act
-		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder)
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, false)
 		// Assert
 		assert.Equal(t, err, vault.DefaultNameErr)
 	})
@@ -59,7 +60,7 @@ func TestSearchNotes(t *testing.T) {
 		note := mocks.MockNoteManager{}
 		fuzzyFinder := mocks.MockFuzzyFinder{}
 		// Act
-		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder)
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, false)
 		// Assert
 		assert.Equal(t, err, vault.PathError)
 	})
@@ -73,8 +74,54 @@ func TestSearchNotes(t *testing.T) {
 			ExecuteErr: errors.New("Failed to execute URI"),
 		}
 		// Act
-		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder)
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, false)
 		// Assert
 		assert.Equal(t, err, uri.ExecuteErr)
+	})
+
+	t.Run("Successful search with editor flag", func(t *testing.T) {
+		// Set up mocks
+		vault := mocks.MockVaultOperator{
+			Name: "myVault",
+		}
+		uri := mocks.MockUriManager{}
+		note := mocks.MockNoteManager{}
+		fuzzyFinder := mocks.MockFuzzyFinder{
+			SelectedIndex: 0,
+		}
+
+		// Set EDITOR to a command that will succeed
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		os.Setenv("EDITOR", "true")
+
+		// Act - test with editor flag enabled
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, true)
+		
+		// Assert - should succeed without calling URI execute
+		assert.NoError(t, err)
+	})
+
+	t.Run("Search with editor flag fails when editor fails", func(t *testing.T) {
+		// Set up mocks
+		vault := mocks.MockVaultOperator{
+			Name: "myVault",
+		}
+		uri := mocks.MockUriManager{}
+		note := mocks.MockNoteManager{}
+		fuzzyFinder := mocks.MockFuzzyFinder{
+			SelectedIndex: 0,
+		}
+
+		// Set EDITOR to a command that will fail
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		os.Setenv("EDITOR", "false") // 'false' command always fails
+
+		// Act - test with editor flag enabled
+		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, true)
+		
+		// Assert - should fail due to editor failure
+		assert.Error(t, err)
 	})
 }

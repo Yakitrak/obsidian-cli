@@ -21,7 +21,8 @@ var searchContentCmd = &cobra.Command{
 		fuzzyFinder := obsidian.FuzzyFinder{}
 
 		searchTerm := args[0]
-		err := actions.SearchNotesContent(&vault, &note, &uri, &fuzzyFinder, searchTerm)
+		useEditor, _ := cmd.Flags().GetBool("editor")
+		err := actions.SearchNotesContent(&vault, &note, &uri, &fuzzyFinder, searchTerm, useEditor)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -30,5 +31,6 @@ var searchContentCmd = &cobra.Command{
 
 func init() {
 	searchContentCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	searchContentCmd.Flags().BoolP("editor", "e", false, "open in editor instead of Obsidian")
 	rootCmd.AddCommand(searchContentCmd)
 }
