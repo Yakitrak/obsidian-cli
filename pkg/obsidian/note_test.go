@@ -27,7 +27,7 @@ func TestDeleteNote(t *testing.T) {
 			notePathToCreate := filepath.Join(tempDir, test.noteToCreate)
 			notePath := filepath.Join(tempDir, test.noteArg)
 
-			err := os.WriteFile(notePathToCreate, []byte(""), 0644)
+			err := os.WriteFile(notePathToCreate, []byte(""), 0o644)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -36,7 +36,6 @@ func TestDeleteNote(t *testing.T) {
 			err = noteManager.Delete(notePath)
 			// Assert
 			assert.Equal(t, nil, err, "Expected no error while deleting note")
-
 		})
 	}
 
@@ -47,9 +46,9 @@ func TestDeleteNote(t *testing.T) {
 		err := noteManager.Delete("non-existent-note")
 		// Assert
 		assert.Equal(t, obsidian.NoteDoesNotExistError, err.Error(), "Expected error while deleting non-existent note")
-
 	})
 }
+
 func TestNote_GetContents(t *testing.T) {
 	tests := []struct {
 		testName           string
@@ -67,12 +66,12 @@ func TestNote_GetContents(t *testing.T) {
 			notePath := filepath.Join(tempDir, vaultPath, test.noteToCreate)
 			fileContents := "Example file contents here"
 
-			err := os.MkdirAll(filepath.Join(tempDir, vaultPath), 0755)
+			err := os.MkdirAll(filepath.Join(tempDir, vaultPath), 0o755)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			err = os.WriteFile(notePath, []byte(fileContents), 0644)
+			err = os.WriteFile(notePath, []byte(fileContents), 0o644)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,12 +96,12 @@ func TestNote_GetContents(t *testing.T) {
 		actualNotePath := filepath.Join(tempDir, vaultPath, fullNotePath)
 		fileContents := "Cookie recipe content here"
 
-		err := os.MkdirAll(filepath.Dir(actualNotePath), 0755)
+		err := os.MkdirAll(filepath.Dir(actualNotePath), 0o755)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = os.WriteFile(actualNotePath, []byte(fileContents), 0644)
+		err = os.WriteFile(actualNotePath, []byte(fileContents), 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +130,6 @@ func TestNote_GetContents(t *testing.T) {
 		// Assert
 		assert.Equal(t, obsidian.NoteDoesNotExistError, err.Error(), "Expected error while deleting non-existent note")
 		assert.Equal(t, contents, "")
-
 	})
 }
 
@@ -159,7 +157,7 @@ func TestMoveNote(t *testing.T) {
 			existingNoteFullPathToCreate := filepath.Join(tempDir, test.existingNotePathToCreate)
 			expectedNewPath := filepath.Join(tempDir, test.expectedNotePath)
 
-			err := os.WriteFile(existingNoteFullPathToCreate, []byte(originalContent), 0644)
+			err := os.WriteFile(existingNoteFullPathToCreate, []byte(originalContent), 0o644)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -189,7 +187,6 @@ func TestMoveNote(t *testing.T) {
 				t.Fatal(err)
 			}
 			assert.Equal(t, string(newContent), originalContent, "New file content is %q, expected %q", string(newContent), originalContent)
-
 		})
 	}
 
@@ -214,17 +211,18 @@ func createTmpDirAndFiles(t *testing.T, perm os.FileMode, files []string, conten
 		}
 	}
 	// create other non markdown files
-	err := os.WriteFile(filepath.Join(tmpDir, "file4.txt"), []byte("This is a test file"), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "file4.txt"), []byte("This is a test file"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 	// create hidden directory
-	err = os.Mkdir(filepath.Join(tmpDir, ".hidden"), 0644)
+	err = os.Mkdir(filepath.Join(tmpDir, ".hidden"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create hidden directory: %v", err)
 	}
 	return tmpDir
 }
+
 func TestUpdateNoteLinks(t *testing.T) {
 	oldNoteName := "oldNote"
 	newNoteName := "newNote"
@@ -233,7 +231,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 
 	t.Run("Update note links successfully", func(t *testing.T) {
 		// Arrange
-		tmpDir := createTmpDirAndFiles(t, 0644, testFiles, content)
+		tmpDir := createTmpDirAndFiles(t, 0o644, testFiles, content)
 
 		noteManager := obsidian.Note{}
 
@@ -264,7 +262,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 
 	t.Run("Error reading files in vault", func(t *testing.T) {
 		// Arrange
-		tmpDir := createTmpDirAndFiles(t, 0000, testFiles, content)
+		tmpDir := createTmpDirAndFiles(t, 0o000, testFiles, content)
 		noteManager := obsidian.Note{}
 		// Act
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
@@ -274,7 +272,7 @@ func TestUpdateNoteLinks(t *testing.T) {
 
 	t.Run("Error on writing to files in vault", func(t *testing.T) {
 		// Arrange
-		tmpDir := createTmpDirAndFiles(t, 0444, testFiles, content)
+		tmpDir := createTmpDirAndFiles(t, 0o444, testFiles, content)
 		noteManager := obsidian.Note{}
 		// Act
 		err := noteManager.UpdateLinks(tmpDir, "oldNote", "newNote")
@@ -295,19 +293,19 @@ func TestUpdateLinks_PreservesTimestamps(t *testing.T) {
 		fileWithOtherLinks := filepath.Join(tmpDir, "other_links.md")
 
 		// File that contains the old note name - should be updated
-		err := os.WriteFile(fileWithLinks, []byte("Content with [[OldNote]] reference"), 0644)
+		err := os.WriteFile(fileWithLinks, []byte("Content with [[OldNote]] reference"), 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// File with no relevant links - should NOT be updated
-		err = os.WriteFile(fileWithoutLinks, []byte("Content with no links"), 0644)
+		err = os.WriteFile(fileWithoutLinks, []byte("Content with no links"), 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// File with other links - should NOT be updated
-		err = os.WriteFile(fileWithOtherLinks, []byte("Content with [[SomeOtherNote]] reference"), 0644)
+		err = os.WriteFile(fileWithOtherLinks, []byte("Content with [[SomeOtherNote]] reference"), 0o644)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -362,7 +360,7 @@ func TestNote_GetNotesList(t *testing.T) {
 		// Arrange
 		testFiles := []string{"file1.md", "file2.md", "file3.md"}
 		content := []byte("This is a test note")
-		tmpDir := createTmpDirAndFiles(t, 0644, testFiles, content)
+		tmpDir := createTmpDirAndFiles(t, 0o644, testFiles, content)
 
 		noteManager := obsidian.Note{}
 
@@ -389,7 +387,7 @@ func TestNote_GetNotesList(t *testing.T) {
 
 	t.Run("Vault directory with non-Markdown files", func(t *testing.T) {
 		// Arrange
-		tmpDir := createTmpDirAndFiles(t, 0644, []string{"file1.txt", "file2.jpg"}, []byte("Non-markdown content"))
+		tmpDir := createTmpDirAndFiles(t, 0o644, []string{"file1.txt", "file2.jpg"}, []byte("Non-markdown content"))
 		noteManager := obsidian.Note{}
 
 		// Act
@@ -408,7 +406,7 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		vaultPath := "vault-folder"
 		fullVaultPath := filepath.Join(tempDir, vaultPath)
 
-		err := os.MkdirAll(fullVaultPath, 0755)
+		err := os.MkdirAll(fullVaultPath, 0o755)
 		assert.NoError(t, err)
 
 		// Create test files
@@ -419,7 +417,7 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		}
 
 		for filename, content := range testFiles {
-			err = os.WriteFile(filepath.Join(fullVaultPath, filename), []byte(content), 0644)
+			err = os.WriteFile(filepath.Join(fullVaultPath, filename), []byte(content), 0o644)
 			assert.NoError(t, err)
 		}
 
@@ -449,10 +447,10 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		vaultPath := "vault-folder"
 		fullVaultPath := filepath.Join(tempDir, vaultPath)
 
-		err := os.MkdirAll(fullVaultPath, 0755)
+		err := os.MkdirAll(fullVaultPath, 0o755)
 		assert.NoError(t, err)
 
-		err = os.WriteFile(filepath.Join(fullVaultPath, "test-note.md"), []byte("Some content"), 0644)
+		err = os.WriteFile(filepath.Join(fullVaultPath, "test-note.md"), []byte("Some content"), 0o644)
 		assert.NoError(t, err)
 
 		// Act
@@ -473,11 +471,11 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		vaultPath := "vault-folder"
 		fullVaultPath := filepath.Join(tempDir, vaultPath)
 
-		err := os.MkdirAll(fullVaultPath, 0755)
+		err := os.MkdirAll(fullVaultPath, 0o755)
 		assert.NoError(t, err)
 
 		// Create a file that matches both filename and content
-		err = os.WriteFile(filepath.Join(fullVaultPath, "test-note.md"), []byte("This contains test content\nAnother line"), 0644)
+		err = os.WriteFile(filepath.Join(fullVaultPath, "test-note.md"), []byte("This contains test content\nAnother line"), 0o644)
 		assert.NoError(t, err)
 
 		// Act
@@ -499,10 +497,10 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		vaultPath := "vault-folder"
 		fullVaultPath := filepath.Join(tempDir, vaultPath)
 
-		err := os.MkdirAll(fullVaultPath, 0755)
+		err := os.MkdirAll(fullVaultPath, 0o755)
 		assert.NoError(t, err)
 
-		err = os.WriteFile(filepath.Join(fullVaultPath, "note.md"), []byte("Some content"), 0644)
+		err = os.WriteFile(filepath.Join(fullVaultPath, "note.md"), []byte("Some content"), 0o644)
 		assert.NoError(t, err)
 
 		// Act
@@ -520,11 +518,11 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		vaultPath := "vault-folder"
 		fullVaultPath := filepath.Join(tempDir, vaultPath)
 
-		err := os.MkdirAll(fullVaultPath, 0755)
+		err := os.MkdirAll(fullVaultPath, 0o755)
 		assert.NoError(t, err)
 
 		longLine := "This is a very long line that contains the word test and should be truncated because it exceeds the maximum length limit"
-		err = os.WriteFile(filepath.Join(fullVaultPath, "note.md"), []byte(longLine), 0644)
+		err = os.WriteFile(filepath.Join(fullVaultPath, "note.md"), []byte(longLine), 0o644)
 		assert.NoError(t, err)
 
 		// Act

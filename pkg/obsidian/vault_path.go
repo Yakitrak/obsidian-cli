@@ -3,9 +3,10 @@ package obsidian
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Yakitrak/obsidian-cli/pkg/config"
 	"os"
 	"strings"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/config"
 )
 
 var ObsidianConfigFile = config.ObsidianFile
@@ -17,14 +18,12 @@ func (v *Vault) Path() (string, error) {
 	}
 
 	content, err := os.ReadFile(obsidianConfigFile)
-
 	if err != nil {
 		return "", errors.New(ObsidianConfigReadError)
 	}
 
 	vaultsContent := ObsidianVaultConfig{}
 	err = json.Unmarshal(content, &vaultsContent)
-
 	if err != nil {
 		return "", errors.New(ObsidianConfigParseError)
 	}

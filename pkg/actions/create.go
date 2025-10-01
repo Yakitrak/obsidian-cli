@@ -1,9 +1,10 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"strconv"
 	"strings"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
 type CreateParams struct {

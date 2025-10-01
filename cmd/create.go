@@ -1,37 +1,40 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
-	"log"
 )
 
-var shouldAppend bool
-var shouldOverwrite bool
-var content string
-var createNoteCmd = &cobra.Command{
-	Use:     "create",
-	Aliases: []string{"c"},
-	Short:   "Creates note in vault",
-	Args:    cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		vault := obsidian.Vault{Name: vaultName}
-		uri := obsidian.Uri{}
-		noteName := args[0]
-		params := actions.CreateParams{
-			NoteName:        noteName,
-			Content:         content,
-			ShouldAppend:    shouldAppend,
-			ShouldOverwrite: shouldOverwrite,
-			ShouldOpen:      shouldOpen,
-		}
-		err := actions.CreateNote(&vault, &uri, params)
-		if err != nil {
-			log.Fatal(err)
-		}
-	},
-}
+var (
+	shouldAppend    bool
+	shouldOverwrite bool
+	content         string
+	createNoteCmd   = &cobra.Command{
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "Creates note in vault",
+		Args:    cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			vault := obsidian.Vault{Name: vaultName}
+			uri := obsidian.Uri{}
+			noteName := args[0]
+			params := actions.CreateParams{
+				NoteName:        noteName,
+				Content:         content,
+				ShouldAppend:    shouldAppend,
+				ShouldOverwrite: shouldOverwrite,
+				ShouldOpen:      shouldOpen,
+			}
+			err := actions.CreateNote(&vault, &uri, params)
+			if err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+)
 
 func init() {
 	createNoteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")

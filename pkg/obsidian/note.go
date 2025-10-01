@@ -11,8 +11,7 @@ import (
 	"strings"
 )
 
-type Note struct {
-}
+type Note struct{}
 
 type NoteMatch struct {
 	FilePath   string
@@ -29,12 +28,11 @@ type NoteManager interface {
 	SearchNotesWithSnippets(string, string) ([]NoteMatch, error)
 }
 
-func (m *Note) Move(originalPath string, newPath string) error {
+func (m *Note) Move(originalPath, newPath string) error {
 	o := AddMdSuffix(originalPath)
 	n := AddMdSuffix(newPath)
 
 	err := os.Rename(o, n)
-
 	if err != nil {
 		return errors.New(NoteDoesNotExistError)
 	}
@@ -46,6 +44,7 @@ to %s`, o, n)
 	fmt.Println(message)
 	return nil
 }
+
 func (m *Note) Delete(path string) error {
 	note := AddMdSuffix(path)
 	err := os.Remove(note)
@@ -56,7 +55,7 @@ func (m *Note) Delete(path string) error {
 	return nil
 }
 
-func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
+func (m *Note) GetContents(vaultPath, noteName string) (string, error) {
 	note := AddMdSuffix(noteName)
 
 	var notePath string
@@ -101,7 +100,7 @@ func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
 	return string(content), nil
 }
 
-func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
+func (m *Note) UpdateLinks(vaultPath, oldNoteName, newNoteName string) error {
 	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return errors.New(VaultAccessError)
@@ -162,7 +161,7 @@ func (m *Note) GetNotesList(vaultPath string) ([]string, error) {
 	return notes, nil
 }
 
-func (m *Note) SearchNotesWithSnippets(vaultPath string, query string) ([]NoteMatch, error) {
+func (m *Note) SearchNotesWithSnippets(vaultPath, query string) ([]NoteMatch, error) {
 	var matches []NoteMatch
 	queryLower := strings.ToLower(query)
 
@@ -232,7 +231,6 @@ func (m *Note) SearchNotesWithSnippets(vaultPath string, query string) ([]NoteMa
 		}
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}

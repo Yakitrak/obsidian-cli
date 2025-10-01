@@ -1,8 +1,9 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"path/filepath"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
 type DeleteParams struct {

@@ -2,9 +2,10 @@ package config_test
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/config"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestConfigCliPath(t *testing.T) {
@@ -36,5 +37,4 @@ func TestConfigCliPath(t *testing.T) {
 		assert.Equal(t, "", obsConfigDir)
 		assert.Equal(t, "", obsConfigFile)
 	})
-
 }

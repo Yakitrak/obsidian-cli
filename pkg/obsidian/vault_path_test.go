@@ -1,11 +1,12 @@
 package obsidian_test
 
 import (
+	"os"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func TestVaultPath(t *testing.T) {
@@ -27,7 +28,7 @@ func TestVaultPath(t *testing.T) {
 	obsidian.ObsidianConfigFile = func() (string, error) {
 		return mockObsidianConfigFile, nil
 	}
-	err := os.WriteFile(mockObsidianConfigFile, []byte(obsidianConfig), 0644)
+	err := os.WriteFile(mockObsidianConfigFile, []byte(obsidianConfig), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create obsidian.json file: %v", err)
 	}
@@ -60,7 +61,7 @@ func TestVaultPath(t *testing.T) {
 		obsidian.ObsidianConfigFile = func() (string, error) {
 			return mockObsidianConfigFile, nil
 		}
-		err := os.WriteFile(mockObsidianConfigFile, []byte(``), 0000)
+		err := os.WriteFile(mockObsidianConfigFile, []byte(``), 0o000)
 		if err != nil {
 			t.Fatalf("Failed to create obsidian.json file: %v", err)
 		}
@@ -69,7 +70,6 @@ func TestVaultPath(t *testing.T) {
 		_, err = vault.Path()
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.ObsidianConfigReadError)
-
 	})
 
 	t.Run("Error in unmarshalling obsidian config file", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestVaultPath(t *testing.T) {
 			return mockObsidianConfigFile, nil
 		}
 
-		err := os.WriteFile(mockObsidianConfigFile, []byte(`abc`), 0644)
+		err := os.WriteFile(mockObsidianConfigFile, []byte(`abc`), 0o644)
 		if err != nil {
 			t.Fatalf("Failed to create obsidian.json file: %v", err)
 		}
@@ -87,7 +87,6 @@ func TestVaultPath(t *testing.T) {
 		_, err = vault.Path()
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.ObsidianConfigParseError)
-
 	})
 
 	t.Run("No vault found with given name", func(t *testing.T) {
@@ -95,7 +94,7 @@ func TestVaultPath(t *testing.T) {
 		obsidian.ObsidianConfigFile = func() (string, error) {
 			return mockObsidianConfigFile, nil
 		}
-		err := os.WriteFile(mockObsidianConfigFile, []byte(`{"vaults":{}}`), 0644)
+		err := os.WriteFile(mockObsidianConfigFile, []byte(`{"vaults":{}}`), 0o644)
 		vault := obsidian.Vault{Name: "vault3"}
 		// Act
 		_, err = vault.Path()

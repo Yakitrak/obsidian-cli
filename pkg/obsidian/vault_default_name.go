@@ -3,12 +3,15 @@ package obsidian
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Yakitrak/obsidian-cli/pkg/config"
 	"os"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/config"
 )
 
-var CliConfigPath = config.CliPath
-var JsonMarshal = json.Marshal
+var (
+	CliConfigPath = config.CliPath
+	JsonMarshal   = json.Marshal
+)
 
 func (v *Vault) DefaultName() (string, error) {
 	if v.Name != "" {
@@ -30,7 +33,6 @@ func (v *Vault) DefaultName() (string, error) {
 	// unmarshal json
 	cliConfig := CliConfig{}
 	err = json.Unmarshal(content, &cliConfig)
-
 	if err != nil {
 		return "", errors.New(ObsidianCLIConfigParseError)
 	}
@@ -64,7 +66,7 @@ func (v *Vault) SetDefaultName(name string) error {
 	}
 
 	// create and write file
-	err = os.WriteFile(obsConfigFile, jsonContent, 0644)
+	err = os.WriteFile(obsConfigFile, jsonContent, 0o644)
 	if err != nil {
 		return errors.New(ObsidianCLIConfigWriteError)
 	}

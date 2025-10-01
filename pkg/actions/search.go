@@ -23,7 +23,6 @@ func SearchNotes(vault obsidian.VaultManager, note obsidian.NoteManager, uri obs
 	index, err := fuzzyFinder.Find(notes, func(i int) string {
 		return notes[i]
 	})
-
 	if err != nil {
 		return err
 	}

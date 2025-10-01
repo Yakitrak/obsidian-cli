@@ -3,14 +3,15 @@ package obsidian_test
 import (
 	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestUriConstruct(t *testing.T) {
 	baseUri := "base-uri"
-	var tests = []struct {
+	tests := []struct {
 		testName string
 		in       map[string]string
 		want     string
@@ -61,5 +62,4 @@ func TestUriExecute(t *testing.T) {
 		// Assert
 		assert.Equal(t, obsidian.ExecuteUriError, err.Error())
 	})
-
 }

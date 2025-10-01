@@ -8,7 +8,7 @@ import (
 
 var UserConfigDirectory = os.UserConfigDir
 
-func CliPath() (cliConfigDir string, cliConfigFile string, err error) {
+func CliPath() (cliConfigDir, cliConfigFile string, err error) {
 	userConfigDir, err := UserConfigDirectory()
 	if err != nil {
 		return "", "", errors.New(UserConfigDirectoryNotFoundErrorMessage)

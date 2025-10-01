@@ -2,12 +2,12 @@ package obsidian
 
 import (
 	"errors"
-	"github.com/skratchdot/open-golang/open"
 	"net/url"
+
+	"github.com/skratchdot/open-golang/open"
 )
 
-type Uri struct {
-}
+type Uri struct{}
 
 type UriManager interface {
 	Construct(baseUri string, params map[string]string) string
@@ -31,11 +31,10 @@ func (u *Uri) Construct(baseUri string, params map[string]string) string {
 var Run = open.Run
 
 func (u *Uri) Execute(uri string) error {
-	//fmt.Println("Opening URI: ", uri)
+	// fmt.Println("Opening URI: ", uri)
 	err := Run(uri)
 	if err != nil {
 		return errors.New(ExecuteUriError)
-
 	}
 	return nil
 }

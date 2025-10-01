@@ -1,11 +1,12 @@
 package obsidian_test
 
 import (
+	"os"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func TestAddMdSuffix(t *testing.T) {
@@ -49,7 +50,7 @@ func TestRemoveMdSuffix(t *testing.T) {
 }
 
 func TestGenerateNoteLinkTexts(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		testName string
 		noteName string
 		want     [3]string
@@ -89,7 +90,6 @@ func TestReplaceContent(t *testing.T) {
 			assert.Equal(t, string(test.want), string(got))
 		})
 	}
-
 }
 
 func TestShouldSkipDirectoryOrFile(t *testing.T) {

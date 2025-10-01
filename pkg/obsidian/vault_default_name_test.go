@@ -2,11 +2,12 @@ package obsidian_test
 
 import (
 	"errors"
+	"os"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func TestVaultDefaultName(t *testing.T) {
@@ -30,7 +31,7 @@ func TestVaultDefaultName(t *testing.T) {
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
-			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name":"example-obsidian"}`), 0644)
+			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name":"example-obsidian"}`), 0o644)
 			vault := obsidian.Vault{}
 			// Act
 			vaultName, err := vault.DefaultName()
@@ -41,7 +42,6 @@ func TestVaultDefaultName(t *testing.T) {
 	})
 
 	t.Run("Could not get vault name", func(t *testing.T) {
-
 		t.Run("Error in config.CliPath", func(t *testing.T) {
 			// Arrange
 			obsidian.CliConfigPath = func() (string, string, error) {
@@ -73,7 +73,7 @@ func TestVaultDefaultName(t *testing.T) {
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
-			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name""example-obsidian`), 0644)
+			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name""example-obsidian`), 0o644)
 			vault := obsidian.Vault{}
 			// Act
 			_, err = vault.DefaultName()
@@ -87,7 +87,7 @@ func TestVaultDefaultName(t *testing.T) {
 			obsidian.CliConfigPath = func() (string, string, error) {
 				return mockCliConfigDir, mockCliConfigFile, nil
 			}
-			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name":""}`), 0644)
+			err := os.WriteFile(mockCliConfigFile, []byte(`{"default_vault_name":""}`), 0o644)
 			vault := obsidian.Vault{}
 			// Act
 			_, err = vault.DefaultName()
@@ -164,12 +164,11 @@ func TestVaultSetDefaultName(t *testing.T) {
 		obsidian.CliConfigPath = func() (string, string, error) {
 			return mockCliConfigDir + "/unwrittable", mockCliConfigDir + "unwrittable/preferences.json", nil
 		}
-		err := os.Mkdir(mockCliConfigDir+"/unwrittable", 0444)
+		err := os.Mkdir(mockCliConfigDir+"/unwrittable", 0o444)
 		vault := obsidian.Vault{}
 		// Act
 		err = vault.SetDefaultName("vault-name")
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.ObsidianCLIConfigWriteError)
 	})
-
 }

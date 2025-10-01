@@ -2,6 +2,7 @@ package obsidian
 
 import (
 	"errors"
+
 	"github.com/ktr0731/go-fuzzyfinder"
 )
 
