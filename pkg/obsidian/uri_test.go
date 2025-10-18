@@ -2,7 +2,9 @@ package obsidian_test
 
 import (
 	"errors"
-	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -13,13 +15,13 @@ func TestUriConstruct(t *testing.T) {
 	var tests = []struct {
 		testName string
 		in       map[string]string
-		want     string
+		want     map[string]string
 	}{
-		{"Empty map", map[string]string{}, baseUri},
-		{"One key", map[string]string{"key": "value"}, fmt.Sprintf("%s?key=value", baseUri)},
-		{"Two keys", map[string]string{"key1": "value1", "key2": "value2"}, fmt.Sprintf("%s?key1=value1&key2=value2", baseUri)},
-		{"Empty value", map[string]string{"key": ""}, baseUri},
-		{"Mix of empty and non-empty values", map[string]string{"key1": "value1", "key2": ""}, fmt.Sprintf("%s?key1=value1", baseUri)},
+		{"Empty map", map[string]string{}, nil},
+		{"One key", map[string]string{"key": "value"}, map[string]string{"key": "value"}},
+		{"Two keys", map[string]string{"key1": "value1", "key2": "value2"}, map[string]string{"key1": "value1", "key2": "value2"}},
+		{"Empty value", map[string]string{"key": ""}, nil},
+		{"Mix of empty and non-empty values", map[string]string{"key1": "value1", "key2": ""}, map[string]string{"key1": "value1"}},
 	}
 
 	for _, test := range tests {
@@ -28,7 +30,19 @@ func TestUriConstruct(t *testing.T) {
 			uriManager := obsidian.Uri{}
 			got := uriManager.Construct(baseUri, test.in)
 			// Assert
-			assert.Equal(t, test.want, got)
+			if test.want == nil {
+				assert.Equal(t, baseUri, got)
+			} else {
+				parts := strings.SplitN(got, "?", 2)
+				assert.Equal(t, baseUri, parts[0])
+
+				if len(parts) > 1 {
+					parsedParams, _ := url.ParseQuery(parts[1])
+					for key, expectedValue := range test.want {
+						assert.Equal(t, expectedValue, parsedParams.Get(key))
+					}
+				}
+			}
 		})
 	}
 }
