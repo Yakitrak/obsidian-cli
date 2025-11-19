@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
@@ -35,55 +37,100 @@ func Tags(vault obsidian.VaultManager, note obsidian.NoteManager) ([]TagSummary,
 		return nil, err
 	}
 
-	// Step 1: Gather all tags and the notes that contain them
-	tagToNotes := make(map[string]map[string]struct{})
-
-	for _, notePath := range allNotes {
-		content, err := note.GetContents(vaultPath, notePath)
-		if err != nil {
-			continue // Skip notes we can't read
-		}
-
-		// Extract tags from both frontmatter and hashtags
-		tags := extractAllTags(content)
-
-		// Add this note to each tag's note set
-		for _, tag := range tags {
-			normalizedTag := normalizeTag(tag)
-			if normalizedTag == "" || !isValidTag(normalizedTag) {
-				continue
-			}
-
-			if tagToNotes[normalizedTag] == nil {
-				tagToNotes[normalizedTag] = make(map[string]struct{})
-			}
-			tagToNotes[normalizedTag][notePath] = struct{}{}
-		}
+	// Step 1: Parallel extraction and counting with per-note dedup
+	type workerResult struct {
+		individual map[string]int
+		aggregate  map[string]int
 	}
 
-	// Step 2: Compute individual and aggregate counts
+	numWorkers := runtime.NumCPU()
+	if len(allNotes) < numWorkers {
+		numWorkers = len(allNotes)
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+
+	batchSize := (len(allNotes) + numWorkers - 1) / numWorkers
+	results := make(chan workerResult, numWorkers)
+	var wg sync.WaitGroup
+
+	for i := 0; i < numWorkers; i++ {
+		start := i * batchSize
+		end := start + batchSize
+		if end > len(allNotes) {
+			end = len(allNotes)
+		}
+		if start >= len(allNotes) {
+			continue
+		}
+
+		batch := allNotes[start:end]
+		wg.Add(1)
+		go func(files []string) {
+			defer wg.Done()
+			localIndividual := make(map[string]int)
+			localAggregate := make(map[string]int)
+
+			for _, notePath := range files {
+				content, err := note.GetContents(vaultPath, notePath)
+				if err != nil {
+					continue // Skip notes we can't read
+				}
+
+				// Extract tags from both frontmatter and hashtags
+				tags := extractAllTags(content)
+
+				// Deduplicate tags within this note and normalize/validate
+				perNoteTags := make(map[string]struct{})
+				for _, tag := range tags {
+					normalizedTag := normalizeTag(tag)
+					if normalizedTag == "" || !isValidTag(normalizedTag) {
+						continue
+					}
+					perNoteTags[normalizedTag] = struct{}{}
+				}
+
+				if len(perNoteTags) == 0 {
+					continue
+				}
+
+				// Update individual counts (once per note per tag)
+				for t := range perNoteTags {
+					localIndividual[t]++
+				}
+
+				// Compute prefix set for this note to avoid double-counting prefixes
+				perNotePrefixes := make(map[string]struct{})
+				for t := range perNoteTags {
+					for _, p := range getAllPrefixes(t) {
+						perNotePrefixes[p] = struct{}{}
+					}
+				}
+				for p := range perNotePrefixes {
+					localAggregate[p]++
+				}
+			}
+
+			results <- workerResult{individual: localIndividual, aggregate: localAggregate}
+		}(batch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Step 2: Merge worker results
 	individualCount := make(map[string]int)
-	aggregateNotes := make(map[string]map[string]struct{})
-
-	for tag, noteSet := range tagToNotes {
-		individualCount[tag] = len(noteSet)
-
-		// For aggregate counts, include this tag's notes in all its prefixes
-		prefixes := getAllPrefixes(tag)
-		for _, prefix := range prefixes {
-			if aggregateNotes[prefix] == nil {
-				aggregateNotes[prefix] = make(map[string]struct{})
-			}
-			// Union the note sets
-			for notePath := range noteSet {
-				aggregateNotes[prefix][notePath] = struct{}{}
-			}
-		}
-	}
-
 	aggregateCount := make(map[string]int)
-	for prefix, noteSet := range aggregateNotes {
-		aggregateCount[prefix] = len(noteSet)
+	for res := range results {
+		for tag, cnt := range res.individual {
+			individualCount[tag] += cnt
+		}
+		for prefix, cnt := range res.aggregate {
+			aggregateCount[prefix] += cnt
+		}
 	}
 
 	// Step 3: Build hierarchy tree

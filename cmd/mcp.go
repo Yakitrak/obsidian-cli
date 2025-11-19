@@ -24,13 +24,10 @@ var mcpCmd = &cobra.Command{
 The server communicates over stdin/stdout and can be used with MCP clients like Claude Desktop, Cursor, or VS Code.
 
 The server exposes read-only tools by default:
-- list_files: List files matching inputs (find:, tag:, literal)
-- file_info: Get information about a specific file
-- print_note: Print the contents of a note
-- daily_note_path: Get the path to today's daily note
-- search_text: Search for text within notes. This tools is not recommended if you have access to other search tools.
-- list_tags: List all tags in the vault
-- open_in_os: Open a file in the default OS application. Use this only when you don't have integrated file opening in your editor.
+- files: List files matching inputs (find:, tag:, literal) and optionally include content/frontmatter
+- daily_note: JSON describing today's (or a given) daily note
+- daily_note_path: Path info for a daily note
+- list_tags: Tags with counts
 
 Example MCP client configuration (e.g., for Claude Desktop):
 {
@@ -150,18 +147,16 @@ func defaultInstructionsString() string {
 	return `This MCP server exposes Obsidian-CLI tools for interacting with your vault.
 
 Main tools:
-• prompt_files – return full note contents formatted for LLMs. Inputs accept file paths, tag:foo, find:bar, and link-following flags.
-• daily_note – contents of today’s (or specified) daily note.
-• file_info – frontmatter, tags, word counts for a file.
-• print_note – raw contents of a note file.
-• search_text – find notes containing literal text.
-• list_tags – list all unique tags.
-• open_in_os – open a note in your default OS application.
+• files – return matching files as JSON with optional content/frontmatter. Inputs accept file paths, tag:foo, find:bar, and link-following flags.
+• daily_note – JSON for today’s (or specified) daily note (path, exists, content).
+• daily_note_path – JSON path/existence for a given date.
+• list_tags – list tags with individual/aggregate counts.
+• add_tags, delete_tags, rename_tag – destructive tag tools (only available when server is started with --read-write).
 
 Best practices:
-1. Prefer prompt_files when you need the actual text of notes; it supports recursion via links.
+1. Prefer files when you need the actual text of notes; it supports recursion via links.
 2. The server hides notes tagged no-prompt (and any tags in suppressTags) unless you disable suppression.
-3. Use file_info before loading large notes to decide if they’re relevant.
+3. Use includeContent/includeFrontmatter flags to control payload size in files responses.
 
 Additional resources are available under the URI prefix obsidian-cli/help/* (see list_resources).`
 }

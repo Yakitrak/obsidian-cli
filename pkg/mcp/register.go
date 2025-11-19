@@ -7,27 +7,21 @@ import (
 
 // RegisterAll registers all MCP tools with the given server
 func RegisterAll(s *server.MCPServer, config Config) error {
-	// Register prompt_files tool (LLM-friendly file contents)
-	promptFilesTool := mcp.NewTool("prompt_files",
-		mcp.WithDescription(`Return the contents of matching notes formatted for LLM consumption (similar to obsidian-cli prompt command).
+	// Register files tool (list files and optionally return content/frontmatter as JSON)
+	promptFilesTool := mcp.NewTool("files",
+		mcp.WithDescription(`List matching files and optionally return their contents/frontmatter as JSON. Response: {vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]} Designed for agents to fetch paths or bulk-load note bodies in one call.
 
-**Input Patterns Support:**
-- **find:pattern** - Find files by filename pattern (supports wildcards like * and ?)
-- **tag:tagname** - Find files containing the specified tag (hierarchical tags supported)
-- **literal paths** - Direct file or folder paths relative to vault root
+**Input Patterns:**
+- **find:pattern** - Filename pattern (supports * and ? wildcards)
+- **tag:tagname** - Files containing the tag (hierarchy supported, e.g., tag:project matches project/work)
+- **literal paths** - File or folder paths relative to vault root
 
-**Examples:**
-- ["find:*.md"] - All markdown files
-- ["tag:project"] - Notes tagged with #project (includes #project/work, #project/personal)
-- ["folder/subfolder"] - All files in a specific folder
-- ["Notes/Important.md"] - Specific file
-- ["tag:work", "find:meeting*"] - Multiple criteria (files tagged #work OR with "meeting" in filename)
-
-**Best Practices:**
-- Use specific patterns to limit results and improve performance
-- Combine multiple input patterns in a single call rather than making separate requests
-- Use followLinks and maxDepth to automatically include referenced notes
-- Set suppressTags to exclude notes with certain tags from results`),
+**Key Options:**
+- **includeContent** (default: true) - Include full note content
+- **includeFrontmatter** (default: false) - Include parsed frontmatter map
+- **followLinks/maxDepth** - Traverse wikilinks to include neighbors
+- **suppressTags/noSuppress** - Control tag-based suppression (defaults come from server config)
+- **absolutePaths** - Add absolute paths alongside relative ones`),
 		mcp.WithArray("inputs",
 			mcp.Required(),
 			mcp.Description("List of input patterns (find:pattern, tag:tagname, or literal folder/file paths). Multiple patterns are OR'd together."),
@@ -37,92 +31,23 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithNumber("maxDepth", mcp.Description("Maximum depth for following wikilinks (0 = don't follow, 1 = direct links only)"), mcp.Min(0)),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+		mcp.WithBoolean("includeContent", mcp.Description("Include note content in the response (default true)")),
+		mcp.WithBoolean("includeFrontmatter", mcp.Description("Include parsed frontmatter in the response")),
+		mcp.WithBoolean("absolutePaths", mcp.Description("Include absolute paths alongside relative paths")),
 		mcp.WithArray("suppressTags", mcp.Description("Additional tags to suppress/exclude from results"), mcp.WithStringItems()),
 		mcp.WithBoolean("noSuppress", mcp.Description("Disable all tag suppression (include notes with suppressed tags)")),
 	)
-	s.AddTool(promptFilesTool, PromptTool(config))
-
-	// Register file_info tool
-	fileInfoTool := mcp.NewTool("file_info",
-		mcp.WithDescription(`Get detailed information about a specific file, including frontmatter metadata, tags, word count, character count, creation date, and modification date.
-
-**Usage:**
-- Provide relative path from vault root (e.g., "Notes/Project.md")
-- Returns structured information about the file's metadata and content statistics
-- Useful for understanding file properties before reading full content`),
-		mcp.WithString("path",
-			mcp.Required(),
-			mcp.Description("Relative path to the file from vault root (e.g., 'Notes/Project.md')"),
-		),
-	)
-	s.AddTool(fileInfoTool, FileInfoTool(config))
-
-	// Register print_note tool
-	printNoteTool := mcp.NewTool("print_note",
-		mcp.WithDescription(`Print the full contents of a specific note file. 
-
-**Usage:**
-- Provide relative path from vault root
-- Returns the complete raw content of the note including frontmatter
-- For multiple notes, use prompt_files instead for better formatting
-- Best for reading individual notes when you know the exact path`),
-		mcp.WithString("path",
-			mcp.Required(),
-			mcp.Description("Relative path to the note from vault root (e.g., 'Daily Notes/2024-01-15.md')"),
-		),
-	)
-	s.AddTool(printNoteTool, PrintNoteTool(config))
-
-	// Register search_text tool
-	searchTextTool := mcp.NewTool("search_text",
-		mcp.WithDescription(`Search for text within all notes in the vault. Returns a list of file paths containing the search term.
-
-**Usage:**
-- Searches within note content (not just filenames)
-- Returns file paths, not content excerpts
-- Use prompt_files afterward to get content of matching files
-- Supports both case-sensitive and case-insensitive searches`),
-		mcp.WithString("query",
-			mcp.Required(),
-			mcp.Description("Text to search for within note contents"),
-		),
-		mcp.WithBoolean("caseSensitive",
-			mcp.Description("Whether the search should be case sensitive (default: false)"),
-		),
-	)
-	s.AddTool(searchTextTool, SearchTextTool(config))
+	s.AddTool(promptFilesTool, FilesTool(config))
 
 	// Register list_tags tool
 	listTagsTool := mcp.NewTool("list_tags",
-		mcp.WithDescription(`List all unique tags found across all notes in the vault.
-
-**Usage:**
-- Returns a simple list of all tags used in the vault
-- Includes hierarchical tags (e.g., #project/work, #project/personal)
-- Useful for discovering available tags before filtering or tagging operations
-- For detailed tag statistics, use the tags command through other interfaces`),
+		mcp.WithDescription(`List all tags with counts as JSON. Returns both exact (individual) and hierarchical (aggregate) counts, sorted by aggregate descending. Response: {tags:[{name,individualCount,aggregateCount}]}`),
 	)
 	s.AddTool(listTagsTool, ListTagsTool(config))
 
-	// Register open_in_os tool
-	openInOSTool := mcp.NewTool("open_in_os",
-		mcp.WithDescription(`Open a file in the default operating system application (e.g., Obsidian, text editor).
-
-**Usage:**
-- Triggers external application to open the file
-- Useful for allowing users to edit files outside the current session
-- Returns confirmation of the action taken
-- File must exist in the vault`),
-		mcp.WithString("path",
-			mcp.Required(),
-			mcp.Description("Relative path to the file from vault root"),
-		),
-	)
-	s.AddTool(openInOSTool, OpenInOSTool(config))
-
 	// Register daily_note tool (returns content)
 	dailyNoteTool := mcp.NewTool("daily_note",
-		mcp.WithDescription(`Return the content of the daily note for the specified date. Creates an empty note if it doesn't exist.
+		mcp.WithDescription(`Return JSON with path, existence, and content for the daily note. Creates an empty note if it doesn't exist. Response: {path,date,exists,content}
 
 **Usage:**
 - Defaults to today's date if no date specified
@@ -133,43 +58,6 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	)
 	s.AddTool(dailyNoteTool, DailyNoteTool(config))
 
-	// --------------------------------------------------------------------
-	// Additional tools not previously registered
-	// --------------------------------------------------------------------
-
-	// Register list_files tool (simple path listing)
-	listFilesTool := mcp.NewTool("list_files",
-		mcp.WithDescription(`List file paths matching input criteria. Returns just the file paths, not content.
-
-**Input Patterns Support:**
-- **find:pattern** - Find files by filename pattern (supports wildcards * and ?)
-- **tag:tagname** - Find files containing the specified tag (includes hierarchical children)
-- **literal paths** - Direct file or folder paths relative to vault root
-
-**Examples:**
-- ["find:2024-*.md"] - All markdown files starting with "2024-"
-- ["tag:project"] - Files tagged #project (includes #project/work, #project/personal)
-- ["Meeting Notes/"] - All files in Meeting Notes folder
-- ["tag:urgent", "find:todo*"] - Files tagged #urgent OR with "todo" in filename
-
-**Best Practices:**
-- Use this for getting file lists before other operations
-- Combine multiple patterns in single call for efficiency  
-- Use followLinks to automatically include linked notes
-- Set absolutePaths=true if you need full file paths`),
-		mcp.WithArray("inputs",
-			mcp.Required(),
-			mcp.Description("List of input patterns (find:pattern, tag:tagname, or literal folder/file paths). Multiple patterns are OR'd together."),
-			mcp.WithStringItems(mcp.Description("Input pattern - use find:*, tag:name, or literal paths")),
-		),
-		mcp.WithBoolean("followLinks", mcp.Description("Follow wikilinks recursively to include referenced notes")),
-		mcp.WithNumber("maxDepth", mcp.Description("Maximum depth for following wikilinks (0 = don't follow, 1 = direct links only)"), mcp.Min(0)),
-		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
-		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
-		mcp.WithBoolean("absolutePaths", mcp.Description("Return absolute file paths instead of relative paths")),
-	)
-	s.AddTool(listFilesTool, ListFilesTool(config))
-
 	// Register daily_note_path tool
 	dailyNotePathToolDef := mcp.NewTool("daily_note_path",
 		mcp.WithDescription(`Return the relative path to the daily note for the specified date.
@@ -178,7 +66,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 - Returns the expected path even if the file doesn't exist yet
 - Date format: YYYY-MM-DD (e.g., "2024-01-15")
 - Follows standard daily notes location: "Daily Notes/YYYY-MM-DD.md"
-- Useful for determining where to create or find daily notes`),
+- Response structure: { path, date, exists }`),
 		mcp.WithString("date", mcp.Description("Date in YYYY-MM-DD format (optional, defaults to today)")),
 	)
 	s.AddTool(dailyNotePathToolDef, DailyNotePathTool(config))

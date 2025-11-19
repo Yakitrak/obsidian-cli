@@ -309,13 +309,58 @@ obsidian-cli mcp --no-suppress
 
 The MCP server exposes the following tools:
 
-- **`list_files`**: List files matching inputs (find:pattern, tag:tagname, or literal folder/file names)
-- **`file_info`**: Get information about a specific file (word count, dates, tags, etc.)
-- **`print_note`**: Print the full contents of a note file
-- **`search_text`**: Search for text within all notes in the vault
-- **`list_tags`**: List all tags found in the vault
-- **`open_in_os`**: Open a file in the default operating system application
-- **`daily_note_path`**: Get the path to a daily note for a specific date
+Core (read-only):
+- **`files`**: List files matching criteria and optionally include content/frontmatter. Returns JSON with `{vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]}`.
+- **`list_tags`**: JSON list of tags with individual/aggregate counts.
+- **`daily_note`**: JSON describing the daily note `{path,date,exists,content}` (defaults to today).
+- **`daily_note_path`**: JSON with `{path,date,exists}`.
+
+Destructive (require `--read-write`):
+- **`add_tags`**, **`delete_tags`**, **`rename_tag`** (all respect `dryRun`).
+  - Example (delete_tags): `{"tags":["old","deprecated"],"dryRun":true}` to preview; set `dryRun:false` to apply. Destructive tools register only when the server is started with `--read-write`.
+
+#### files inputs and options
+- Inputs are **OR'd** and support:
+  - `find:<pattern>`: filename glob (supports `*` and `?`), e.g. `find:2024-*.md`
+  - `tag:<tag>`: hierarchical tag match (e.g., `tag:project` matches `project/work`)
+  - Literal file or folder paths relative to the vault root, e.g., `Notes/Project.md` or `Daily Notes/`
+- Useful flags:
+  - `includeContent` (default `true`), `includeFrontmatter` to control payload size
+  - `followLinks`/`maxDepth` to traverse wikilinks; `skipAnchors` / `skipEmbeds` to filter link types
+  - `suppressTags` to add more suppressed tags, `noSuppress` to disable defaults (configured via server flags)
+  - `absolutePaths` to include absolute paths in each entry
+
+Example call (arguments array):
+```json
+{
+  "inputs": ["tag:project", "find:meeting*"],
+  "followLinks": true,
+  "maxDepth": 1,
+  "includeContent": true,
+  "includeFrontmatter": false
+}
+```
+Example response (files):
+```json
+{
+  "vault": "MyVault",
+  "count": 2,
+  "files": [
+    {"path": "Notes/Project.md", "tags": ["project"], "content": "# Project\n..."},
+    {"path": "Notes/meeting-notes.md", "tags": ["project","meeting"], "content": "# Meeting\n..."}
+  ]
+}
+```
+
+`list_tags` response example:
+```json
+{"tags":[{"name":"project","individualCount":12,"aggregateCount":20}]}
+```
+
+`delete_tags` dry-run response example:
+```json
+{"dryRun":true,"notesTouched":3,"tagChanges":{"old":2,"deprecated":1},"filesChanged":["Notes/a.md","Notes/b.md","Notes/c.md"]}
+```
 
 ### Claude Desktop Configuration
 
