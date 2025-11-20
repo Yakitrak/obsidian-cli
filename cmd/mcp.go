@@ -147,7 +147,7 @@ func defaultInstructionsString() string {
 	return `This MCP server exposes Obsidian-CLI tools for interacting with your vault.
 
 Main tools:
-• files – return matching files as JSON with optional content/frontmatter. Inputs accept file paths, tag:foo, find:bar, and link-following flags.
+• files – return matching files as JSON with optional content/frontmatter/backlinks. Inputs accept file paths, tag:foo, find:bar, and link-following flags.
 • daily_note – JSON for today’s (or specified) daily note (path, exists, content).
 • daily_note_path – JSON path/existence for a given date.
 • list_tags – list tags with individual/aggregate counts.
@@ -156,7 +156,7 @@ Main tools:
 Best practices:
 1. Prefer files when you need the actual text of notes; it supports recursion via links.
 2. The server hides notes tagged no-prompt (and any tags in suppressTags) unless you disable suppression.
-3. Use includeContent/includeFrontmatter flags to control payload size in files responses.
+3. Use includeContent/includeFrontmatter/includeBacklinks flags to control payload size in files responses.
 
 Additional resources are available under the URI prefix obsidian-cli/help/* (see list_resources).`
 }

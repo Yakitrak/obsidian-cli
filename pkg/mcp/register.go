@@ -20,6 +20,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 - **includeContent** (default: true) - Include full note content
 - **includeFrontmatter** (default: false) - Include parsed frontmatter map
 - **followLinks/maxDepth** - Traverse wikilinks to include neighbors
+- **includeBacklinks** (default: false) - Include first-degree backlinks for matched notes
 - **suppressTags/noSuppress** - Control tag-based suppression (defaults come from server config)
 - **absolutePaths** - Add absolute paths alongside relative ones`),
 		mcp.WithArray("inputs",
@@ -33,6 +34,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeContent", mcp.Description("Include note content in the response (default true)")),
 		mcp.WithBoolean("includeFrontmatter", mcp.Description("Include parsed frontmatter in the response")),
+		mcp.WithBoolean("includeBacklinks", mcp.Description("Include first-degree backlinks for matched notes")),
 		mcp.WithBoolean("absolutePaths", mcp.Description("Include absolute paths alongside relative paths")),
 		mcp.WithArray("suppressTags", mcp.Description("Additional tags to suppress/exclude from results"), mcp.WithStringItems()),
 		mcp.WithBoolean("noSuppress", mcp.Description("Disable all tag suppression (include notes with suppressed tags)")),

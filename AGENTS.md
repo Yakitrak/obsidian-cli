@@ -4,6 +4,7 @@
 - `main.go` wires the Cobra CLI; command entrypoints live in `cmd/` (one file per command) and should stay thin.
 - `pkg/actions/` holds orchestration for user-facing commands, while `pkg/obsidian/` contains vault/file/tag primitives and `pkg/config/` manages paths and defaults. Keep new logic in these layers rather than `cmd/`.
 - `pkg/mcp/` exposes the CLI as an MCP server; mirror any new capabilities here when relevant.
+- Keep MCP tool registrations/descriptions in `pkg/mcp/register.go` in sync with CLI flags (e.g., new options must be declared so clients see them).
 - Supporting assets live in `docs/` (images, manual excerpts); build outputs land in `bin/` (do not commit generated binaries). Tests sit next to sources with `_test.go`; shared fixtures and doubles can be placed under `mocks/`.
 
 ## Build, Test, and Development Commands

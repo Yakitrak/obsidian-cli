@@ -100,29 +100,11 @@ var DefaultWikilinkOptions = WikilinkOptions{
 
 // ExtractWikilinks extracts wikilinks from markdown content with configurable options
 func ExtractWikilinks(content string, options WikilinkOptions) []string {
-	// If we need to skip embedded links, remove them from the content first
-	contentToProcess := content
-	if options.SkipEmbeds {
-		contentToProcess = embedRegex.ReplaceAllString(content, "")
-	}
-
-	// Extract wikilinks from the processed content
-	matches := wikilinkRegex.FindAllStringSubmatch(contentToProcess, -1)
+	details := scanWikilinks(content, options)
 	var links []string
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			link := filepath.ToSlash(match[1]) // Normalize path separators
-
-			// Skip links with anchors if requested
-			if options.SkipAnchors && strings.Contains(link, "#") {
-				continue
-			}
-
-			links = append(links, link)
-		}
+	for _, d := range details {
+		links = append(links, d.Target)
 	}
-
 	return links
 }
 
@@ -131,53 +113,93 @@ type wikilinkDetail struct {
 	LinkType BacklinkType
 }
 
-func classifyLink(rawMatch string, link string, isEmbed bool) BacklinkType {
-	switch {
-	case isEmbed:
-		return BacklinkTypeEmbed
-	case strings.Contains(rawMatch, "|"):
-		return BacklinkTypeAlias
-	case strings.Contains(link, "#^"):
-		return BacklinkTypeBlock
-	case strings.Contains(link, "#"):
-		return BacklinkTypeHeading
-	default:
-		return BacklinkTypeBasic
-	}
-}
-
-// extractWikilinkDetails returns wikilinks with their detected variant types.
-func extractWikilinkDetails(content string, options WikilinkOptions) []wikilinkDetail {
+// scanWikilinks parses wikilinks and embeds from content in a single pass
+func scanWikilinks(content string, options WikilinkOptions) []wikilinkDetail {
 	var details []wikilinkDetail
+	n := len(content)
+	i := 0
 
-	if !options.SkipEmbeds {
-		embedMatches := embedRegex.FindAllStringSubmatch(content, -1)
-		for _, match := range embedMatches {
-			if len(match) > 1 {
-				link := filepath.ToSlash(match[1])
-				details = append(details, wikilinkDetail{
-					Target:   link,
-					LinkType: BacklinkTypeEmbed,
-				})
-			}
+	for i < n {
+		// Fast forward to next '['
+		// We can use strings.IndexByte or just loop.
+		// strings.Index is faster for finding substrings.
+		// We are looking for "[[" or "![["
+		// But "![[" ends with "[[", so just looking for "[[" is enough, then check prefix.
+		
+		// Optimization: use strings.Index to find "[["
+		next := strings.Index(content[i:], "[[")
+		if next == -1 {
+			break
 		}
-	}
+		idx := i + next // absolute index of "[["
 
-	// Remove embeds so they are not double-counted as regular wikilinks.
-	contentWithoutEmbeds := embedRegex.ReplaceAllString(content, "")
-	matches := wikilinkRegex.FindAllStringSubmatch(contentWithoutEmbeds, -1)
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			link := filepath.ToSlash(match[1])
-			if options.SkipAnchors && strings.Contains(link, "#") {
-				continue
-			}
-			details = append(details, wikilinkDetail{
-				Target:   link,
-				LinkType: classifyLink(match[0], link, false),
-			})
+		// Check if it's an embed (![[)
+		isEmbed := false
+		if idx > 0 && content[idx-1] == '!' {
+			isEmbed = true
 		}
+
+		// If we are skipping embeds and this is one, we need to skip this bracket set
+		// But we still need to find the closing "]]" to advance correctly?
+		// Actually, if we skip it, we effectively ignore it.
+		// But if we just skip the "![[" and continue scanning, we might find "]]" later?
+		// No, the logic is: find "[[", find matching "]]".
+		
+		// Find closing "]]"
+		// We start searching after the "[["
+		closeIdx := strings.Index(content[idx+2:], "]]")
+		if closeIdx == -1 {
+			// No closing bracket, so this is not a valid link. 
+			// Advance past "[[" to avoid infinite loop (or just break?)
+			// If no "]]" anywhere later, we can stop.
+			break
+		}
+		closeIdx += idx + 2 // absolute index of "]]"
+
+		// Content inside brackets
+		rawContent := content[idx+2 : closeIdx]
+		
+		// Advance loop for next iteration
+		i = closeIdx + 2
+
+		if isEmbed && options.SkipEmbeds {
+			continue
+		}
+
+		// Parse the link content
+		link := rawContent
+		
+		// Handle normalization (filepath.ToSlash) - mostly for Windows consistency
+		link = filepath.ToSlash(link)
+
+		// If skip anchors and it has one
+		if options.SkipAnchors && strings.Contains(link, "#") {
+			continue
+		}
+
+		// Classify and Extract Target
+		detail := wikilinkDetail{
+			LinkType: BacklinkTypeBasic,
+		}
+
+		if isEmbed {
+			detail.LinkType = BacklinkTypeEmbed
+		} else if strings.Contains(rawContent, "|") {
+			detail.LinkType = BacklinkTypeAlias
+		} else if strings.Contains(link, "#^") {
+			detail.LinkType = BacklinkTypeBlock
+		} else if strings.Contains(link, "#") {
+			detail.LinkType = BacklinkTypeHeading
+		}
+
+		// Extract target from link (remove alias pipe)
+		// [[Target|Alias]] -> Target
+		if pipeIdx := strings.Index(link, "|"); pipeIdx != -1 {
+			link = link[:pipeIdx]
+		}
+
+		detail.Target = link
+		details = append(details, detail)
 	}
 
 	return details
@@ -306,7 +328,7 @@ func CollectBacklinks(vaultPath string, note NoteManager, targets []string, opti
 				continue
 			}
 
-			links := extractWikilinkDetails(content, options)
+			links := scanWikilinks(content, options)
 			for _, link := range links {
 				if resolved, ok := cache.ResolveNote(link.Target); ok {
 					targetPath := NormalizePath(AddMdSuffix(resolved))

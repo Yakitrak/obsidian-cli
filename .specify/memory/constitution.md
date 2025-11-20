@@ -13,7 +13,7 @@ Follow-up TODOs: None
 ## Core Principles
 
 ### I. Layered CLI & MCP Surfaces
-Commands stay thin: parse flags and delegate to `pkg/actions`, `pkg/obsidian`, and `pkg/config`. Business logic lives in packages, not `cmd/`. MCP surfaces mirror CLI capabilities to keep behavior consistent across agents and the terminal.
+Commands stay thin: parse flags and delegate to `pkg/actions`, `pkg/obsidian`, and `pkg/config`. Business logic lives in packages, not `cmd/`. MCP surfaces mirror CLI capabilities to keep behavior consistent across agents and the terminal, and new CLI options must be reflected in MCP tool schemas/registration and instructions.
 
 ### II. Go Standards & Tooling
 Use Go 1.23+. Run `go fmt ./...` and `go test ./...` before changes are submitted; keep imports/go formatting clean. Use Cobra for CLI wiring and keep dependencies minimal and idiomatic.
