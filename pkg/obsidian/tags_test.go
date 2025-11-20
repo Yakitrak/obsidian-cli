@@ -1,6 +1,7 @@
 package obsidian
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -142,6 +143,11 @@ func TestExtractHashtags(t *testing.T) {
 			name:    "hashtags in inline code",
 			content: "`#todo` and #project",
 			want:    []string{"#project"},
+		},
+		{
+			name:    "hashtags after very long line",
+			content: strings.Repeat("a", 70000) + "\n#todo appears after\nwrapped #later",
+			want:    []string{"#todo", "#later"},
 		},
 	}
 
@@ -298,64 +304,64 @@ This is a #todo note`,
 		// Hierarchical tag matching cases
 		{
 			name:    "search foo matches #foo, #foo/bar, #foo/bar/baz",
-			content: `#foo some text #foo/bar more #foo/bar/baz` ,
+			content: `#foo some text #foo/bar more #foo/bar/baz`,
 			tags:    []string{"foo"},
 			want:    true,
 		},
 		{
 			name:    "search foo/bar matches #foo/bar and #foo/bar/baz, not #foo",
-			content: `#foo some text #foo/bar more #foo/bar/baz` ,
+			content: `#foo some text #foo/bar more #foo/bar/baz`,
 			tags:    []string{"foo/bar"},
 			want:    true,
 		},
 		{
 			name:    "search foo/bar/baz matches only #foo/bar/baz",
-			content: `#foo some text #foo/bar more #foo/bar/baz` ,
+			content: `#foo some text #foo/bar more #foo/bar/baz`,
 			tags:    []string{"foo/bar/baz"},
 			want:    true,
 		},
 		{
 			name:    "search foo/bar does not match #foo",
-			content: `#foo only` ,
+			content: `#foo only`,
 			tags:    []string{"foo/bar"},
 			want:    false,
 		},
 		// Frontmatter hierarchical
 		{
-			name:    "search foo matches foo, foo/bar, foo/bar/baz in frontmatter",
+			name: "search foo matches foo, foo/bar, foo/bar/baz in frontmatter",
 			content: `---
 tags: [foo, foo/bar, foo/bar/baz]
 ---
-Body` ,
-			tags:    []string{"foo"},
-			want:    true,
+Body`,
+			tags: []string{"foo"},
+			want: true,
 		},
 		{
-			name:    "search foo/bar matches foo/bar and foo/bar/baz in frontmatter, not foo",
+			name: "search foo/bar matches foo/bar and foo/bar/baz in frontmatter, not foo",
 			content: `---
 tags: [foo, foo/bar, foo/bar/baz]
 ---
-Body` ,
-			tags:    []string{"foo/bar"},
-			want:    true,
+Body`,
+			tags: []string{"foo/bar"},
+			want: true,
 		},
 		{
-			name:    "search foo/bar/baz matches only foo/bar/baz in frontmatter",
+			name: "search foo/bar/baz matches only foo/bar/baz in frontmatter",
 			content: `---
 tags: [foo, foo/bar, foo/bar/baz]
 ---
-Body` ,
-			tags:    []string{"foo/bar/baz"},
-			want:    true,
+Body`,
+			tags: []string{"foo/bar/baz"},
+			want: true,
 		},
 		{
-			name:    "search foo/bar does not match foo in frontmatter",
+			name: "search foo/bar does not match foo in frontmatter",
 			content: `---
 tags: [foo]
 ---
-Body` ,
-			tags:    []string{"foo/bar"},
-			want:    false,
+Body`,
+			tags: []string{"foo/bar"},
+			want: false,
 		},
 	}
 

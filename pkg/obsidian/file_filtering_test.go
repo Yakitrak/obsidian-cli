@@ -100,6 +100,24 @@ func TestFuzzyMatch(t *testing.T) {
 			path:     "Log/Sync with Joe.md",
 			expected: false,
 		},
+		{
+			name:     "dotted directory segment matches",
+			pattern:  ".obsidian",
+			path:     "Vault/.obsidian/config.json",
+			expected: true,
+		},
+		{
+			name:     "dotted folder name matches",
+			pattern:  "2024.05",
+			path:     "2024.05/notes/today.md",
+			expected: true,
+		},
+		{
+			name:     "dotted filename matches",
+			pattern:  "notes.v1",
+			path:     "Archive/notes.v1.md",
+			expected: true,
+		},
 
 		// Word boundary matching
 		{

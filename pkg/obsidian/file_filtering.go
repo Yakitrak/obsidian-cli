@@ -12,7 +12,6 @@ func FuzzyMatch(pattern, path string) bool {
 		return false
 	}
 
-	// Handle the directory and content differently based on pattern format
 	hasDirectorySpecifier := strings.Contains(pattern, "/")
 
 	// Prevent patterns with multiple slashes (not supported)
@@ -48,6 +47,9 @@ func FuzzyMatch(pattern, path string) bool {
 	}
 
 	// Content-only search (no directory specifier)
+	if strings.Contains(patternLower, ".") {
+		return matchesDottedPattern(patternLower, pathLower)
+	}
 	return matchesContentOnly(patternLower, pathLower)
 }
 
@@ -157,6 +159,16 @@ func matchesContentOnly(pattern string, path string) bool {
 	return true
 }
 
+// matchesDottedPattern ensures dotted patterns can match any individual path segment.
+func matchesDottedPattern(pattern, path string) bool {
+	for _, segment := range strings.Split(path, "/") {
+		if matchesContentOnly(pattern, segment) {
+			return true
+		}
+	}
+	return false
+}
+
 // isDelimiter checks if a byte is a delimiter character
 func isDelimiter(b byte) bool {
 	switch b {
@@ -178,17 +190,19 @@ func isWordBoundary(text string, pos int) bool {
 	return isDelimiter(text[pos-1])
 }
 
-// splitWords splits text into words, treating hyphens and underscores as separators
+// splitWords splits text into words, treating hyphens, underscores, and dots as separators
 func splitWords(text string) []string {
 	parts := strings.Fields(text)
 	var result []string
 
 	for _, part := range parts {
-		// Split by hyphen and underscore
+		// Split by hyphen, underscore, and dot
 		for _, hp := range strings.Split(part, "-") {
 			for _, up := range strings.Split(hp, "_") {
-				if up != "" {
-					result = append(result, up)
+				for _, dp := range strings.Split(up, ".") {
+					if dp != "" {
+						result = append(result, dp)
+					}
 				}
 			}
 		}

@@ -15,12 +15,24 @@ var (
 
 // ExtractFrontmatter extracts YAML frontmatter from a markdown file
 func ExtractFrontmatter(content string) (map[string]interface{}, error) {
-	matches := frontmatterRegex.FindStringSubmatch(content)
-	if len(matches) < 2 {
-		return nil, nil // No frontmatter found
+	// Frontmatter must start on the first line
+	if !strings.HasPrefix(content, "---") {
+		return nil, nil
 	}
 
-	frontmatterYAML := matches[1]
+	// Find the end of the frontmatter
+	// We look for "\n---" which indicates the start of the closing delimiter on a new line
+	// The closing delimiter must be followed by a newline or end of file
+	const closingFence = "\n---"
+	endIdx := strings.Index(content[3:], closingFence)
+	if endIdx == -1 {
+		return nil, nil // No closing delimiter found
+	}
+
+	// content[3:] shifts the index, so we add 3 back.
+	// endIdx is the start of "\n---", so the YAML content ends there.
+	// content[3 : 3+endIdx] is the YAML content.
+	frontmatterYAML := content[3 : 3+endIdx]
 
 	var frontmatter map[string]interface{}
 	err := yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter)
@@ -74,31 +86,16 @@ func normalizeTags(tags interface{}) []string {
 // ExtractHashtags extracts hashtags from markdown content, excluding code blocks and inline code.
 // Note: Returned hashtags include the leading '#'. Callers should strip it if they want just the tag name.
 func ExtractHashtags(content string) []string {
-	nonCodeContent := extractNonCodeContent(content)
-
 	var hashtags []string
 	seenTags := make(map[string]bool)
+	inCodeBlock := false
 
-	for _, match := range hashtagRegex.FindAllString(nonCodeContent, -1) {
-		hashtag := strings.TrimSpace(match)
-		if hashtag != "#" && !seenTags[hashtag] {
-			hashtags = append(hashtags, hashtag)
-			seenTags[hashtag] = true
-		}
-	}
+	for _, rawLine := range strings.Split(content, "\n") {
+		line := strings.TrimRight(rawLine, "\r")
+		trimLine := strings.TrimSpace(line)
 
-	return hashtags
-}
-
-// extractNonCodeContent removes code blocks and inline code sections from content
-func extractNonCodeContent(content string) string {
-	lines := strings.Split(content, "\n")
-	var inCodeBlock bool
-	var result strings.Builder
-
-	for _, line := range lines {
 		// Toggle code block state
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+		if strings.HasPrefix(trimLine, "```") {
 			inCodeBlock = !inCodeBlock
 			continue
 		}
@@ -108,21 +105,35 @@ func extractNonCodeContent(content string) string {
 			continue
 		}
 
-		// Handle inline code and add non-code parts
-		parts := strings.Split(line, "`")
-		for i, part := range parts {
-			if i%2 == 0 { // Non-code parts
-				result.WriteString(part)
+		// Handle inline code by removing it or splitting
+		// We use a simpler approach than the previous regex or manual loop if possible,
+		// but to match previous behavior of `split on backtick and take even parts`:
+		lineToSearch := line
+		if strings.Contains(line, "`") {
+			parts := strings.Split(line, "`")
+			var sb strings.Builder
+			for i, part := range parts {
+				if i%2 == 0 { // Non-code parts
+					sb.WriteString(part)
+					// Add space to preserve word boundaries between parts (matching previous behavior)
+					if i < len(parts)-1 {
+						sb.WriteString(" ")
+					}
+				}
 			}
-			// Add space to preserve word boundaries between parts
-			if i < len(parts)-1 {
-				result.WriteString(" ")
+			lineToSearch = sb.String()
+		}
+
+		for _, match := range hashtagRegex.FindAllString(lineToSearch, -1) {
+			hashtag := strings.TrimSpace(match)
+			if hashtag != "#" && !seenTags[hashtag] {
+				hashtags = append(hashtags, hashtag)
+				seenTags[hashtag] = true
 			}
 		}
-		result.WriteString("\n")
 	}
 
-	return result.String()
+	return hashtags
 }
 
 // CompileTagsRegex creates a regex that matches any of the given tags
