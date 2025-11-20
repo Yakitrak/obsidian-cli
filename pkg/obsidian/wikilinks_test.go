@@ -2,6 +2,7 @@ package obsidian
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -465,6 +466,36 @@ func TestExtractWikilinksOptions(t *testing.T) {
 	}
 }
 
+func TestCollectBacklinksHonorsSkipOptions(t *testing.T) {
+	vaultPath := filepath.Join("..", "..", "mocks", "vaults", "backlinks")
+	note := &Note{}
+	targets := []string{"target.md"}
+
+	backlinksSkipNone, err := CollectBacklinks(vaultPath, note, targets, WikilinkOptions{SkipAnchors: false, SkipEmbeds: false}, nil)
+	assert.NoError(t, err)
+	// Expect all variants present
+	if assert.Contains(t, backlinksSkipNone, "target.md") {
+		assert.Len(t, backlinksSkipNone["target.md"], 6)
+	}
+
+	backlinksSkipAnchors, err := CollectBacklinks(vaultPath, note, targets, WikilinkOptions{SkipAnchors: true, SkipEmbeds: false}, nil)
+	assert.NoError(t, err)
+	if assert.Contains(t, backlinksSkipAnchors, "target.md") {
+		for _, bl := range backlinksSkipAnchors["target.md"] {
+			assert.NotEqual(t, BacklinkTypeHeading, bl.LinkType)
+			assert.NotEqual(t, BacklinkTypeBlock, bl.LinkType)
+		}
+	}
+
+	backlinksSkipEmbeds, err := CollectBacklinks(vaultPath, note, targets, WikilinkOptions{SkipAnchors: false, SkipEmbeds: true}, nil)
+	assert.NoError(t, err)
+	if assert.Contains(t, backlinksSkipEmbeds, "target.md") {
+		for _, bl := range backlinksSkipEmbeds["target.md"] {
+			assert.NotEqual(t, BacklinkTypeEmbed, bl.LinkType)
+		}
+	}
+}
+
 func TestDeduplicateResults(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -539,5 +570,40 @@ func TestNormalizePath(t *testing.T) {
 			result := NormalizePath(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
+	}
+}
+
+func TestCollectBacklinks(t *testing.T) {
+	vaultPath := filepath.Join("..", "..", "mocks", "vaults", "backlinks")
+	note := &Note{}
+
+	targets := []string{"target.md", "nolinks.md"}
+
+	backlinks, err := CollectBacklinks(vaultPath, note, targets, WikilinkOptions{SkipAnchors: false, SkipEmbeds: false}, nil)
+	assert.NoError(t, err)
+
+	expected := map[string]map[string]BacklinkType{
+		"target.md": {
+			"ref-alias.md":     BacklinkTypeAlias,
+			"ref-basic.md":     BacklinkTypeBasic,
+			"ref-block.md":     BacklinkTypeBlock,
+			"ref-duplicate.md": BacklinkTypeBasic,
+			"ref-embed.md":     BacklinkTypeEmbed,
+			"ref-heading.md":   BacklinkTypeHeading,
+		},
+		"nolinks.md": {},
+	}
+
+	for target, expectedRefs := range expected {
+		assert.Contains(t, backlinks, target)
+		resultRefs := make(map[string]BacklinkType)
+		for _, backlink := range backlinks[target] {
+			resultRefs[NormalizePath(backlink.Referrer)] = backlink.LinkType
+		}
+
+		assert.Equal(t, len(expectedRefs), len(resultRefs))
+		for referrer, linkType := range expectedRefs {
+			assert.Equal(t, linkType, resultRefs[referrer], "target %s referrer %s", target, referrer)
+		}
 	}
 }

@@ -18,4 +18,7 @@ bin/
 .idea/
 obsidian-cli
 
+# Local tooling/config (Codex, direnv)
+.codex/
+.envrc
 

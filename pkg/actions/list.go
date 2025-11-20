@@ -27,14 +27,18 @@ type ListInput struct {
 
 // ListParams represents parameters for listing files
 type ListParams struct {
-	Inputs         []ListInput  // List of inputs to process
-	FollowLinks    bool         // Whether to follow wiki links
-	MaxDepth       int          // Maximum depth for following links
-	SkipAnchors    bool         // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
-	SkipEmbeds     bool         // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
-	AbsolutePaths  bool         // Whether to return absolute paths
-	SuppressedTags []string     // Tags to exclude from results
-	OnMatch        func(string) // Callback function to report matches as they're found
+	Inputs                   []ListInput                     // List of inputs to process
+	FollowLinks              bool                            // Whether to follow wiki links
+	MaxDepth                 int                             // Maximum depth for following links
+	SkipAnchors              bool                            // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
+	SkipEmbeds               bool                            // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
+	AbsolutePaths            bool                            // Whether to return absolute paths
+	SuppressedTags           []string                        // Tags to exclude from results
+	OnMatch                  func(string)                    // Callback function to report matches as they're found
+	IncludeBacklinks         bool                            // Whether to collect first-degree backlinks for matched files
+	Backlinks                *map[string][]obsidian.Backlink // Optional output map for backlinks keyed by normalized target path
+	PrimaryMatches           *[]string                       // Optional output slice capturing the matches before link following
+	obsidian.WikilinkOptions                                 // options influencing backlink parsing
 }
 
 // ParseInputs parses command-line arguments into ListInput objects.
@@ -151,6 +155,33 @@ func filterSuppressedFiles(files []string, vaultPath string, note obsidian.NoteM
 	return filtered
 }
 
+// filterSuppressedBacklinks removes backlink referrers whose contents include suppressed tags.
+func filterSuppressedBacklinks(backlinks map[string][]obsidian.Backlink, vaultPath string, note obsidian.NoteManager, suppressedTags []string) map[string][]obsidian.Backlink {
+	if len(suppressedTags) == 0 {
+		return backlinks
+	}
+
+	for target, refs := range backlinks {
+		var kept []obsidian.Backlink
+		for _, bl := range refs {
+			content, err := note.GetContents(vaultPath, bl.Referrer)
+			if err != nil {
+				// Skip unreadable referrers to avoid leaking suppressed content
+				debugf("Skipping backlink referrer %s due to read error: %v\n", bl.Referrer, err)
+				continue
+			}
+			if hasAnySuppressedTags(content, suppressedTags) {
+				debugf("Suppressing backlink referrer %s for target %s\n", bl.Referrer, target)
+				continue
+			}
+			kept = append(kept, bl)
+		}
+		backlinks[target] = kept
+	}
+
+	return backlinks
+}
+
 // ListFiles is the main function that lists files based on the provided parameters
 func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params ListParams) ([]string, error) {
 	vaultPath, err := vault.Path()
@@ -171,6 +202,12 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 	matches = filterSuppressedFiles(matches, vaultPath, note, params.SuppressedTags)
 	debugf("After suppression filtering: %d files\n", len(matches))
 
+	if params.PrimaryMatches != nil {
+		copied := make([]string, len(matches))
+		copy(copied, matches)
+		*params.PrimaryMatches = copied
+	}
+
 	// If following links, get all connected files
 	if params.FollowLinks {
 		linkedFiles := followMatchedFiles(matches, vaultPath, note, params)
@@ -180,10 +217,26 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 		linkedFiles = filterSuppressedFiles(linkedFiles, vaultPath, note, params.SuppressedTags)
 		debugf("After suppression filtering linked files: %d files\n", len(linkedFiles))
 
+		if params.IncludeBacklinks && params.Backlinks != nil {
+			backlinks, err := obsidian.CollectBacklinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+			if err != nil {
+				return nil, err
+			}
+			*params.Backlinks = backlinks
+		}
+
 		// Call OnMatch for each linked file
 		debugf("Notifying OnMatch with %d files\n", len(linkedFiles))
 		notifyMatches(linkedFiles, params.OnMatch)
 		return linkedFiles, nil
+	}
+
+	if params.IncludeBacklinks && params.Backlinks != nil {
+		backlinks, err := obsidian.CollectBacklinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+		if err != nil {
+			return nil, err
+		}
+		*params.Backlinks = backlinks
 	}
 
 	// Call OnMatch for each matched file - this only happens when not following links

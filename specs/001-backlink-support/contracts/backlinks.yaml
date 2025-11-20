@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: Backlink-enriched search
+  version: "0.1.0"
+servers:
+  - url: cli://obsidian
+    description: Conceptual CLI surface (`prompt` / `list`)
+  - url: mcp://obsidian-cli/files
+    description: MCP `files` tool surface
+paths:
+  /search:
+    post:
+      summary: Search vault files and optionally include first-degree backlinks
+      description: Mirrors CLI `prompt`/`list` behavior and MCP `files` tool when `includeBacklinks` is true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: Search string or filter applied to vault files.
+                mode:
+                  type: string
+                  enum: [prompt, list, files]
+                  description: Surface requesting the results; defaults to `list` semantics for ordering.
+                includeBacklinks:
+                  type: boolean
+                  description: Whether to include first-degree backlinks for each matched file.
+                  default: false
+              required: [query]
+      responses:
+        "200":
+          description: Search results with optional backlinks, deduped and limited to one hop.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          description: Vault-relative path of the matched file.
+                        title:
+                          type: string
+                          description: Display title if exposed by surface.
+                        backlinks:
+                          type: array
+                          description: Present when includeBacklinks=true; empty array when none exist.
+                          items:
+                            type: object
+                            properties:
+                              path:
+                                type: string
+                                description: Vault-relative path of the referring file.
+                              linkType:
+                                type: string
+                                enum: [basic, alias, heading, block, embed]
+                                description: Obsidian link variant detected.
+                            required: [path, linkType]
+                      required: [path]
+                required: [matches]
+        "400":
+          description: Invalid request (e.g., missing query)
+        "500":
+          description: Unexpected error resolving backlinks or reading vault
+

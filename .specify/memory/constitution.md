@@ -1,50 +1,48 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+Version change: N/A -> 1.0.0
+Modified principles: Added I. Layered CLI & MCP Surfaces; II. Go Standards & Tooling; III. Test-First & Fixtures; IV. UX Stability & Documentation; V. Safety & Integrity
+Added sections: Additional Constraints & Practices; Development Workflow & Review
+Removed sections: None
+Templates requiring updates: ✅ .specify/templates/plan-template.md (aligns with Constitution Check); ✅ .specify/templates/spec-template.md (mandatory sections unchanged); ✅ .specify/templates/tasks-template.md (task grouping guidance aligns); ✅ .specify/templates/agent-file-template.md (no conflicts)
+Follow-up TODOs: None
+-->
+
+# Obsidian CLI Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Layered CLI & MCP Surfaces
+Commands stay thin: parse flags and delegate to `pkg/actions`, `pkg/obsidian`, and `pkg/config`. Business logic lives in packages, not `cmd/`. MCP surfaces mirror CLI capabilities to keep behavior consistent across agents and the terminal.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Go Standards & Tooling
+Use Go 1.23+. Run `go fmt ./...` and `go test ./...` before changes are submitted; keep imports/go formatting clean. Use Cobra for CLI wiring and keep dependencies minimal and idiomatic.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Test-First & Fixtures
+Favor table-driven tests with `stretchr/testify`; co-locate `_test.go` files with implementations. Use temp dirs or in-repo fixtures (no personal vault data). Add coverage for edge cases: vault paths, tag/link parsing, filesystem behavior.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. UX Stability & Documentation
+Preserve existing defaults and output shapes; new flags or behaviors are opt-in unless explicitly approved. Update README/docs for user-facing changes. Do not commit built artifacts in `bin/` or local config; keep diffs focused on source, docs, and necessary fixtures.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Safety & Integrity
+Respect vault data: avoid destructive actions without explicit user intent, handle unreadable files gracefully, and ensure link/tag operations are consistent and reversible when possible. Maintain clarity in errors and avoid silent failures.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Additional Constraints & Practices
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- Primary tooling commands: `go fmt ./...`, `go build ./...` for sanity checks, `go test ./...` or `make test`. Use `make test_coverage` when adding sizable features.
+- Coding style: Go-idiomatic naming (CamelCase types, lowerCamel identifiers); keep exports documented only when required.
+- Project layout: `cmd/` for flag parsing, `pkg/actions/` for orchestration, `pkg/obsidian/` for vault primitives, `pkg/config/` for paths/defaults, `pkg/mcp/` for MCP exposure, `mocks/` for shared fixtures/doubles, `docs/` for supporting assets. Do not commit generated binaries in `bin/`.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Development Workflow & Review
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Specifications and plans should be kept in `specs/[feature]/` using the provided templates; ensure user-facing behavior changes are captured in spec/plan before implementation.
+- PRs and reviews must verify constitution compliance: formatting, tests, layering, UX stability, and documentation updates.
+- When adding CLI behavior, prefer opt-in flags and maintain backward-compatible outputs unless explicitly agreed otherwise.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution governs development standards for Obsidian CLI. All changes must be reviewed for compliance with Core Principles and Practices.
+- Amendments: propose edits via PR with rationale; update version per semantic rules (MAJOR if principles are removed or fundamentally altered, MINOR for new principles/sections, PATCH for clarifications). `LAST_AMENDED_DATE` updates with any change; `RATIFICATION_DATE` reflects original adoption.
+- Compliance checks occur during planning and code review; violations require documented justification and, when possible, mitigation or follow-up tasks.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-11-19 | **Last Amended**: 2025-11-19

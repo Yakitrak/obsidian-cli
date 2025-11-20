@@ -192,6 +192,9 @@ obsidian-cli list find:project -f --skip-anchors
 
 # Find notes containing "notes" and follow links, skipping embedded links
 obsidian-cli list find:notes -f --skip-embeds
+
+# Include first-degree backlinks for matches (aliases/heading/block/embed supported)
+obsidian-cli list tag:research --backlinks
 ```
 
 ### File Information
@@ -232,6 +235,9 @@ obsidian-cli prompt find:project -f --skip-anchors
 obsidian-cli prompt tag:work --suppress-tags private,draft    # Exclude files with private or draft tags
 obsidian-cli prompt Notes --no-suppress                       # Don't exclude any tags (including no-prompt)
 obsidian-cli prompt find:project --suppress-tags no-prompt,private  # Custom suppression list
+
+# Include first-degree backlinks for matches (aliases/heading/block/embed supported)
+obsidian-cli prompt find:project --backlinks
 ```
 
 ### Manage Tags

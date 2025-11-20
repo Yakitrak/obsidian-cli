@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Yakitrak/obsidian-cli/mocks"
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -998,5 +999,98 @@ func TestListFilesWithSuppressedTags(t *testing.T) {
 			mockVault.AssertExpectations(t)
 			mockNote.AssertExpectations(t)
 		})
+	}
+}
+
+func TestListFilesCollectsBacklinks(t *testing.T) {
+	mockVault := &MockVaultManager{}
+	mockNote := &MockNoteManager{}
+	mockVault.On("Path").Return("/test/vault", nil)
+	mockNote.On("GetNotesList", "/test/vault").Return([]string{"target.md", "ref.md"}, nil)
+	mockNote.On("GetContents", "/test/vault", "target.md").Return("content", nil)
+	mockNote.On("GetContents", "/test/vault", "ref.md").Return("Link to [[target]]", nil)
+
+	backlinkMap := make(map[string][]obsidian.Backlink)
+	var primaries []string
+	matches, err := ListFiles(mockVault, mockNote, ListParams{
+		Inputs:           []ListInput{{Type: InputTypeFile, Value: "target.md"}},
+		IncludeBacklinks: true,
+		Backlinks:        &backlinkMap,
+		PrimaryMatches:   &primaries,
+		WikilinkOptions: obsidian.WikilinkOptions{
+			SkipAnchors: false,
+			SkipEmbeds:  false,
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"target.md"}, matches)
+	assert.ElementsMatch(t, []string{"target.md"}, primaries)
+	if assert.Contains(t, backlinkMap, "target.md") {
+		assert.Len(t, backlinkMap["target.md"], 1)
+		assert.Equal(t, "ref.md", backlinkMap["target.md"][0].Referrer)
+		assert.Equal(t, obsidian.BacklinkTypeBasic, backlinkMap["target.md"][0].LinkType)
+	}
+}
+
+func TestListFilesBacklinksIncludeEmptyTargets(t *testing.T) {
+	mockVault := &MockVaultManager{}
+	mockNote := &MockNoteManager{}
+	mockVault.On("Path").Return("/test/vault", nil)
+	mockNote.On("GetNotesList", "/test/vault").Return([]string{"target.md", "nolinks.md", "ref.md"}, nil)
+	mockNote.On("GetContents", "/test/vault", "target.md").Return("content", nil)
+	mockNote.On("GetContents", "/test/vault", "nolinks.md").Return("", nil)
+	mockNote.On("GetContents", "/test/vault", "ref.md").Return("Alias [[target|t]] and heading [[target#H]]", nil)
+
+	backlinkMap := make(map[string][]obsidian.Backlink)
+	var primaries []string
+	matches, err := ListFiles(mockVault, mockNote, ListParams{
+		Inputs:           []ListInput{{Type: InputTypeFile, Value: "target.md"}, {Type: InputTypeFile, Value: "nolinks.md"}},
+		IncludeBacklinks: true,
+		Backlinks:        &backlinkMap,
+		PrimaryMatches:   &primaries,
+		WikilinkOptions: obsidian.WikilinkOptions{
+			SkipAnchors: false,
+			SkipEmbeds:  false,
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"target.md", "nolinks.md"}, matches)
+	assert.ElementsMatch(t, []string{"target.md", "nolinks.md"}, primaries)
+	if assert.Contains(t, backlinkMap, "target.md") {
+		assert.Len(t, backlinkMap["target.md"], 1)
+		assert.Equal(t, "ref.md", backlinkMap["target.md"][0].Referrer)
+	}
+	if assert.Contains(t, backlinkMap, "nolinks.md") {
+		assert.Len(t, backlinkMap["nolinks.md"], 0)
+	}
+}
+
+func TestListFilesBacklinksRespectSuppressedTags(t *testing.T) {
+	mockVault := &MockVaultManager{}
+	mockNote := &MockNoteManager{}
+	mockVault.On("Path").Return("/test/vault", nil)
+	mockNote.On("GetNotesList", "/test/vault").Return([]string{"target.md", "ref-keep.md", "ref-hide.md"}, nil)
+	mockNote.On("GetContents", "/test/vault", "target.md").Return("content", nil)
+	mockNote.On("GetContents", "/test/vault", "ref-keep.md").Return("Link [[target]]", nil)
+	mockNote.On("GetContents", "/test/vault", "ref-hide.md").Return("Frontmatter:\n#no-prompt\nLink [[target]]", nil)
+
+	backlinkMap := make(map[string][]obsidian.Backlink)
+	_, err := ListFiles(mockVault, mockNote, ListParams{
+		Inputs:           []ListInput{{Type: InputTypeFile, Value: "target.md"}},
+		IncludeBacklinks: true,
+		Backlinks:        &backlinkMap,
+		SuppressedTags:   []string{"no-prompt"},
+		WikilinkOptions: obsidian.WikilinkOptions{
+			SkipAnchors: false,
+			SkipEmbeds:  false,
+		},
+	})
+
+	assert.NoError(t, err)
+	if assert.Contains(t, backlinkMap, "target.md") {
+		assert.Len(t, backlinkMap["target.md"], 1)
+		assert.Equal(t, "ref-keep.md", backlinkMap["target.md"][0].Referrer)
 	}
 }

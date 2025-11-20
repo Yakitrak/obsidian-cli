@@ -3,7 +3,10 @@ package obsidian
 import (
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"sort"
 	"strings"
+	"sync"
 )
 
 // NotePathCache maps note names to their full paths for efficient wikilink resolution
@@ -12,6 +15,23 @@ type NotePathCache struct {
 	// e.g. "my note" -> "Notes/my note.md"
 	// and  "Notes/my note" -> "Notes/my note.md"
 	Paths map[string]string
+}
+
+// BacklinkType represents the type of wikilink variant used.
+type BacklinkType string
+
+const (
+	BacklinkTypeBasic   BacklinkType = "basic"
+	BacklinkTypeAlias   BacklinkType = "alias"
+	BacklinkTypeHeading BacklinkType = "heading"
+	BacklinkTypeBlock   BacklinkType = "block"
+	BacklinkTypeEmbed   BacklinkType = "embed"
+)
+
+// Backlink captures a referrer and the link variant used.
+type Backlink struct {
+	Referrer string       `json:"referrer"`
+	LinkType BacklinkType `json:"linkType"`
 }
 
 // Pre-compiled regex pattern for better performance
@@ -106,6 +126,80 @@ func ExtractWikilinks(content string, options WikilinkOptions) []string {
 	return links
 }
 
+type wikilinkDetail struct {
+	Target   string
+	LinkType BacklinkType
+}
+
+func classifyLink(rawMatch string, link string, isEmbed bool) BacklinkType {
+	switch {
+	case isEmbed:
+		return BacklinkTypeEmbed
+	case strings.Contains(rawMatch, "|"):
+		return BacklinkTypeAlias
+	case strings.Contains(link, "#^"):
+		return BacklinkTypeBlock
+	case strings.Contains(link, "#"):
+		return BacklinkTypeHeading
+	default:
+		return BacklinkTypeBasic
+	}
+}
+
+// extractWikilinkDetails returns wikilinks with their detected variant types.
+func extractWikilinkDetails(content string, options WikilinkOptions) []wikilinkDetail {
+	var details []wikilinkDetail
+
+	if !options.SkipEmbeds {
+		embedMatches := embedRegex.FindAllStringSubmatch(content, -1)
+		for _, match := range embedMatches {
+			if len(match) > 1 {
+				link := filepath.ToSlash(match[1])
+				details = append(details, wikilinkDetail{
+					Target:   link,
+					LinkType: BacklinkTypeEmbed,
+				})
+			}
+		}
+	}
+
+	// Remove embeds so they are not double-counted as regular wikilinks.
+	contentWithoutEmbeds := embedRegex.ReplaceAllString(content, "")
+	matches := wikilinkRegex.FindAllStringSubmatch(contentWithoutEmbeds, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			link := filepath.ToSlash(match[1])
+			if options.SkipAnchors && strings.Contains(link, "#") {
+				continue
+			}
+			details = append(details, wikilinkDetail{
+				Target:   link,
+				LinkType: classifyLink(match[0], link, false),
+			})
+		}
+	}
+
+	return details
+}
+
+func containsSuppressedTag(content string, suppressedTags []string) bool {
+	if len(suppressedTags) == 0 {
+		return false
+	}
+	lower := strings.ToLower(content)
+	for _, tag := range suppressedTags {
+		tag = strings.ToLower(strings.TrimSpace(tag))
+		if tag == "" {
+			continue
+		}
+		if strings.Contains(lower, "#"+tag) || strings.Contains(lower, tag) {
+			return true
+		}
+	}
+	return false
+}
+
 // FollowWikilinksOptions contains options for following wikilinks
 type FollowWikilinksOptions struct {
 	WikilinkOptions     // Embed the WikilinkOptions struct
@@ -161,6 +255,102 @@ func FollowWikilinks(vaultPath string, note NoteManager, startFile string, visit
 				}
 			}
 		}
+	}
+
+	return result, nil
+}
+
+// CollectBacklinks finds first-degree backlinks for the provided targets.
+// Each target key is present in the returned map, even if it has no backlinks.
+// Options allow skipping anchors or embeds; suppressedTags removes referrers that contain those tags.
+func CollectBacklinks(vaultPath string, note NoteManager, targets []string, options WikilinkOptions, suppressedTags []string) (map[string][]Backlink, error) {
+	allNotes, err := note.GetNotesList(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
+	cache := BuildNotePathCache(allNotes)
+
+	targetSet := make(map[string]struct{})
+	result := make(map[string][]Backlink)
+	for _, target := range targets {
+		normalized := NormalizePath(AddMdSuffix(target))
+		targetSet[normalized] = struct{}{}
+		result[normalized] = []Backlink{}
+	}
+
+	backlinkMap := make(map[string]map[string]BacklinkType)
+
+	// Parallelize referrer scanning to use available cores.
+	workerCount := runtime.NumCPU()
+	if workerCount < 1 {
+		workerCount = 1
+	}
+	jobs := make(chan string, workerCount)
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	worker := func() {
+		defer wg.Done()
+		for referrer := range jobs {
+			referrerNorm := NormalizePath(referrer)
+
+			content, err := note.GetContents(vaultPath, referrer)
+			if err != nil {
+				// Skip unreadable files without blocking other results.
+				continue
+			}
+
+			if len(suppressedTags) > 0 && containsSuppressedTag(content, suppressedTags) {
+				continue
+			}
+
+			links := extractWikilinkDetails(content, options)
+			for _, link := range links {
+				if resolved, ok := cache.ResolveNote(link.Target); ok {
+					targetPath := NormalizePath(AddMdSuffix(resolved))
+					if _, isTarget := targetSet[targetPath]; !isTarget {
+						continue
+					}
+
+					mu.Lock()
+					if _, exists := backlinkMap[targetPath]; !exists {
+						backlinkMap[targetPath] = make(map[string]BacklinkType)
+					}
+					if _, seen := backlinkMap[targetPath][referrerNorm]; !seen {
+						backlinkMap[targetPath][referrerNorm] = link.LinkType
+					}
+					mu.Unlock()
+				}
+			}
+		}
+	}
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go worker()
+	}
+
+	for _, referrer := range allNotes {
+		jobs <- referrer
+	}
+	close(jobs)
+	wg.Wait()
+
+	for targetPath, referrers := range backlinkMap {
+		for referrer, linkType := range referrers {
+			result[targetPath] = append(result[targetPath], Backlink{
+				Referrer: referrer,
+				LinkType: linkType,
+			})
+		}
+		sort.Slice(result[targetPath], func(i, j int) bool {
+			if result[targetPath][i].Referrer == result[targetPath][j].Referrer {
+				return result[targetPath][i].LinkType < result[targetPath][j].LinkType
+			}
+			return result[targetPath][i].Referrer < result[targetPath][j].Referrer
+		})
 	}
 
 	return result, nil

@@ -124,8 +124,35 @@ Examples:
 		// Print the vault header
 		fmt.Fprintf(&output, "<obsidian-vault name=\"%s\">\n\n", vaultName)
 
-		// Call ListFiles with a callback to print files as they're found
-		_, err = actions.ListFiles(&vault, &note, actions.ListParams{
+		type match struct {
+			path    string
+			content string
+		}
+		var matches []match
+
+		onMatch := func(file string) {
+			printMu.Lock()
+			defer printMu.Unlock()
+			if uniqueFiles[file] {
+				return
+			}
+			uniqueFiles[file] = true
+
+			filePath := filepath.Join(vaultPath, file)
+			content, err := ioutil.ReadFile(filePath)
+			if err != nil {
+				log.Printf("Error reading file %s: %v", file, err)
+				return
+			}
+
+			if isTerminalMode {
+				fmt.Fprintf(os.Stderr, "Found %s\n", file)
+			}
+
+			matches = append(matches, match{path: file, content: string(content)})
+		}
+
+		params := actions.ListParams{
 			Inputs:         inputs,
 			FollowLinks:    followLinks,
 			MaxDepth:       maxDepth,
@@ -133,32 +160,56 @@ Examples:
 			SkipEmbeds:     skipEmbeds,
 			AbsolutePaths:  absolutePaths,
 			SuppressedTags: suppressedTags,
-			OnMatch: func(file string) {
-				printMu.Lock()
-				if !uniqueFiles[file] {
-					uniqueFiles[file] = true
+			OnMatch:        onMatch,
+		}
 
-					// Read the file contents
-					filePath := filepath.Join(vaultPath, file)
-					content, err := ioutil.ReadFile(filePath)
-					if err != nil {
-						log.Printf("Error reading file %s: %v", file, err)
-						return
-					}
+		var backlinks map[string][]obsidian.Backlink
+		var primaryMatches []string
+		if includeBacklinks {
+			params.IncludeBacklinks = true
+			params.Backlinks = &backlinks
+			params.PrimaryMatches = &primaryMatches
+		}
 
-					// Print progress message if in terminal mode
-					if isTerminalMode {
-						fmt.Fprintf(os.Stderr, "Found %s\n", file)
-					}
-
-					// Add to output buffer
-					fmt.Fprintf(&output, "<file path=\"%s\">\n%s\n</file>\n\n", file, string(content))
-				}
-				printMu.Unlock()
-			},
-		})
+		_, err = actions.ListFiles(&vault, &note, params)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		if includeBacklinks {
+			primaries := primaryMatches
+			if len(primaries) == 0 {
+				for _, m := range matches {
+					primaries = append(primaries, m.path)
+				}
+			}
+
+			seen := make(map[string]bool)
+			for _, m := range matches {
+				seen[obsidian.NormalizePath(obsidian.AddMdSuffix(m.path))] = true
+			}
+
+			for _, p := range primaries {
+				key := obsidian.NormalizePath(obsidian.AddMdSuffix(p))
+				for _, bl := range backlinks[key] {
+					ref := obsidian.NormalizePath(bl.Referrer)
+					if seen[ref] {
+						continue
+					}
+					content, err := ioutil.ReadFile(filepath.Join(vaultPath, ref))
+					if err != nil {
+						log.Printf("Error reading backlink referrer %s: %v", ref, err)
+						continue
+					}
+					matches = append(matches, match{path: ref, content: string(content)})
+					seen[ref] = true
+				}
+			}
+		}
+
+		for _, m := range matches {
+			fmt.Fprintf(&output, "<file path=\"%s\">\n%s\n</file>\n", m.path, m.content)
+			fmt.Fprintf(&output, "\n")
 		}
 
 		// Print the closing vault tag
@@ -188,5 +239,6 @@ func init() {
 	promptCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
 	promptCmd.Flags().StringSliceVar(&suppressTags, "suppress-tags", nil, "additional tags to suppress/exclude from output (comma-separated)")
 	promptCmd.Flags().BoolVar(&noSuppress, "no-suppress", false, "disable all tag suppression, including default no-prompt tag")
+	promptCmd.Flags().BoolVar(&includeBacklinks, "backlinks", false, "include first-degree backlinks for each matched file")
 	rootCmd.AddCommand(promptCmd)
 }

@@ -26,3 +26,11 @@
 - Write imperative, concise commits similar to recent history (`Optimize tag search and support wildcards…`). Squash locally if you create noisy WIP commits.
 - PRs should describe behavior changes, reference issues when applicable, and note any new flags or defaults. Include `go test ./...` results and update `README.md`/`docs/` when user-facing behavior shifts.
 - Avoid committing built artifacts in `bin/` or local config files; keep diffs limited to source, docs, and necessary test data.
+
+## Recent Changes
+- 001-backlink-support: Added Go 1.23+ + Cobra CLI, Viper/config where used, internal packages `pkg/obsidian`, `pkg/actions`, `pkg/mcp`, `pkg/config`
+- 001-backlink-support: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+
+## Active Technologies
+- Go 1.23+ + Cobra CLI, Viper/config where used, internal packages `pkg/obsidian`, `pkg/actions`, `pkg/mcp`, `pkg/config` (001-backlink-support)
+- Local filesystem vaults (no external DB) (001-backlink-support)

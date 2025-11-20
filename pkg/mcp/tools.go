@@ -22,6 +22,7 @@ type FileEntry struct {
 	Tags         []string               `json:"tags,omitempty"`
 	Frontmatter  map[string]interface{} `json:"frontmatter,omitempty"`
 	Content      string                 `json:"content,omitempty"`
+	Backlinks    []obsidian.Backlink    `json:"backlinks,omitempty"`
 }
 
 // FilesResponse wraps the full files response
@@ -90,6 +91,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		}
 		includeFrontmatter, _ := args["includeFrontmatter"].(bool)
 		absolutePaths, _ := args["absolutePaths"].(bool)
+		includeBacklinks, _ := args["includeBacklinks"].(bool)
 
 		suppressTagsRaw, _ := args["suppressTags"].([]interface{})
 		noSuppress, _ := args["noSuppress"].(bool)
@@ -122,7 +124,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		unique := make(map[string]bool)
 		order := make([]string, 0)
 
-		_, err = actions.ListFiles(config.Vault, &note, actions.ListParams{
+		params := actions.ListParams{
 			Inputs:         parsedInputs,
 			FollowLinks:    followLinks || maxDepth > 0,
 			MaxDepth:       maxDepth,
@@ -136,7 +138,20 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 					order = append(order, file)
 				}
 			},
-		})
+		}
+
+		var backlinks map[string][]obsidian.Backlink
+		if includeBacklinks {
+			params.IncludeBacklinks = true
+			params.Backlinks = &backlinks
+		}
+
+		var primaryMatches []string
+		if includeBacklinks {
+			params.PrimaryMatches = &primaryMatches
+		}
+
+		_, err = actions.ListFiles(config.Vault, &note, params)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error listing files: %s", err)), nil
 		}
@@ -147,6 +162,11 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		}
 
 		vaultPath := config.VaultPath
+
+		primarySet := make(map[string]struct{})
+		for _, p := range primaryMatches {
+			primarySet[obsidian.NormalizePath(obsidian.AddMdSuffix(p))] = struct{}{}
+		}
 
 		for _, file := range order {
 			info, err := actions.GetFileInfo(config.Vault, &note, file)
@@ -179,6 +199,17 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 
 			if absolutePaths {
 				entry.AbsolutePath = filepath.Join(vaultPath, file)
+			}
+
+			if includeBacklinks {
+				key := obsidian.NormalizePath(obsidian.AddMdSuffix(file))
+				if _, ok := primarySet[key]; ok {
+					if backs, ok := backlinks[key]; ok && len(backs) > 0 {
+						entry.Backlinks = backs
+					} else if ok {
+						entry.Backlinks = []obsidian.Backlink{}
+					}
+				}
 			}
 
 			response.Files = append(response.Files, entry)

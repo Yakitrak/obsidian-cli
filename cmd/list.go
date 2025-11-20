@@ -13,12 +13,13 @@ import (
 )
 
 var (
-	followLinks   bool
-	maxDepth      int
-	skipAnchors   bool
-	skipEmbeds    bool
-	absolutePaths bool
-	debug         bool
+	followLinks      bool
+	maxDepth         int
+	skipAnchors      bool
+	skipEmbeds       bool
+	absolutePaths    bool
+	debug            bool
+	includeBacklinks bool
 )
 
 // isTerminal returns true if stdout is a terminal
@@ -56,6 +57,7 @@ func init() {
 	listCmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
 	listCmd.Flags().BoolVarP(&absolutePaths, "absolute", "a", false, "print absolute paths")
 	listCmd.Flags().BoolVar(&debug, "debug", false, "enable debug output")
+	listCmd.Flags().BoolVar(&includeBacklinks, "backlinks", false, "include first-degree backlinks for each matched file")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -106,9 +108,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		log.Printf("Number of parsed inputs: %d", len(inputs))
 	}
 
-	// Create a map to track unique files
-	uniqueFiles := make(map[string]bool)
-	// Create a mutex to safely print files
+	// Mutex for printing when needed
 	var printMu sync.Mutex
 
 	// Get vault path for absolute paths
@@ -121,39 +121,72 @@ func runList(cmd *cobra.Command, args []string) error {
 		log.Printf("Vault path: %s", vaultPath)
 	}
 
-	// Call ListFiles with a callback to print files as they're found
-	_, err = actions.ListFiles(&vault, &note, actions.ListParams{
+	params := actions.ListParams{
 		Inputs:        inputs,
 		FollowLinks:   followLinks,
 		MaxDepth:      maxDepth,
 		SkipAnchors:   skipAnchors,
 		SkipEmbeds:    skipEmbeds,
 		AbsolutePaths: absolutePaths,
-		OnMatch: func(file string) {
-			printMu.Lock()
-			if !uniqueFiles[file] {
-				uniqueFiles[file] = true
-				path := file
-				if absolutePaths {
-					absPath, err := filepath.Abs(filepath.Join(vaultPath, file))
-					if err == nil {
-						path = absPath
-					}
-				}
+	}
 
-				if isTerminal() {
-					// When printing to terminal, never quote
-					fmt.Printf("%s\n", path)
-				} else {
-					// When piped, always quote for safety
-					fmt.Printf("%q\n", path)
-				}
-			}
-			printMu.Unlock()
-		},
-	})
+	var backlinks map[string][]obsidian.Backlink
+	var primaryMatches []string
+
+	if includeBacklinks {
+		params.IncludeBacklinks = true
+		params.Backlinks = &backlinks
+		params.PrimaryMatches = &primaryMatches
+	}
+
+	matches, err := actions.ListFiles(&vault, &note, params)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	seen := make(map[string]bool)
+	printPath := func(p string) {
+		printMu.Lock()
+		defer printMu.Unlock()
+		if seen[p] {
+			return
+		}
+		seen[p] = true
+		path := p
+		if absolutePaths {
+			if absPath, err := filepath.Abs(filepath.Join(vaultPath, p)); err == nil {
+				path = absPath
+			}
+		}
+		if isTerminal() {
+			fmt.Printf("%s\n", path)
+		} else {
+			fmt.Printf("%q\n", path)
+		}
+	}
+
+	if includeBacklinks {
+		primaries := primaryMatches
+		if len(primaries) == 0 {
+			primaries = matches
+		}
+
+		for _, file := range matches {
+			printPath(file)
+		}
+
+		for _, file := range primaries {
+			key := obsidian.NormalizePath(obsidian.AddMdSuffix(file))
+			for _, bl := range backlinks[key] {
+				printPath(bl.Referrer)
+			}
+		}
+
+		return nil
+	}
+
+	for _, file := range matches {
+		printPath(file)
 	}
 
 	return nil
