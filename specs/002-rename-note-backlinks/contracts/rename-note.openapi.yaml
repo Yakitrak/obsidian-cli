@@ -1,0 +1,86 @@
+openapi: 3.0.1
+info:
+  title: Rename Note API
+  version: "0.1.0"
+  description: Rename a note while updating backlinks and preserving link aliases/block refs; uses git-aware rename when vault is a git repo.
+paths:
+  /notes/rename:
+    post:
+      summary: Rename a note and update backlinks
+      description: Performs a rename within a vault, optionally preserving git history when the vault is a git repository.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameRequest"
+      responses:
+        "200":
+          description: Rename completed with backlink updates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenameResult"
+        "400":
+          description: Invalid request (missing source, target conflict, or unsupported path)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict preventing rename (e.g., target exists without overwrite, git state blocks rename)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    RenameRequest:
+      type: object
+      required:
+        - sourcePath
+        - targetPath
+      properties:
+        sourcePath:
+          type: string
+          description: Existing note path/title in the vault.
+        targetPath:
+          type: string
+          description: Desired new note path/title.
+        overwrite:
+          type: boolean
+          description: Allow replacing an existing target. Defaults to false.
+        updateBacklinks:
+          type: boolean
+          description: Whether to rewrite backlinks. Defaults to true.
+    RenameResult:
+      type: object
+      properties:
+        renamedPath:
+          type: string
+          description: Final path of the renamed note.
+        linkUpdates:
+          type: integer
+          description: Number of backlinks rewritten.
+        skippedFiles:
+          type: array
+          items:
+            type: string
+          description: Files that were skipped (e.g., ignored/system paths).
+        gitHistoryPreserved:
+          type: boolean
+          description: True when git-aware rename succeeded in preserving history.
+        message:
+          type: string
+          description: Summary of the operation.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: array
+          items:
+            type: string
+          description: Additional context such as conflicting files or git status.

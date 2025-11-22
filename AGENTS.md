@@ -29,9 +29,10 @@
 - Avoid committing built artifacts in `bin/` or local config files; keep diffs limited to source, docs, and necessary test data.
 
 ## Recent Changes
+- 002-rename-note-backlinks: Added Go 1.23+ + Cobra CLI, Viper/config where applicable, obsidian vault/link parsing helpers in `pkg/obsidian`, MCP tooling in `pkg/mcp`
 - 001-backlink-support: Added Go 1.23+ + Cobra CLI, Viper/config where used, internal packages `pkg/obsidian`, `pkg/actions`, `pkg/mcp`, `pkg/config`
 - 001-backlink-support: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 ## Active Technologies
-- Go 1.23+ + Cobra CLI, Viper/config where used, internal packages `pkg/obsidian`, `pkg/actions`, `pkg/mcp`, `pkg/config` (001-backlink-support)
-- Local filesystem vaults (no external DB) (001-backlink-support)
+- Go 1.23+ + Cobra CLI, Viper/config where applicable, obsidian vault/link parsing helpers in `pkg/obsidian`, MCP tooling in `pkg/mcp` (002-rename-note-backlinks)
+- Local filesystem vaults (Markdown files); git repository when presen (002-rename-note-backlinks)
