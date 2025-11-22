@@ -125,7 +125,7 @@ func scanWikilinks(content string, options WikilinkOptions) []wikilinkDetail {
 		// strings.Index is faster for finding substrings.
 		// We are looking for "[[" or "![["
 		// But "![[" ends with "[[", so just looking for "[[" is enough, then check prefix.
-		
+
 		// Optimization: use strings.Index to find "[["
 		next := strings.Index(content[i:], "[[")
 		if next == -1 {
@@ -144,12 +144,12 @@ func scanWikilinks(content string, options WikilinkOptions) []wikilinkDetail {
 		// Actually, if we skip it, we effectively ignore it.
 		// But if we just skip the "![[" and continue scanning, we might find "]]" later?
 		// No, the logic is: find "[[", find matching "]]".
-		
+
 		// Find closing "]]"
 		// We start searching after the "[["
 		closeIdx := strings.Index(content[idx+2:], "]]")
 		if closeIdx == -1 {
-			// No closing bracket, so this is not a valid link. 
+			// No closing bracket, so this is not a valid link.
 			// Advance past "[[" to avoid infinite loop (or just break?)
 			// If no "]]" anywhere later, we can stop.
 			break
@@ -158,7 +158,7 @@ func scanWikilinks(content string, options WikilinkOptions) []wikilinkDetail {
 
 		// Content inside brackets
 		rawContent := content[idx+2 : closeIdx]
-		
+
 		// Advance loop for next iteration
 		i = closeIdx + 2
 
@@ -168,7 +168,7 @@ func scanWikilinks(content string, options WikilinkOptions) []wikilinkDetail {
 
 		// Parse the link content
 		link := rawContent
-		
+
 		// Handle normalization (filepath.ToSlash) - mostly for Windows consistency
 		link = filepath.ToSlash(link)
 

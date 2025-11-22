@@ -17,7 +17,7 @@
 
 **Purpose**: Baseline checks and branch readiness
 
-- [ ] T001 Run baseline formatting/tests in `./` (`go fmt ./...`, `go test ./...`) to confirm a clean starting point
+- [X] T001 Run baseline formatting/tests in `./` (`go fmt ./...`, `go test ./...`) to confirm a clean starting point
 
 ---
 
@@ -25,9 +25,9 @@
 
 **Purpose**: Shared helpers needed by all user stories
 
-- [ ] T002 [P] Review backlink parsing capabilities in `pkg/obsidian/wikilinks.go` to confirm alias/header/block data exposed for rewrite helper inputs
-- [ ] T003 Add shared ignore/suppression helper in `pkg/obsidian/ignore.go` with unit coverage in `pkg/obsidian/ignore_test.go` for vault/system path skips reused by rename flows
-- [ ] T004 Add link rewrite helper in `pkg/obsidian/rewrite.go` with table-driven tests in `pkg/obsidian/rewrite_test.go` covering wikilinks/markdown/embeds, alias preservation, header/block fragments, and ignored paths
+- [X] T002 [P] Review backlink parsing capabilities in `pkg/obsidian/wikilinks.go` to confirm alias/header/block data exposed for rewrite helper inputs
+- [X] T003 Add shared ignore/suppression helper in `pkg/obsidian/ignore.go` with unit coverage in `pkg/obsidian/ignore_test.go` for vault/system path skips reused by rename flows
+- [X] T004 Add link rewrite helper in `pkg/obsidian/rewrite.go` with table-driven tests in `pkg/obsidian/rewrite_test.go` covering wikilinks/markdown/embeds, alias preservation, header/block fragments, and ignored paths
 
 **Checkpoint**: Link parsing inputs, ignore rules, and rewrite helper are ready for story work.
 
@@ -41,13 +41,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] [US1] Add action-level tests in `pkg/actions/rename_test.go` covering git repo rename with backlink rewrite and overwrite-prevention behavior
+- [X] T005 [P] [US1] Add action-level tests in `pkg/actions/rename_test.go` covering git repo rename with backlink rewrite and overwrite-prevention behavior
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Implement rename orchestration in `pkg/actions/rename.go` (validate source/target, choose git vs filesystem rename, invoke rewrite helper, emit summary)
-- [ ] T007 [P] [US1] Wire CLI command in `cmd/rename.go` with flags (source, target, overwrite default false, backlinks toggle) delegating to `pkg/actions` rename
-- [ ] T008 [P] [US1] Add CLI flow test in `cmd/rename_test.go` using a temp git vault to verify rename, backlink update, and clear summary/error messaging
+- [X] T006 [US1] Implement rename orchestration in `pkg/actions/rename.go` (validate source/target, choose git vs filesystem rename, invoke rewrite helper, emit summary)
+- [X] T007 [P] [US1] Wire CLI command in `cmd/rename.go` with flags (source, target, overwrite default false, backlinks toggle) delegating to `pkg/actions` rename
+- [X] T008 [P] [US1] Add CLI flow test in `cmd/rename_test.go` using a temp git vault to verify rename, backlink update, and clear summary/error messaging
 
 **Checkpoint**: CLI rename delivers end-to-end behavior with history preservation and backlink rewrites.
 

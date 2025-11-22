@@ -30,13 +30,13 @@ func TestUriConstruct(t *testing.T) {
 			assert.Equal(t, test.want, got)
 		})
 	}
-	
+
 	// Test with multiple key-value pairs separately due to map iteration order
 	t.Run("Multiple keys", func(t *testing.T) {
 		uriManager := obsidian.Uri{}
 		params := map[string]string{"key1": "value1", "key2": "value2"}
 		got := uriManager.Construct(baseUri, params)
-		
+
 		// Check that base URI is present and both key-value pairs are in the result
 		assert.Contains(t, got, baseUri)
 		assert.Contains(t, got, "key1=value1")
