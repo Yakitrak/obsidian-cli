@@ -73,6 +73,19 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	)
 	s.AddTool(dailyNotePathToolDef, DailyNotePathTool(config))
 
+	// Register rename_note tool
+	renameNoteTool := mcp.NewTool("rename_note",
+		mcp.WithDescription(`Rename a note and update backlinks, preserving history in git vaults.
+
+Required: source (existing note), target (new note path/title)
+Optional: overwrite (default false), updateBacklinks (default true)`),
+		mcp.WithString("source", mcp.Required(), mcp.Description("Existing note path/title")),
+		mcp.WithString("target", mcp.Required(), mcp.Description("Desired new note path/title")),
+		mcp.WithBoolean("overwrite", mcp.Description("Allow replacing an existing target (default false)")),
+		mcp.WithBoolean("updateBacklinks", mcp.Description("Rewrite backlinks to the new note (default true)")),
+	)
+	s.AddTool(renameNoteTool, RenameNoteTool(config))
+
 	// --------------------------------------------------------------------
 	// Destructive tag-management tools (only when read-write enabled)
 	// --------------------------------------------------------------------

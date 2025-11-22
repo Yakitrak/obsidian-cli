@@ -61,12 +61,12 @@
 
 ### Tests for User Story 2
 
-- [ ] T009 [P] [US2] Add MCP rename tool tests in `pkg/mcp/tools_test.go` asserting request/response shape, summary fields, and parity with CLI behavior
+- [X] T009 [P] [US2] Add MCP rename tool tests in `pkg/mcp/tools_test.go` asserting request/response shape, summary fields, and parity with CLI behavior
 
 ### Implementation for User Story 2
 
-- [ ] T010 [P] [US2] Implement MCP rename tool handler in `pkg/mcp/tools.go` (or dedicated file) delegating to `pkg/actions` rename with shared parameters
-- [ ] T011 [P] [US2] Update tool registration/schema in `pkg/mcp/register.go` to expose rename parameters (source, target, overwrite, backlinks toggle) aligned with CLI flags
+- [X] T010 [P] [US2] Implement MCP rename tool handler in `pkg/mcp/tools.go` (or dedicated file) delegating to `pkg/actions` rename with shared parameters
+- [X] T011 [P] [US2] Update tool registration/schema in `pkg/mcp/register.go` to expose rename parameters (source, target, overwrite, backlinks toggle) aligned with CLI flags
 
 **Checkpoint**: MCP rename matches CLI behavior and schema.
 

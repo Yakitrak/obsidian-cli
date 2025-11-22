@@ -60,6 +60,14 @@ type TagMutationResult struct {
 	FilesChanged []string       `json:"filesChanged,omitempty"`
 }
 
+// RenameNoteResponse describes the JSON shape returned by the rename_note tool.
+type RenameNoteResponse struct {
+	Path                string   `json:"path"`
+	LinkUpdates         int      `json:"linkUpdates"`
+	Skipped             []string `json:"skipped,omitempty"`
+	GitHistoryPreserved bool     `json:"gitHistoryPreserved"`
+}
+
 // FilesTool implements the files MCP tool (paths + optional content/frontmatter as JSON).
 func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -243,6 +251,59 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 		encoded, err := json.Marshal(payload)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling tag list: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+// RenameNoteTool implements the rename_note MCP tool mirroring CLI behavior.
+func RenameNoteTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+		source, _ := args["source"].(string)
+		target, _ := args["target"].(string)
+		overwrite, _ := args["overwrite"].(bool)
+		updateBacklinks := true
+		if v, ok := args["updateBacklinks"].(bool); ok {
+			updateBacklinks = v
+		}
+		ignored := make([]string, 0)
+		if arr, ok := args["ignoredPaths"].([]interface{}); ok {
+			for _, v := range arr {
+				if s, ok := v.(string); ok {
+					ignored = append(ignored, s)
+				}
+			}
+		}
+
+		if strings.TrimSpace(source) == "" || strings.TrimSpace(target) == "" {
+			return mcp.NewToolResultError("source and target are required"), nil
+		}
+
+		params := actions.RenameParams{
+			Source:          source,
+			Target:          target,
+			Overwrite:       overwrite,
+			UpdateBacklinks: updateBacklinks,
+			IgnoredPaths:    ignored,
+		}
+
+		result, err := actions.RenameNote(config.Vault, params)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("rename failed: %s", err)), nil
+		}
+
+		response := RenameNoteResponse{
+			Path:                result.RenamedPath,
+			LinkUpdates:         result.LinkUpdates,
+			Skipped:             result.Skipped,
+			GitHistoryPreserved: result.GitHistoryPreserved,
+		}
+
+		encoded, err := json.Marshal(response)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling response: %s", err)), nil
 		}
 
 		return mcp.NewToolResultText(string(encoded)), nil
