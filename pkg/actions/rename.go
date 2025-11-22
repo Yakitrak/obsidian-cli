@@ -45,22 +45,44 @@ func RenameNote(vault obsidian.VaultManager, params RenameParams) (RenameResult,
 	if _, err := os.Stat(sourceAbs); err != nil {
 		return result, fmt.Errorf("source note does not exist: %w", err)
 	}
-	if !params.Overwrite {
-		if _, err := os.Stat(targetAbs); err == nil {
-			return result, fmt.Errorf("target note already exists: %s", targetRel)
-		}
+	targetExists := false
+	if _, err := os.Stat(targetAbs); err == nil {
+		targetExists = true
+	}
+	if !params.Overwrite && targetExists {
+		return result, fmt.Errorf("target note already exists: %s", targetRel)
 	}
 	if err := os.MkdirAll(filepath.Dir(targetAbs), 0o755); err != nil {
 		return result, fmt.Errorf("unable to prepare target directory: %w", err)
 	}
 
 	isGit := isGitRepo(vaultPath)
-	if isGit {
-		if err := gitMove(vaultPath, sourceRel, targetRel); err != nil {
-			return result, fmt.Errorf("git rename failed: %w", err)
+
+	attemptGit := isGit
+	if params.Overwrite && targetExists {
+		if attemptGit {
+			if err := gitRemove(vaultPath, targetRel); err != nil {
+				attemptGit = false
+				if err := os.RemoveAll(targetAbs); err != nil {
+					return result, fmt.Errorf("failed to remove existing target: %w", err)
+				}
+			}
+		} else {
+			if err := os.RemoveAll(targetAbs); err != nil {
+				return result, fmt.Errorf("failed to remove existing target: %w", err)
+			}
 		}
-		result.GitHistoryPreserved = true
-	} else {
+	}
+
+	if attemptGit {
+		if err := gitMove(vaultPath, sourceRel, targetRel); err == nil {
+			result.GitHistoryPreserved = true
+		} else {
+			attemptGit = false
+		}
+	}
+
+	if !result.GitHistoryPreserved {
 		if err := os.Rename(sourceAbs, targetAbs); err != nil {
 			return result, fmt.Errorf("filesystem rename failed: %w", err)
 		}
@@ -91,6 +113,13 @@ func isGitRepo(path string) bool {
 
 func gitMove(root, sourceRel, targetRel string) error {
 	cmd := exec.Command("git", "-C", root, "mv", "--", sourceRel, targetRel)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run()
+}
+
+func gitRemove(root, targetRel string) error {
+	cmd := exec.Command("git", "-C", root, "rm", "-rf", "--", targetRel)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run()

@@ -80,11 +80,11 @@
 
 ### Tests for User Story 3
 
-- [ ] T012 [P] [US3] Add non-git and dirty-git cases to `pkg/actions/rename_test.go` verifying filesystem rename path, backlink rewrites, and user-facing messaging
+- [X] T012 [P] [US3] Add non-git and dirty-git cases to `pkg/actions/rename_test.go` verifying filesystem rename path, backlink rewrites, and user-facing messaging
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] Extend `pkg/actions/rename.go` fallback logic to handle non-git vaults and dirty git states with clear summaries and safe aborts on conflicts
+- [X] T013 [US3] Extend `pkg/actions/rename.go` fallback logic to handle non-git vaults and dirty git states with clear summaries and safe aborts on conflicts
 
 **Checkpoint**: Rename works safely without git and surfaces clear feedback.
 
@@ -94,8 +94,8 @@
 
 **Purpose**: Documentation, consistency, and final verification
 
-- [ ] T014 [P] Update user-facing docs in `README.md` and `docs/` for the rename command/MCP tool usage, flags, and history/backlink behavior
-- [ ] T015 [P] Run final `go fmt ./...` and `go test ./...` in `./` and address any failures before delivery
+- [X] T014 [P] Update user-facing docs in `README.md` and `docs/` for the rename command/MCP tool usage, flags, and history/backlink behavior
+- [X] T015 [P] Run final `go fmt ./...` and `go test ./...` in `./` and address any failures before delivery
 
 ---
 

@@ -158,6 +158,18 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
 obsidian-cli move "{current-note-path}" "{new-note-path}" --open
 ```
 
+### Rename Note (backlink-safe, git-aware)
+
+Renames a note and rewrites backlinks (aliases, headers, block refs, embeds) to the new path. Tries `git mv` when the vault is a git repo (to keep history); if git cannot complete the move (e.g., due to conflicts), falls back to a filesystem rename.
+
+```bash
+obsidian-cli rename "{source-note}" "{target-note}" [--vault "{vault-name}"] [--overwrite] [--no-backlinks]
+```
+
+Flags:
+- `--overwrite`: allow replacing an existing target
+- `--no-backlinks`: skip backlink rewrites (defaults to rewriting)
+
 ### Delete Note
 
 Deletes a given note (path from top level of vault).
