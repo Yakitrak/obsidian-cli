@@ -86,6 +86,35 @@ Optional: overwrite (default false), updateBacklinks (default true)`),
 	)
 	s.AddTool(renameNoteTool, RenameNoteTool(config))
 
+	// Register move_notes tool
+	moveNotesTool := mcp.NewTool("move_notes",
+		mcp.WithDescription(`Move or rename one or more notes within the vault. Backlinks are NOT rewritten unless updateBacklinks=true.
+
+Preferred: pass an array of moves [{source,target}]. For simple single-note moves, source/target can be provided directly.
+
+Options:
+- overwrite: replace an existing target (default false)
+- updateBacklinks: rewrite backlinks to new path (default false)
+- open: open the first moved note in Obsidian (default false)`),
+		mcp.WithArray("moves",
+			mcp.Description("Array of move objects. Each move requires 'source' and 'target' values."),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"source": map[string]any{"type": "string"},
+					"target": map[string]any{"type": "string"},
+				},
+				"required": []string{"source", "target"},
+			}),
+		),
+		mcp.WithString("source", mcp.Description("Single-move shorthand: existing note path/title")),
+		mcp.WithString("target", mcp.Description("Single-move shorthand: desired new path/title")),
+		mcp.WithBoolean("overwrite", mcp.Description("Allow replacing an existing target (default false)")),
+		mcp.WithBoolean("updateBacklinks", mcp.Description("Rewrite backlinks to the new note path (default false)")),
+		mcp.WithBoolean("open", mcp.Description("Open the first moved note in Obsidian after moving (default false)")),
+	)
+	s.AddTool(moveNotesTool, MoveNotesTool(config))
+
 	// --------------------------------------------------------------------
 	// Destructive tag-management tools (only when read-write enabled)
 	// --------------------------------------------------------------------

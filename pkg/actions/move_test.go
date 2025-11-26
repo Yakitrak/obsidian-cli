@@ -1,160 +1,172 @@
-package actions_test
+package actions
 
 import (
-	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Yakitrak/obsidian-cli/mocks"
-	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-func TestMoveNote(t *testing.T) {
-	t.Run("Successful move note", func(t *testing.T) {
-		// Arrange
-		vault := &mocks.VaultManager{}
-		note := &mocks.NoteManager{}
-		uri := &mocks.MockUriManager{}
+type moveStubVault struct {
+	path    string
+	name    string
+	err     error
+	nameErr error
+}
 
-		vault.On("DefaultName").Return("myVault", nil)
-		vault.On("Path").Return("/test/vault", nil)
-		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-		note.On("UpdateLinks", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://open?vault=myVault&file=newNote.md")
-		uri.On("Execute", mock.AnythingOfType("string")).Return(nil)
+func (s moveStubVault) DefaultName() (string, error) {
+	if s.nameErr != nil {
+		return "", s.nameErr
+	}
+	if s.name != "" {
+		return s.name, nil
+	}
+	return "", nil
+}
+func (s moveStubVault) SetDefaultName(string) error { return nil }
+func (s moveStubVault) Path() (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.path, nil
+}
 
-		// Act
-		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
-			CurrentNoteName: "oldNote.md",
-			NewNoteName:     "newNote.md",
-			ShouldOpen:      true,
-		})
+func TestMoveNotes_SingleMoveNoBacklinks(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vaultDir, "Note.md"), []byte("body"), 0o644); err != nil {
+		t.Fatalf("seed note: %v", err)
+	}
 
-		// Assert
-		assert.NoError(t, err, "Expected no error")
-		vault.AssertExpectations(t)
-		note.AssertExpectations(t)
-		uri.AssertExpectations(t)
+	uri := &mocks.MockUriManager{}
+	summary, err := MoveNotes(moveStubVault{path: vaultDir}, uri, MoveParams{
+		Moves: []MoveRequest{
+			{Source: "Note.md", Target: "Folder/Note.md"},
+		},
 	})
 
-	t.Run("vault.DefaultName returns an error", func(t *testing.T) {
-		// Arrange
-		vault := &mocks.VaultManager{}
-		note := &mocks.NoteManager{}
-		uri := &mocks.MockUriManager{}
-		expectedErr := errors.New("Failed to get default vault name")
+	assert.NoError(t, err)
+	assert.Len(t, summary.Results, 1)
+	assert.Equal(t, "Folder/Note.md", summary.Results[0].Target)
+	assert.Equal(t, 0, summary.TotalLinkUpdates)
 
-		vault.On("DefaultName").Return("", expectedErr)
+	_, statErr := os.Stat(filepath.Join(vaultDir, "Folder/Note.md"))
+	assert.NoError(t, statErr)
+	_, oldErr := os.Stat(filepath.Join(vaultDir, "Note.md"))
+	assert.Error(t, oldErr)
+	uri.AssertNotCalled(t, "Construct")
+	uri.AssertNotCalled(t, "Execute")
+}
 
-		// Act
-		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
-			CurrentNoteName: "oldNote.md",
-			NewNoteName:     "newNote.md",
-			ShouldOpen:      false,
-		})
+func TestMoveNotes_BulkMoveWithBacklinks(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vaultDir, "One.md"), []byte("# One"), 0o644); err != nil {
+		t.Fatalf("seed one: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vaultDir, "Two.md"), []byte("# Two"), 0o644); err != nil {
+		t.Fatalf("seed two: %v", err)
+	}
+	ref := "Links [[One]] and [[Two]] plus [md](One.md)"
+	if err := os.WriteFile(filepath.Join(vaultDir, "Ref.md"), []byte(ref), 0o644); err != nil {
+		t.Fatalf("seed ref: %v", err)
+	}
 
-		// Assert
-		assert.Equal(t, expectedErr, err)
-		vault.AssertExpectations(t)
+	uri := &mocks.MockUriManager{}
+	summary, err := MoveNotes(moveStubVault{path: vaultDir}, uri, MoveParams{
+		Moves: []MoveRequest{
+			{Source: "One", Target: "Dest/One"},
+			{Source: "Two.md", Target: "Dest/Two.md"},
+		},
+		UpdateBacklinks: true,
 	})
 
-	t.Run("vault.Path returns an error", func(t *testing.T) {
-		// Arrange
-		vault := &mocks.VaultManager{}
-		note := &mocks.NoteManager{}
-		uri := &mocks.MockUriManager{}
-		expectedErr := errors.New("Failed to get vault path")
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(summary.Results))
+	assert.GreaterOrEqual(t, summary.TotalLinkUpdates, 3)
 
-		vault.On("DefaultName").Return("myVault", nil)
-		vault.On("Path").Return("", expectedErr)
+	updated, readErr := os.ReadFile(filepath.Join(vaultDir, "Ref.md"))
+	assert.NoError(t, readErr)
+	assert.Contains(t, string(updated), "[[Dest/One]]")
+	assert.Contains(t, string(updated), "[[Dest/Two]]")
+	assert.Contains(t, string(updated), "(Dest/One.md)")
+	uri.AssertNotCalled(t, "Construct")
+	uri.AssertNotCalled(t, "Execute")
+}
 
-		// Act
-		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
-			CurrentNoteName: "oldNote.md",
-			NewNoteName:     "newNote.md",
-			ShouldOpen:      false,
-		})
+func TestMoveNotes_ShouldOpenSingle(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vaultDir, "Note.md"), []byte("body"), 0o644); err != nil {
+		t.Fatalf("seed note: %v", err)
+	}
 
-		// Assert
-		assert.Equal(t, expectedErr, err)
-		vault.AssertExpectations(t)
+	uri := &mocks.MockUriManager{}
+	uri.On("Construct", "obsidian://open", map[string]string{"file": "Renamed.md", "vault": "vault"}).Return("obsidian://open?vault=vault&file=Renamed.md")
+	uri.On("Execute", "obsidian://open?vault=vault&file=Renamed.md").Return(nil)
+
+	_, err := MoveNotes(moveStubVault{path: vaultDir, name: "vault"}, uri, MoveParams{
+		Moves:      []MoveRequest{{Source: "Note.md", Target: "Renamed.md"}},
+		ShouldOpen: true,
 	})
 
-	t.Run("note.Move returns an error", func(t *testing.T) {
-		// Arrange
-		vault := &mocks.VaultManager{}
-		note := &mocks.NoteManager{}
-		uri := &mocks.MockUriManager{}
-		expectedErr := errors.New("Could not move")
+	assert.NoError(t, err)
+	uri.AssertExpectations(t)
+}
 
-		vault.On("DefaultName").Return("myVault", nil)
-		vault.On("Path").Return("/test/vault", nil)
-		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(expectedErr)
+func TestMoveNotes_DuplicateTargets(t *testing.T) {
+	vaultDir := t.TempDir()
+	uri := &mocks.MockUriManager{}
 
-		// Act
-		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
-			CurrentNoteName: "oldNote.md",
-			NewNoteName:     "newNote.md",
-			ShouldOpen:      false,
-		})
-
-		// Assert
-		assert.Equal(t, expectedErr, err)
-		vault.AssertExpectations(t)
-		note.AssertExpectations(t)
+	_, err := MoveNotes(moveStubVault{path: vaultDir}, uri, MoveParams{
+		Moves: []MoveRequest{
+			{Source: "One", Target: "Dest/Note"},
+			{Source: "Two", Target: "Dest/Note"},
+		},
 	})
 
-	t.Run("note.UpdateLinks returns an error", func(t *testing.T) {
-		// Arrange
-		vault := &mocks.VaultManager{}
-		note := &mocks.NoteManager{}
-		uri := &mocks.MockUriManager{}
-		expectedErr := errors.New("Could not update links")
+	assert.Error(t, err)
+}
 
-		vault.On("DefaultName").Return("myVault", nil)
-		vault.On("Path").Return("/test/vault", nil)
-		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-		note.On("UpdateLinks", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(expectedErr)
+func TestMoveNotes_BacklinkRewriteFolderSpecific(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vaultDir, "Folder"), 0o755); err != nil {
+		t.Fatalf("make folder: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vaultDir, "Archive"), 0o755); err != nil {
+		t.Fatalf("make archive: %v", err)
+	}
 
-		// Act
-		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
-			CurrentNoteName: "oldNote.md",
-			NewNoteName:     "newNote.md",
-			ShouldOpen:      false,
-		})
+	notePath := filepath.Join(vaultDir, "Folder", "Note.md")
+	if err := os.WriteFile(notePath, []byte("# body"), 0o644); err != nil {
+		t.Fatalf("seed note: %v", err)
+	}
+	refContent := strings.Join([]string{
+		"[[Folder/Note]]",
+		"[[Folder/Note#Heading]]",
+		"[[Folder/Note#^block|Alias]]",
+		"[md](Folder/Note.md#h)",
+		"[[Note]]",
+	}, "\n")
+	refPath := filepath.Join(vaultDir, "Ref.md")
+	if err := os.WriteFile(refPath, []byte(refContent), 0o644); err != nil {
+		t.Fatalf("seed ref: %v", err)
+	}
 
-		// Assert
-		assert.Equal(t, expectedErr, err)
-		vault.AssertExpectations(t)
-		note.AssertExpectations(t)
+	uri := &mocks.MockUriManager{}
+	summary, err := MoveNotes(moveStubVault{path: vaultDir}, uri, MoveParams{
+		Moves:           []MoveRequest{{Source: "Folder/Note", Target: "Archive/Note"}},
+		UpdateBacklinks: true,
 	})
+	assert.NoError(t, err)
+	assert.Greater(t, summary.TotalLinkUpdates, 0)
 
-	t.Run("uri.Execute returns an error", func(t *testing.T) {
-		// Arrange
-		vault := &mocks.VaultManager{}
-		note := &mocks.NoteManager{}
-		uri := &mocks.MockUriManager{}
-		expectedErr := errors.New("Could not execute URI")
-
-		vault.On("DefaultName").Return("myVault", nil)
-		vault.On("Path").Return("/test/vault", nil)
-		note.On("Move", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-		note.On("UpdateLinks", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-		uri.On("Construct", mock.AnythingOfType("string"), mock.AnythingOfType("map[string]string")).Return("obsidian://open?vault=myVault&file=newNote.md")
-		uri.On("Execute", mock.AnythingOfType("string")).Return(expectedErr)
-
-		// Act
-		err := actions.MoveNote(vault, note, uri, actions.MoveParams{
-			CurrentNoteName: "oldNote.md",
-			NewNoteName:     "newNote.md",
-			ShouldOpen:      true,
-		})
-
-		// Assert
-		assert.Equal(t, expectedErr, err)
-		vault.AssertExpectations(t)
-		note.AssertExpectations(t)
-		uri.AssertExpectations(t)
-	})
+	updated, readErr := os.ReadFile(refPath)
+	assert.NoError(t, readErr)
+	updatedStr := string(updated)
+	assert.Contains(t, updatedStr, "[[Archive/Note]]")
+	assert.Contains(t, updatedStr, "[[Archive/Note#Heading]]")
+	assert.Contains(t, updatedStr, "[[Archive/Note#^block|Alias]]")
+	assert.Contains(t, updatedStr, "(Archive/Note.md#h)")
+	assert.Contains(t, updatedStr, "[[Note]]") // bare note name should remain untouched
 }

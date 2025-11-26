@@ -145,18 +145,21 @@ obsidian-cli create "{note-name}" --content "abcde" --open
 
 ### Move / Rename Note
 
-Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
+Moves or renames notes within the vault. By default, Obsidian links match note names, so backlinks are **not** rewritten unless you opt in with `--update-backlinks`. Supports bulk moves to a folder to avoid multiple vault scans.
 
 ```bash
-# Renames a note in default obsidian
-obsidian-cli move "{current-note-path}" "{new-note-path}"
+# Rename or move a single note
+obsidian-cli move "{current-note-path}" "{new-note-path}" [--vault "{vault-name}"] [--overwrite] [--update-backlinks] [--open]
 
-# Renames a note and given obsidian
-obsidian-cli move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
-
-# Renames a note in default obsidian and opens it
-obsidian-cli move "{current-note-path}" "{new-note-path}" --open
+# Bulk move notes into a folder (preserves filenames)
+obsidian-cli move --to-folder "Archive/2024" "NoteA.md" "NoteB.md" [--vault "{vault-name}"] [--overwrite] [--update-backlinks]
 ```
+
+Flags:
+- `--to-folder`: move one or more sources into the given folder (filenames are preserved)
+- `--overwrite`: allow replacing an existing target
+- `--update-backlinks`: rewrite backlinks to the new path(s); defaults to false for moves
+- `--open`: open the first moved note in Obsidian after moving
 
 ### Rename Note (backlink-safe, git-aware)
 
@@ -330,6 +333,7 @@ The MCP server exposes the following tools:
 Core (read-only):
 - **`files`**: List files matching criteria and optionally include content/frontmatter. Returns JSON with `{vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]}`.
 - **`list_tags`**: JSON list of tags with individual/aggregate counts.
+- **`move_notes`**: Move or rename one or more notes. Accepts `moves:[{source,target}]` (or single `source`/`target`). Options: `overwrite`, `updateBacklinks` (default false), `open`.
 - **`daily_note`**: JSON describing the daily note `{path,date,exists,content}` (defaults to today).
 - **`daily_note_path`**: JSON with `{path,date,exists}`.
 

@@ -68,6 +68,21 @@ type RenameNoteResponse struct {
 	GitHistoryPreserved bool     `json:"gitHistoryPreserved"`
 }
 
+// MoveNotesResponse describes the JSON shape returned by the move_notes MCP tool.
+type MoveNotesResponse struct {
+	Moves            []MoveNoteEntry `json:"moves"`
+	TotalLinkUpdates int             `json:"totalLinkUpdates"`
+	Skipped          []string        `json:"skipped,omitempty"`
+}
+
+// MoveNoteEntry captures per-note move results.
+type MoveNoteEntry struct {
+	Source              string `json:"source"`
+	Target              string `json:"target"`
+	LinkUpdates         int    `json:"linkUpdates"`
+	GitHistoryPreserved bool   `json:"gitHistoryPreserved"`
+}
+
 // FilesTool implements the files MCP tool (paths + optional content/frontmatter as JSON).
 func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -302,6 +317,87 @@ func RenameNoteTool(config Config) func(context.Context, mcp.CallToolRequest) (*
 		}
 
 		encoded, err := json.Marshal(response)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling response: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+// MoveNotesTool implements the move_notes MCP tool for single or bulk moves (no backlinks rewritten by default).
+func MoveNotesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		moves := make([]actions.MoveRequest, 0)
+		if rawMoves, ok := args["moves"]; ok {
+			switch mv := rawMoves.(type) {
+			case []interface{}:
+				for _, raw := range mv {
+					obj, ok := raw.(map[string]interface{})
+					if !ok {
+						return mcp.NewToolResultError("each move must be an object with source and target"), nil
+					}
+					src, _ := obj["source"].(string)
+					dst, _ := obj["target"].(string)
+					moves = append(moves, actions.MoveRequest{Source: src, Target: dst})
+				}
+			case []map[string]interface{}:
+				for _, obj := range mv {
+					src, _ := obj["source"].(string)
+					dst, _ := obj["target"].(string)
+					moves = append(moves, actions.MoveRequest{Source: src, Target: dst})
+				}
+			case []map[string]string:
+				for _, obj := range mv {
+					moves = append(moves, actions.MoveRequest{Source: obj["source"], Target: obj["target"]})
+				}
+			default:
+				return mcp.NewToolResultError("moves must be an array of objects with source and target"), nil
+			}
+		} else {
+			// Back-compat: accept single source/target pair
+			src, _ := args["source"].(string)
+			dst, _ := args["target"].(string)
+			if strings.TrimSpace(src) != "" && strings.TrimSpace(dst) != "" {
+				moves = append(moves, actions.MoveRequest{Source: src, Target: dst})
+			}
+		}
+
+		if len(moves) == 0 {
+			return mcp.NewToolResultError("moves array or source/target pair is required"), nil
+		}
+
+		overwrite, _ := args["overwrite"].(bool)
+		updateBacklinks, _ := args["updateBacklinks"].(bool)
+		shouldOpen, _ := args["open"].(bool)
+
+		uri := obsidian.Uri{}
+		summary, err := actions.MoveNotes(config.Vault, &uri, actions.MoveParams{
+			Moves:           moves,
+			Overwrite:       overwrite,
+			UpdateBacklinks: updateBacklinks,
+			ShouldOpen:      shouldOpen,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("move failed: %s", err)), nil
+		}
+
+		resp := MoveNotesResponse{
+			TotalLinkUpdates: summary.TotalLinkUpdates,
+			Skipped:          summary.Skipped,
+		}
+		for _, res := range summary.Results {
+			resp.Moves = append(resp.Moves, MoveNoteEntry{
+				Source:              res.Source,
+				Target:              res.Target,
+				LinkUpdates:         res.LinkUpdates,
+				GitHistoryPreserved: res.GitHistoryPreserved,
+			})
+		}
+
+		encoded, err := json.Marshal(resp)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error marshaling response: %s", err)), nil
 		}
