@@ -26,6 +26,20 @@ Tags are included by default; use --exclude-tags to skip them.`,
 		matchPatterns, _ := cmd.Flags().GetStringSlice("match")
 		verboseEnums, _ := cmd.Flags().GetBool("verbose")
 		includeValueCounts, _ := cmd.Flags().GetBool("enum-counts")
+		sourceFlag, _ := cmd.Flags().GetString("source")
+
+		// Validate source flag
+		var source actions.PropertySource
+		switch sourceFlag {
+		case "", "all":
+			source = actions.PropertySourceAll
+		case "frontmatter":
+			source = actions.PropertySourceFrontmatter
+		case "inline":
+			source = actions.PropertySourceInline
+		default:
+			return fmt.Errorf("invalid --source value %q: must be all, frontmatter, or inline", sourceFlag)
+		}
 
 		// If no vault name is provided, get the default vault name
 		if vaultName == "" {
@@ -60,6 +74,7 @@ Tags are included by default; use --exclude-tags to skip them.`,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,
 			ForceEnumMixed:     verboseEnums,
+			Source:             source,
 			IncludeValueCounts: includeValueCounts,
 		})
 		if err != nil {
@@ -149,5 +164,6 @@ func init() {
 	propertiesCmd.Flags().StringSliceP("match", "m", nil, "Restrict analysis to files matched by find/tag/path patterns")
 	propertiesCmd.Flags().Bool("verbose", false, "Show expanded enums: allow mixed-type enums and raise enum threshold to 50")
 	propertiesCmd.Flags().Bool("enum-counts", false, "Include per-value note counts for enum outputs")
+	propertiesCmd.Flags().String("source", "all", "Property source to scan: all, frontmatter, or inline")
 	rootCmd.AddCommand(propertiesCmd)
 }

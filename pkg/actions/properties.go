@@ -21,6 +21,15 @@ type PropertySummary struct {
 	TruncatedValueSet  bool           `json:"truncatedValueSet"`  // true if values exceeded maxValues cap
 }
 
+// PropertySource specifies which property sources to scan.
+type PropertySource string
+
+const (
+	PropertySourceAll        PropertySource = "all"        // both frontmatter and inline
+	PropertySourceFrontmatter PropertySource = "frontmatter" // YAML frontmatter only
+	PropertySourceInline     PropertySource = "inline"     // dataview-style inline only (Key:: Value)
+)
+
 // PropertiesOptions controls scanning and enum detection behavior.
 type PropertiesOptions struct {
 	ExcludeTags        bool
@@ -28,7 +37,7 @@ type PropertiesOptions struct {
 	MaxValues          int // cap stored values to avoid unbounded memory
 	Notes              []string
 	ForceEnumMixed     bool
-	DisableInline      bool // if true, skip dataview-style inline properties (Key:: Value)
+	Source             PropertySource // which property sources to scan (default: all)
 	IncludeValueCounts bool
 }
 
@@ -100,8 +109,14 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 				if err != nil {
 					continue
 				}
-				frontmatter, _ := obsidian.ExtractFrontmatter(content)
-				inline := obsidian.ExtractInlineProperties(content)
+				var frontmatter map[string]interface{}
+				var inline map[string][]string
+				if opts.Source != PropertySourceInline {
+					frontmatter, _ = obsidian.ExtractFrontmatter(content)
+				}
+				if opts.Source != PropertySourceFrontmatter {
+					inline = obsidian.ExtractInlineProperties(content)
+				}
 
 				perNote := make(map[string]*propertyCounts)
 
@@ -139,12 +154,10 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 					addPerNote(key, info)
 				}
 
-				if !opts.DisableInline {
-					for key, values := range inline {
-						info := obsidian.AnalyzePropertyValue(values)
-						info.Shape = "scalar" // inline treated as scalar entries per line
-						addPerNote(key, info)
-					}
+				for key, values := range inline {
+					info := obsidian.AnalyzePropertyValue(values)
+					info.Shape = "scalar" // inline treated as scalar entries per line
+					addPerNote(key, info)
 				}
 
 				for key, noteCounts := range perNote {

@@ -335,7 +335,18 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 
 		args := request.GetArguments()
 		excludeTags, _ := args["excludeTags"].(bool)
-		disableInline, _ := args["disableInline"].(bool)
+		sourceArg, _ := args["source"].(string)
+		var source actions.PropertySource
+		switch sourceArg {
+		case "", "all":
+			source = actions.PropertySourceAll
+		case "frontmatter":
+			source = actions.PropertySourceFrontmatter
+		case "inline":
+			source = actions.PropertySourceInline
+		default:
+			return mcp.NewToolResultError(fmt.Sprintf("invalid source value %q: must be all, frontmatter, or inline", sourceArg)), nil
+		}
 		inputs, err := parseMatchPatterns(args["match"])
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -390,7 +401,7 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 		note := obsidian.Note{}
 		summaries, err := actions.Properties(config.Vault, &note, actions.PropertiesOptions{
 			ExcludeTags:        excludeTags,
-			DisableInline:      disableInline,
+			Source:             source,
 			EnumThreshold:      enumThreshold,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,
