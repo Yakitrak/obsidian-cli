@@ -172,6 +172,18 @@ func TestParseInputs(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "Property input",
+			args: []string{"Office:AOGR"},
+			expectedInputs: []ListInput{
+				{
+					Type:     InputTypeProperty,
+					Value:    "AOGR",
+					Property: "Office",
+				},
+			},
+			expectedError: false,
+		},
+		{
 			name:          "Empty tag value",
 			args:          []string{"tag:"},
 			expectedError: true,
@@ -327,6 +339,48 @@ func TestListFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "property filter matches frontmatter",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
+			params: ListParams{
+				Inputs: []ListInput{
+					{Type: InputTypeProperty, Property: "Office", Value: "AOGR"},
+				},
+			},
+			expectedFiles: []string{"note1.md"},
+			setupMocks: func(v *mocks.VaultManager, n *mocks.NoteManager) {
+				v.On("Path").Return("/test/vault", nil)
+				n.On("GetNotesList", "/test/vault").Return([]string{"note1.md", "note2.md"}, nil)
+				n.On("GetContents", "/test/vault", "note1.md").Return("---\nOffice: AOGR\n---\n", nil)
+				n.On("GetContents", "/test/vault", "note2.md").Return("---\nOffice: AORD\n---\n", nil)
+			},
+			validateResponse: func(t *testing.T, files []string, err error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, []string{"note1.md"}, files)
+			},
+		},
+		{
+			name:      "property filter matches list wikilinks with alias",
+			mockVault: &mocks.VaultManager{},
+			mockNote:  &mocks.NoteManager{},
+			params: ListParams{
+				Inputs: []ListInput{
+					{Type: InputTypeProperty, Property: "Office", Value: "AOGR"},
+				},
+			},
+			expectedFiles: []string{"note1.md"},
+			setupMocks: func(v *mocks.VaultManager, n *mocks.NoteManager) {
+				v.On("Path").Return("/test/vault", nil)
+				n.On("GetNotesList", "/test/vault").Return([]string{"note1.md", "note2.md"}, nil)
+				n.On("GetContents", "/test/vault", "note1.md").Return("---\nOffice: [[AOGR|Grand Rapids]]\n---\n", nil)
+				n.On("GetContents", "/test/vault", "note2.md").Return("---\nOffice: [[AORD]]\n---\n", nil)
+			},
+			validateResponse: func(t *testing.T, files []string, err error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, []string{"note1.md"}, files)
+			},
+		},
+		{
 			name:      "list with multiple tags",
 			mockVault: &mocks.VaultManager{},
 			mockNote:  &mocks.NoteManager{},
@@ -472,6 +526,13 @@ func TestListFiles(t *testing.T) {
 			tt.mockVault.AssertExpectations(t)
 			tt.mockNote.AssertExpectations(t)
 		})
+	}
+}
+
+func TestPropertyHasValueWithAlias(t *testing.T) {
+	content := "---\nOffice: [[AOGR|Grand Rapids]]\n---\n"
+	if !propertyHasValue(content, "Office", "AOGR") {
+		t.Fatalf("expected propertyHasValue to match wikilink alias")
 	}
 }
 

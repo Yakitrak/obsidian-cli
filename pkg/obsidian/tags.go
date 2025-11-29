@@ -162,7 +162,7 @@ func HasAnyTags(content string, tags []string) bool {
 	// Pre-normalize search tags once
 	normalizedSearch := make([]string, 0, len(tags))
 	for _, t := range tags {
-		nt := strings.ToLower(strings.TrimSpace(t))
+		nt := normalizeTagSearch(t)
 		if nt != "" {
 			normalizedSearch = append(normalizedSearch, nt)
 		}
@@ -195,6 +195,19 @@ func HasAnyTags(content string, tags []string) bool {
 	}
 
 	return false
+}
+
+func normalizeTagSearch(tag string) string {
+	nt := strings.ToLower(strings.TrimSpace(tag))
+	nt = strings.TrimPrefix(nt, "#")
+	if strings.HasPrefix(nt, "[[") && strings.HasSuffix(nt, "]]") {
+		nt = strings.TrimSuffix(strings.TrimPrefix(nt, "[["), "]]")
+	}
+	if strings.Contains(nt, "|") {
+		parts := strings.SplitN(nt, "|", 2)
+		nt = strings.TrimSpace(parts[0])
+	}
+	return nt
 }
 
 // hasFrontmatterTag checks if any of the search tags match frontmatter tags (hierarchical)

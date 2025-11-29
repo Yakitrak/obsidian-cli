@@ -14,15 +14,17 @@ import (
 type InputType int
 
 const (
-	InputTypeFile InputType = iota // File path input
-	InputTypeTag                   // Tag search input
-	InputTypeFind                  // Fuzzy find input
+	InputTypeFile     InputType = iota // File path input
+	InputTypeTag                       // Tag search input
+	InputTypeFind                      // Fuzzy find input
+	InputTypeProperty                  // Property key:value input
 )
 
 // ListInput represents a single input for listing files
 type ListInput struct {
-	Type  InputType // Type of the input
-	Value string    // Value of the input
+	Type     InputType // Type of the input
+	Value    string    // Value of the input
+	Property string    // Property name for InputTypeProperty
 }
 
 // ListParams represents parameters for listing files
@@ -77,6 +79,20 @@ func ParseInputs(args []string) ([]ListInput, error) {
 			inputs = append(inputs, ListInput{
 				Type:  InputTypeFind,
 				Value: searchTerm,
+			})
+		} else if strings.Contains(arg, ":") {
+			parts := strings.SplitN(arg, ":", 2)
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+
+			if key == "" || val == "" || val == "*" {
+				return nil, fmt.Errorf("invalid property input %q: both key and value are required", arg)
+			}
+
+			inputs = append(inputs, ListInput{
+				Type:     InputTypeProperty,
+				Value:    val,
+				Property: key,
 			})
 		} else {
 			// Handle file paths
@@ -277,6 +293,8 @@ func processInputs(allNotes []string, vaultPath string, note obsidian.NoteManage
 			inputMatches = processFilePathInput(input, allNotes, params)
 		case InputTypeFind:
 			inputMatches = processFuzzyFindInput(input, allNotes, params)
+		case InputTypeProperty:
+			inputMatches = processPropertyInput(input, allNotes, vaultPath, note)
 		}
 		addUniqueMatches(&matches, inputMatches, seen)
 	}
@@ -426,6 +444,79 @@ func processFuzzyFindInput(input ListInput, allNotes []string, params ListParams
 	}
 
 	return matches
+}
+
+// processPropertyInput filters notes by a specific frontmatter/inline property value.
+func processPropertyInput(input ListInput, allNotes []string, vaultPath string, note obsidian.NoteManager) []string {
+	var matches []string
+	for _, path := range allNotes {
+		content, err := note.GetContents(vaultPath, path)
+		if err != nil {
+			continue
+		}
+		if propertyHasValue(content, input.Property, input.Value) {
+			matches = append(matches, path)
+		}
+	}
+	return matches
+}
+
+// propertyHasValue checks if a note content contains the given property with the target value.
+func propertyHasValue(content string, property string, target string) bool {
+	if strings.TrimSpace(property) == "" || strings.TrimSpace(target) == "" {
+		return false
+	}
+
+	targetNorm := normalizePropertyValue(target)
+	propKey := strings.ToLower(strings.TrimSpace(property))
+
+	checkValues := func(vals []string) bool {
+		for _, v := range vals {
+			if normalizePropertyValue(v) == targetNorm {
+				return true
+			}
+		}
+		return false
+	}
+
+	frontmatter, _ := obsidian.ExtractFrontmatter(content)
+	if frontmatter != nil {
+		for k, v := range frontmatter {
+			if strings.ToLower(strings.TrimSpace(k)) != propKey {
+				continue
+			}
+			info := obsidian.AnalyzePropertyValue(v)
+			if checkValues(info.Values) {
+				return true
+			}
+		}
+	}
+
+	inline := obsidian.ExtractInlineProperties(content)
+	for k, vals := range inline {
+		if strings.ToLower(strings.TrimSpace(k)) != propKey {
+			continue
+		}
+		if checkValues(vals) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// normalizePropertyValue lowercases, trims, and removes wikilink brackets for comparison.
+func normalizePropertyValue(v string) string {
+	val := strings.ToLower(strings.TrimSpace(v))
+	if strings.HasPrefix(val, "[[") && strings.HasSuffix(val, "]]") {
+		val = strings.TrimSuffix(strings.TrimPrefix(val, "[["), "]]")
+	}
+	if strings.Contains(val, "|") {
+		if parts := strings.SplitN(val, "|", 2); len(parts) > 0 {
+			val = strings.TrimSpace(parts[0])
+		}
+	}
+	return val
 }
 
 // processFuzzyBatches processes notes in batches for fuzzy matching

@@ -333,6 +333,7 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 
 		args := request.GetArguments()
 		excludeTags, _ := args["excludeTags"].(bool)
+		disableInline, _ := args["disableInline"].(bool)
 		inputs, err := parseMatchPatterns(args["match"])
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -386,6 +387,7 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 		note := obsidian.Note{}
 		summaries, err := actions.Properties(config.Vault, &note, actions.PropertiesOptions{
 			ExcludeTags:        excludeTags,
+			DisableInline:      disableInline,
 			EnumThreshold:      enumThreshold,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,

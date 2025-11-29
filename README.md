@@ -210,6 +210,9 @@ obsidian-cli list find:notes -f --skip-embeds
 
 # Include first-degree backlinks for matches (aliases/heading/block/embed supported)
 obsidian-cli list tag:research --backlinks
+
+# Filter by any property (frontmatter or inline Key:: Value)
+obsidian-cli list Office:AOGR
 ```
 
 ### Properties (frontmatter + inline)
@@ -379,8 +382,9 @@ obsidian-cli mcp --no-suppress
 The MCP server exposes the following tools:
 
 Core (read-only):
-- **`files`**: List files matching criteria and optionally include content/frontmatter. Returns JSON with `{vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]}`.
-- **`list_tags`**: JSON list of tags with individual/aggregate counts.
+- **`files`**: List files matching criteria and optionally include content/frontmatter. Returns JSON with `{vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]}`. Use `match` patterns like `find:`, `tag:`, or paths; `includeFrontmatter` true returns raw frontmatter/properties.
+- **`list_tags`**: JSON list of tags with individual/aggregate counts. Supports `match` filter.
+- **`list_properties`**: Inspect properties across the vault (frontmatter + inline `Key:: Value`). Returns inferred shape/type, note counts, enums, and per-value counts. Supports `match`, `excludeTags`, `disableInline`, `enumThreshold` (default 25), `maxValues`, `verbose`, and `includeEnumCounts` (default true).
 - **`move_notes`**: Move or rename one or more notes. Accepts `moves:[{source,target}]` (or single `source`/`target`). Options: `overwrite`, `updateBacklinks` (default false), `open`.
 - **`daily_note`**: JSON describing the daily note `{path,date,exists,content}` (defaults to today).
 - **`daily_note_path`**: JSON with `{path,date,exists}`.
