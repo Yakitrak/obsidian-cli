@@ -44,8 +44,21 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	// Register list_tags tool
 	listTagsTool := mcp.NewTool("list_tags",
 		mcp.WithDescription(`List all tags with counts as JSON. Returns both exact (individual) and hierarchical (aggregate) counts, sorted by aggregate descending. Response: {tags:[{name,individualCount,aggregateCount}]}`),
+		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths)"), mcp.WithStringItems()),
 	)
 	s.AddTool(listTagsTool, ListTagsTool(config))
+
+	// Register list_properties tool
+	listPropertiesTool := mcp.NewTool("list_properties",
+		mcp.WithDescription(`Inspect frontmatter properties across the vault. Returns inferred shape/type, note counts, and enum-like values when distinct counts are small. Response: {properties:[{name,noteCount,shape,valueType,enumValues?,enumValueCounts?,distinctValueCount,truncatedValueSet?}]}`),
+		mcp.WithBoolean("excludeTags", mcp.Description("Exclude the tags field (default false; included by default)")),
+		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths)"), mcp.WithStringItems()),
+		mcp.WithNumber("enumThreshold", mcp.Description("Emit enum values when distinct counts are at or below this number (default 25)"), mcp.Min(1)),
+		mcp.WithNumber("maxValues", mcp.Description("Maximum distinct values to track per property (default 500)"), mcp.Min(1)),
+		mcp.WithBoolean("verbose", mcp.Description("Emit enums for mixed types and raise enum threshold to 50")),
+		mcp.WithBoolean("includeEnumCounts", mcp.Description("Include per-value note counts for enums (default true)")),
+	)
+	s.AddTool(listPropertiesTool, ListPropertiesTool(config))
 
 	// Register daily_note tool (returns content)
 	dailyNoteTool := mcp.NewTool("daily_note",

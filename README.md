@@ -212,6 +212,54 @@ obsidian-cli list find:notes -f --skip-embeds
 obsidian-cli list tag:research --backlinks
 ```
 
+### Properties (frontmatter + inline)
+
+Inspect how properties are used across the vault. Scans YAML frontmatter and Dataview-style inline fields (`Key:: Value`) by default, infers shapes/types, and enumerates small value sets.
+
+```bash
+# List all properties with inferred type/shape and enums when small
+obsidian-cli properties
+
+# Focus on matching files (same patterns as list: find:, tag:, paths)
+obsidian-cli properties --match "tag:career-pathing" --match "find:*Strategy*"
+
+# Exclude tags from the report
+obsidian-cli properties --exclude-tags
+
+# Disable inline Key:: Value parsing
+obsidian-cli properties --disable-inline
+
+# Include per-value counts in enums
+obsidian-cli properties --enum-counts
+
+# Show enums even for mixed types and raise enum threshold to 50
+obsidian-cli properties --verbose
+
+# JSON output
+obsidian-cli properties --json
+```
+
+Key flags:
+- `--match/-m`: restrict analysis to files matched by find/tag/path patterns
+- `--exclude-tags`: omit the `tags` property
+- `--disable-inline`: ignore Dataview `Key:: Value` inline fields
+- `--enum-threshold`: max distinct values to emit as enum (default 5)
+- `--max-values`: cap distinct values tracked per property (except tags)
+- `--verbose`: allow enums for mixed types and bump threshold to 50
+- `--enum-counts`: include per-value note counts in enum output
+
+### Tags (listing)
+
+List tags with per-note and hierarchical counts. You can scope listing to a subset of files using the same match patterns as `list`.
+
+```bash
+obsidian-cli tags
+obsidian-cli tags --match "tag:project" --match "find:*2025*"
+obsidian-cli tags --json
+```
+
+Mutating operations (`--add/--delete/--rename`) ignore `--match` to avoid partial edits and will error if combined.
+
 ### File Information
 
 Show detailed information about a file including its frontmatter and all tags.

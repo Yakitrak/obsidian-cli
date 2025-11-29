@@ -16,6 +16,11 @@ type TagSummary struct {
 	AggregateCount  int    `json:"aggregateCount"`  // notes that contain this tag OR any descendant
 }
 
+// TagsOptions allows restricting the scan to a subset of notes.
+type TagsOptions struct {
+	Notes []string // optional subset of note paths to analyze; if empty, scans all notes
+}
+
 // tagNode represents a node in the tag hierarchy tree
 type tagNode struct {
 	name            string
@@ -24,17 +29,23 @@ type tagNode struct {
 	children        []*tagNode
 }
 
-// Tags returns all tags in the vault with their counts, sorted by aggregate count descending
-func Tags(vault obsidian.VaultManager, note obsidian.NoteManager) ([]TagSummary, error) {
+// Tags returns all tags in the vault (or provided notes) with their counts, sorted by aggregate count descending
+func Tags(vault obsidian.VaultManager, note obsidian.NoteManager, opts ...TagsOptions) ([]TagSummary, error) {
 	vaultPath, err := vault.Path()
 	if err != nil {
 		return nil, err
 	}
 
-	// Get all notes in the vault
-	allNotes, err := note.GetNotesList(vaultPath)
-	if err != nil {
-		return nil, err
+	var scanNotes []string
+	if len(opts) > 0 && len(opts[0].Notes) > 0 {
+		scanNotes = opts[0].Notes
+	} else {
+		// Get all notes in the vault
+		allNotes, err := note.GetNotesList(vaultPath)
+		if err != nil {
+			return nil, err
+		}
+		scanNotes = allNotes
 	}
 
 	// Step 1: Parallel extraction and counting with per-note dedup
@@ -44,28 +55,28 @@ func Tags(vault obsidian.VaultManager, note obsidian.NoteManager) ([]TagSummary,
 	}
 
 	numWorkers := runtime.NumCPU()
-	if len(allNotes) < numWorkers {
-		numWorkers = len(allNotes)
+	if len(scanNotes) < numWorkers {
+		numWorkers = len(scanNotes)
 	}
 	if numWorkers < 1 {
 		numWorkers = 1
 	}
 
-	batchSize := (len(allNotes) + numWorkers - 1) / numWorkers
+	batchSize := (len(scanNotes) + numWorkers - 1) / numWorkers
 	results := make(chan workerResult, numWorkers)
 	var wg sync.WaitGroup
 
 	for i := 0; i < numWorkers; i++ {
 		start := i * batchSize
 		end := start + batchSize
-		if end > len(allNotes) {
-			end = len(allNotes)
+		if end > len(scanNotes) {
+			end = len(scanNotes)
 		}
-		if start >= len(allNotes) {
+		if start >= len(scanNotes) {
 			continue
 		}
 
-		batch := allNotes[start:end]
+		batch := scanNotes[start:end]
 		wg.Add(1)
 		go func(files []string) {
 			defer wg.Done()

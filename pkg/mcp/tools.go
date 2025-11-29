@@ -52,6 +52,11 @@ type TagListResponse struct {
 	Tags []actions.TagSummary `json:"tags"`
 }
 
+// PropertyListResponse describes the JSON shape for listing properties
+type PropertyListResponse struct {
+	Properties []actions.PropertySummary `json:"properties"`
+}
+
 // TagMutationResult describes the JSON shape returned by tag mutators
 type TagMutationResult struct {
 	DryRun       bool           `json:"dryRun,omitempty"`
@@ -249,6 +254,25 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 	}
 }
 
+func parseMatchPatterns(raw interface{}) ([]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	items, ok := raw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("match must be an array of strings")
+	}
+	out := make([]string, 0, len(items))
+	for _, v := range items {
+		s, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("match must be an array of strings")
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
 // ListTagsTool implements the list_tags MCP tool.
 func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -256,8 +280,36 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 			log.Printf("MCP list_tags called")
 		}
 
+		args := request.GetArguments()
+		inputs, err := parseMatchPatterns(args["match"])
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		var scanNotes []string
+		if len(inputs) > 0 {
+			parsed, err := actions.ParseInputs(inputs)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
+			}
+			note := obsidian.Note{}
+			matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
+				Inputs:         parsed,
+				FollowLinks:    false,
+				MaxDepth:       0,
+				SkipAnchors:    false,
+				SkipEmbeds:     false,
+				AbsolutePaths:  false,
+				SuppressedTags: []string{},
+			})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error filtering files: %s", err)), nil
+			}
+			scanNotes = matchingFiles
+		}
+
 		note := obsidian.Note{}
-		tagSummaries, err := actions.Tags(config.Vault, &note)
+		tagSummaries, err := actions.Tags(config.Vault, &note, actions.TagsOptions{Notes: scanNotes})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error listing tags: %s", err)), nil
 		}
@@ -266,6 +318,88 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 		encoded, err := json.Marshal(payload)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling tag list: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+// ListPropertiesTool implements the list_properties MCP tool.
+func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if config.Debug {
+			log.Printf("MCP list_properties called")
+		}
+
+		args := request.GetArguments()
+		excludeTags, _ := args["excludeTags"].(bool)
+		inputs, err := parseMatchPatterns(args["match"])
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		enumThreshold := 25
+		if v, ok := args["enumThreshold"].(float64); ok {
+			enumThreshold = int(v)
+		}
+
+		maxValues := 500
+		if v, ok := args["maxValues"].(float64); ok {
+			maxValues = int(v)
+		}
+
+		includeValueCounts := true
+		if v, ok := args["includeEnumCounts"].(bool); ok {
+			includeValueCounts = v
+		}
+
+		forceEnumMixed := false
+		if v, ok := args["verbose"].(bool); ok && v {
+			forceEnumMixed = true
+			if enumThreshold < 50 {
+				enumThreshold = 50
+			}
+		}
+
+		var scanNotes []string
+		if len(inputs) > 0 {
+			parsed, err := actions.ParseInputs(inputs)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
+			}
+			note := obsidian.Note{}
+			matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
+				Inputs:         parsed,
+				FollowLinks:    false,
+				MaxDepth:       0,
+				SkipAnchors:    false,
+				SkipEmbeds:     false,
+				AbsolutePaths:  false,
+				SuppressedTags: []string{},
+			})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error filtering files: %s", err)), nil
+			}
+			scanNotes = matchingFiles
+		}
+
+		note := obsidian.Note{}
+		summaries, err := actions.Properties(config.Vault, &note, actions.PropertiesOptions{
+			ExcludeTags:        excludeTags,
+			EnumThreshold:      enumThreshold,
+			MaxValues:          maxValues,
+			Notes:              scanNotes,
+			ForceEnumMixed:     forceEnumMixed,
+			IncludeValueCounts: includeValueCounts,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error listing properties: %s", err)), nil
+		}
+
+		payload := PropertyListResponse{Properties: summaries}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling property list: %s", err)), nil
 		}
 
 		return mcp.NewToolResultText(string(encoded)), nil

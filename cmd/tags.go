@@ -41,6 +41,7 @@ Examples:
 		markdownOutput, _ := cmd.Flags().GetBool("markdown")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		workers, _ := cmd.Flags().GetInt("workers")
+		matchPatterns, _ := cmd.Flags().GetStringSlice("match")
 
 		deleteTags, _ := cmd.Flags().GetStringSlice("delete")
 		renameTags, _ := cmd.Flags().GetStringSlice("rename")
@@ -72,6 +73,10 @@ Examples:
 
 		if operationCount > 1 {
 			return fmt.Errorf("cannot use --delete, --rename, and --add together")
+		}
+
+		if operationCount > 0 && len(matchPatterns) > 0 {
+			return fmt.Errorf("--match is only supported when listing tags")
 		}
 
 		if len(renameTags) > 0 && toTag == "" {
@@ -154,7 +159,16 @@ Examples:
 		}
 
 		// Default: list tags
-		tagSummaries, err := actions.Tags(&vault, &note)
+		scanNotes, err := resolveMatches(&vault, &note, matchPatterns)
+		if err != nil {
+			return err
+		}
+		if len(matchPatterns) > 0 && len(scanNotes) == 0 {
+			fmt.Println("No files match the specified criteria.")
+			return nil
+		}
+
+		tagSummaries, err := actions.Tags(&vault, &note, actions.TagsOptions{Notes: scanNotes})
 		if err != nil {
 			return fmt.Errorf("failed to get tags: %w", err)
 		}
@@ -293,5 +307,6 @@ func init() {
 	tagsCmd.Flags().StringP("to", "t", "", "Destination tag name for rename operation")
 	tagsCmd.Flags().Bool("dry-run", false, "Show what would be changed without making changes")
 	tagsCmd.Flags().IntP("workers", "w", runtime.NumCPU(), "Number of parallel workers")
+	tagsCmd.Flags().StringSliceP("match", "m", nil, "Restrict listing to files matched by find/tag/path patterns (only for listing)")
 	rootCmd.AddCommand(tagsCmd)
 }

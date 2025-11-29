@@ -13,6 +13,7 @@ func TestTags(t *testing.T) {
 		notes         map[string]string // notePath -> content
 		expected      []TagSummary
 		expectedError bool
+		filterNotes   []string
 	}{
 		{
 			name: "hierarchical tags example from user",
@@ -72,6 +73,18 @@ func TestTags(t *testing.T) {
 			expected: []TagSummary{},
 		},
 		{
+			name: "subset of notes",
+			notes: map[string]string{
+				"note1.md": "#a",
+				"note2.md": "#a\n#b",
+			},
+			expected: []TagSummary{
+				{Name: "a", IndividualCount: 1, AggregateCount: 1},
+				{Name: "b", IndividualCount: 1, AggregateCount: 1},
+			},
+			filterNotes: []string{"note2.md"},
+		},
+		{
 			name: "invalid tags filtered out",
 			notes: map[string]string{
 				"note1.md": "---\ntags: [\"1\", \"327\", \"person person\", \"valid-tag\"]\n---\nContent with #2 and #project tags.",
@@ -92,20 +105,34 @@ func TestTags(t *testing.T) {
 			// Set up mock vault path
 			vaultManager.On("Path").Return("/mock/vault", nil)
 
-			// Set up mock notes list
-			var notesList []string
-			for notePath := range tt.notes {
-				notesList = append(notesList, notePath)
+			// Set up mock notes list when not explicitly filtered
+			if len(tt.filterNotes) == 0 {
+				var notesList []string
+				for notePath := range tt.notes {
+					notesList = append(notesList, notePath)
+				}
+				noteManager.On("GetNotesList", "/mock/vault").Return(notesList, nil)
 			}
-			noteManager.On("GetNotesList", "/mock/vault").Return(notesList, nil)
 
 			// Set up mock note contents
-			for notePath, content := range tt.notes {
-				noteManager.On("GetContents", "/mock/vault", notePath).Return(content, nil)
+			if len(tt.filterNotes) > 0 {
+				for _, notePath := range tt.filterNotes {
+					if content, ok := tt.notes[notePath]; ok {
+						noteManager.On("GetContents", "/mock/vault", notePath).Return(content, nil)
+					}
+				}
+			} else {
+				for notePath, content := range tt.notes {
+					noteManager.On("GetContents", "/mock/vault", notePath).Return(content, nil)
+				}
 			}
 
 			// Run the function
-			result, err := Tags(vaultManager, noteManager)
+			var opts []TagsOptions
+			if len(tt.filterNotes) > 0 {
+				opts = append(opts, TagsOptions{Notes: tt.filterNotes})
+			}
+			result, err := Tags(vaultManager, noteManager, opts...)
 
 			// Check error expectation
 			if tt.expectedError && err == nil {

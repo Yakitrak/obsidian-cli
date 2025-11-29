@@ -149,3 +149,71 @@ func TestMoveNotesTool(t *testing.T) {
 	assert.NoError(t, readErr)
 	assert.Contains(t, string(updated), "[[Folder/Note]]")
 }
+
+func TestListPropertiesTool(t *testing.T) {
+	tempDir := t.TempDir()
+	vaultPath := filepath.Join(tempDir, "vault")
+	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
+		t.Fatalf("failed to create vault dir: %v", err)
+	}
+
+	content := `---
+office: AOGR
+count: 2
+---`
+	if err := os.WriteFile(filepath.Join(vaultPath, "note.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write note.md: %v", err)
+	}
+
+	obsidianConfig := filepath.Join(tempDir, "obsidian.json")
+	configJSON := `{"vaults":{"vault":{"path":"` + vaultPath + `"}}}`
+	if err := os.WriteFile(obsidianConfig, []byte(configJSON), 0o644); err != nil {
+		t.Fatalf("failed to write obsidian config: %v", err)
+	}
+
+	origConfig := obsidian.ObsidianConfigFile
+	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
+	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+
+	cfg := Config{
+		Vault:     &obsidian.Vault{Name: "vault"},
+		VaultPath: vaultPath,
+		Debug:     false,
+	}
+
+	tool := ListPropertiesTool(cfg)
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "list_properties",
+			Arguments: map[string]interface{}{
+				"enumThreshold": float64(5),
+			},
+		},
+	}
+
+	resp, err := tool(context.Background(), req)
+	assert.NoError(t, err)
+	if !assert.Len(t, resp.Content, 1) {
+		return
+	}
+
+	text, ok := resp.Content[0].(mcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", resp.Content[0])
+	}
+
+	var parsed PropertyListResponse
+	err = json.Unmarshal([]byte(text.Text), &parsed)
+	assert.NoError(t, err)
+	assert.Len(t, parsed.Properties, 2)
+
+	var officeFound bool
+	for _, p := range parsed.Properties {
+		if p.Name == "office" {
+			officeFound = true
+			assert.Equal(t, 1, p.NoteCount)
+			assert.Equal(t, []string{"AOGR"}, p.EnumValues)
+		}
+	}
+	assert.True(t, officeFound, "expected office property in response")
+}
