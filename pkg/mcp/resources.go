@@ -20,7 +20,7 @@ This MCP server exposes Obsidian vault operations to AI agents. Tools are prefer
 ## Core Tools
 
 - **files**: List files and optionally include content/frontmatter.
-  - Inputs: pass an array of patterns (` + "`" + `find:` + "`" + ` for filename globs, ` + "`" + `tag:` + "`" + ` for tags, or literal paths/folders). Patterns are ORed.
+  - Inputs: pass an array of patterns (` + "`" + `find:` + "`" + ` for filename globs, ` + "`" + `tag:` + "`" + ` for tags, ` + "`" + `key:value` + "`" + ` for property filters, or literal paths/folders). Combine with AND/OR/NOT and parentheses; otherwise patterns are ORed.
   - Options: ` + "`" + `includeContent` + "`" + ` (default true), ` + "`" + `includeFrontmatter` + "`" + ` (default false), ` + "`" + `includeBacklinks` + "`" + `, ` + "`" + `followLinks/maxDepth` + "`" + `, ` + "`" + `absolutePaths` + "`" + `.
   - Good for: grabbing note bodies, titles, or frontmatter without a second call.
 
@@ -49,6 +49,8 @@ This MCP server exposes Obsidian vault operations to AI agents. Tools are prefer
 
 - ` + "`" + `find:` + "`" + ` uses filename globbing (` + "`" + `*` + "`" + `, ` + "`" + `?` + "`" + `).
 - ` + "`" + `tag:` + "`" + ` matches frontmatter tags and inline hashtags (hierarchical: ` + "`" + `tag:project` + "`" + ` matches ` + "`" + `project/work` + "`" + `).
+- ` + "`" + `key:value` + "`" + ` matches frontmatter and inline properties (including Dataview ` + "`" + `Key:: Value` + "`" + `; normalizes wikilinks/aliases).
+- Boolean logic: combine patterns with AND/OR/NOT and parentheses. Pass operators as separate inputs (e.g., ` + "`" + `["tag:project","AND","Office:AOGR"]` + "`" + `). Terms without operators are ORed.
 - Literal paths/folders are relative to vault root.
 
 ## Safe Usage Notes

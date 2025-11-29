@@ -90,7 +90,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Parse inputs using the helper function
-	inputs, err := actions.ParseInputs(args)
+	inputs, expr, err := actions.ParseInputsWithExpression(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		return err
@@ -128,6 +128,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		SkipAnchors:   skipAnchors,
 		SkipEmbeds:    skipEmbeds,
 		AbsolutePaths: absolutePaths,
+		Expression:    expr,
 	}
 
 	var backlinks map[string][]obsidian.Backlink

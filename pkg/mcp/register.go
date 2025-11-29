@@ -14,7 +14,9 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 **Input Patterns:**
 - **find:pattern** - Filename pattern (supports * and ? wildcards)
 - **tag:tagname** - Files containing the tag (hierarchy supported, e.g., tag:project matches project/work)
+- **key:value** - Match frontmatter/inline properties (wikilinks normalized; supports Dataview Key:: Value)
 - **literal paths** - File or folder paths relative to vault root
+- **Boolean filters** - Combine inputs with AND/OR/NOT and parentheses. Pass operators as separate inputs (e.g., ["tag:foo","AND","tag:bar"]). Terms without operators are OR'd.
 
 **Key Options:**
 - **includeContent** (default: true) - Include full note content
@@ -25,7 +27,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 - **absolutePaths** - Add absolute paths alongside relative ones`),
 		mcp.WithArray("inputs",
 			mcp.Required(),
-			mcp.Description("List of input patterns (find:pattern, tag:tagname, or literal folder/file paths). Multiple patterns are OR'd together."),
+			mcp.Description("List of input patterns (find:pattern, tag:tagname, or literal folder/file paths). Supports AND/OR/NOT with parentheses; otherwise patterns are OR'd."),
 			mcp.WithStringItems(mcp.Description("Input pattern - use find:*, tag:name, or literal paths")),
 		),
 		mcp.WithBoolean("followLinks", mcp.Description("Follow wikilinks recursively to include referenced notes")),
@@ -43,17 +45,17 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 
 	// Register list_tags tool
 	listTagsTool := mcp.NewTool("list_tags",
-		mcp.WithDescription(`List all tags with counts as JSON. Returns both exact (individual) and hierarchical (aggregate) counts, sorted by aggregate descending. Supports 'match' filters (find:, tag:, paths) to scope the scan. Response: {tags:[{name,individualCount,aggregateCount}]}`),
-		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths)"), mcp.WithStringItems()),
+		mcp.WithDescription(`List all tags with counts as JSON. Returns both exact (individual) and hierarchical (aggregate) counts, sorted by aggregate descending. Supports 'match' filters (find:, tag:, paths) with boolean AND/OR/NOT to scope the scan. Response: {tags:[{name,individualCount,aggregateCount}]}`),
+		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths). Boolean AND/OR/NOT and parentheses are supported."), mcp.WithStringItems()),
 	)
 	s.AddTool(listTagsTool, ListTagsTool(config))
 
 	// Register list_properties tool
 	listPropertiesTool := mcp.NewTool("list_properties",
-		mcp.WithDescription(`Inspect properties across the vault (frontmatter + inline 'Key:: Value'). Returns inferred shape/type, note counts, enums, and per-value counts. Defaults: enumThreshold=25, includeEnumCounts=true, inline parsing enabled. Response: {properties:[{name,noteCount,shape,valueType,enumValues?,enumValueCounts?,distinctValueCount,truncatedValueSet?}]}`),
+		mcp.WithDescription(`Inspect properties across the vault (frontmatter + inline 'Key:: Value'). Returns inferred shape/type, note counts, enums, and per-value counts. Supports 'match' filters (find:, tag:, paths) with boolean AND/OR/NOT. Defaults: enumThreshold=25, includeEnumCounts=true, inline parsing enabled. Response: {properties:[{name,noteCount,shape,valueType,enumValues?,enumValueCounts?,distinctValueCount,truncatedValueSet?}]}`),
 		mcp.WithBoolean("excludeTags", mcp.Description("Exclude the tags field (default false; included by default)")),
 		mcp.WithBoolean("disableInline", mcp.Description("Ignore inline Dataview-style fields (Key:: Value)")),
-		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths)"), mcp.WithStringItems()),
+		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths). Boolean AND/OR/NOT and parentheses are supported."), mcp.WithStringItems()),
 		mcp.WithNumber("enumThreshold", mcp.Description("Emit enum values when distinct counts are at or below this number (default 25)"), mcp.Min(1)),
 		mcp.WithNumber("maxValues", mcp.Description("Maximum distinct values to track per property (default 500)"), mcp.Min(1)),
 		mcp.WithBoolean("verbose", mcp.Description("Emit enums for mixed types and raise enum threshold to 50")),

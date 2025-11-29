@@ -13,13 +13,14 @@ func resolveMatches(vault *obsidian.Vault, note *obsidian.Note, patterns []strin
 		return nil, nil
 	}
 
-	inputs, err := actions.ParseInputs(patterns)
+	inputs, expr, err := actions.ParseInputsWithExpression(patterns)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing match criteria: %w", err)
 	}
 
 	matchingFiles, err := actions.ListFiles(vault, note, actions.ListParams{
 		Inputs:         inputs,
+		Expression:     expr,
 		FollowLinks:    false,
 		MaxDepth:       0,
 		SkipAnchors:    false,

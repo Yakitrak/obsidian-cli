@@ -126,7 +126,7 @@ Examples:
 		// Handle add operation
 		if len(addTags) > 0 {
 			// Parse input criteria to get matching files
-			inputs, err := actions.ParseInputs(args)
+			inputs, expr, err := actions.ParseInputsWithExpression(args)
 			if err != nil {
 				return fmt.Errorf("error parsing input criteria: %w", err)
 			}
@@ -134,6 +134,7 @@ Examples:
 			// Get list of files matching the input criteria
 			matchingFiles, err := actions.ListFiles(&vault, &note, actions.ListParams{
 				Inputs:         inputs,
+				Expression:     expr,
 				FollowLinks:    false,
 				MaxDepth:       0,
 				SkipAnchors:    false,

@@ -71,7 +71,7 @@ Examples:
 		note := obsidian.Note{}
 
 		// Parse inputs using the helper function
-		inputs, err := actions.ParseInputs(args)
+		inputs, expr, err := actions.ParseInputsWithExpression(args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			os.Exit(1)
@@ -106,16 +106,7 @@ Examples:
 		// Print initial search message if in terminal mode
 		isTerminalMode := isTerminal()
 		if isTerminalMode {
-			for _, input := range inputs {
-				switch input.Type {
-				case actions.InputTypeTag:
-					fmt.Fprintf(os.Stderr, "Searching for tag %q\n", input.Value)
-				case actions.InputTypeFind:
-					fmt.Fprintf(os.Stderr, "Searching for %q\n", input.Value)
-				case actions.InputTypeFile:
-					fmt.Fprintf(os.Stderr, "Including file %q\n", input.Value)
-				}
-			}
+			fmt.Fprintf(os.Stderr, "Searching with: %q\n", strings.Join(args, " "))
 			if len(suppressedTags) > 0 {
 				fmt.Fprintf(os.Stderr, "Suppressing files with tags: %v\n", suppressedTags)
 			}
@@ -159,6 +150,7 @@ Examples:
 			SkipAnchors:    skipAnchors,
 			SkipEmbeds:     skipEmbeds,
 			AbsolutePaths:  absolutePaths,
+			Expression:     expr,
 			SuppressedTags: suppressedTags,
 			OnMatch:        onMatch,
 		}

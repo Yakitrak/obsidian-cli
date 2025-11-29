@@ -142,7 +142,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 			log.Printf("MCP files args: inputs=%v followLinks=%v maxDepth=%d includeContent=%v includeFrontmatter=%v", inputs, followLinks, maxDepth, includeContent, includeFrontmatter)
 		}
 
-		parsedInputs, err := actions.ParseInputs(inputs)
+		parsedInputs, expr, err := actions.ParseInputsWithExpression(inputs)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
 		}
@@ -159,6 +159,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 			SkipAnchors:    skipAnchors,
 			SkipEmbeds:     skipEmbeds,
 			AbsolutePaths:  false,
+			Expression:     expr,
 			SuppressedTags: suppressedTags,
 			OnMatch: func(file string) {
 				if !unique[file] {
@@ -288,13 +289,14 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 
 		var scanNotes []string
 		if len(inputs) > 0 {
-			parsed, err := actions.ParseInputs(inputs)
+			parsed, expr, err := actions.ParseInputsWithExpression(inputs)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
 			}
 			note := obsidian.Note{}
 			matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
 				Inputs:         parsed,
+				Expression:     expr,
 				FollowLinks:    false,
 				MaxDepth:       0,
 				SkipAnchors:    false,
@@ -364,13 +366,14 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 
 		var scanNotes []string
 		if len(inputs) > 0 {
-			parsed, err := actions.ParseInputs(inputs)
+			parsed, expr, err := actions.ParseInputsWithExpression(inputs)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
 			}
 			note := obsidian.Note{}
 			matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
 				Inputs:         parsed,
+				Expression:     expr,
 				FollowLinks:    false,
 				MaxDepth:       0,
 				SkipAnchors:    false,
@@ -760,7 +763,7 @@ func AddTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp
 			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
 		}
 
-		parsedInputs, err := actions.ParseInputs(inputs)
+		parsedInputs, expr, err := actions.ParseInputsWithExpression(inputs)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error parsing input criteria: %s", err)), nil
 		}
@@ -774,6 +777,7 @@ func AddTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp
 			SkipAnchors:    false,
 			SkipEmbeds:     false,
 			AbsolutePaths:  false,
+			Expression:     expr,
 			SuppressedTags: []string{},
 		})
 		if err != nil {

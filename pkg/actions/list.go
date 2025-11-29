@@ -36,74 +36,12 @@ type ListParams struct {
 	SkipEmbeds               bool                            // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
 	AbsolutePaths            bool                            // Whether to return absolute paths
 	SuppressedTags           []string                        // Tags to exclude from results
+	Expression               *InputExpression                // Optional boolean expression to evaluate
 	OnMatch                  func(string)                    // Callback function to report matches as they're found
 	IncludeBacklinks         bool                            // Whether to collect first-degree backlinks for matched files
 	Backlinks                *map[string][]obsidian.Backlink // Optional output map for backlinks keyed by normalized target path
 	PrimaryMatches           *[]string                       // Optional output slice capturing the matches before link following
 	obsidian.WikilinkOptions                                 // options influencing backlink parsing
-}
-
-// ParseInputs parses command-line arguments into ListInput objects.
-// Returns an error if tag: or find: inputs have empty or wildcard values.
-func ParseInputs(args []string) ([]ListInput, error) {
-	var inputs []ListInput
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "tag:") {
-			// Handle quoted tags
-			tag := strings.TrimPrefix(arg, "tag:")
-			if strings.HasPrefix(tag, "\"") && strings.HasSuffix(tag, "\"") {
-				tag = strings.Trim(tag, "\"")
-			}
-
-			// Validate tag value
-			if tag == "" || tag == "*" {
-				return nil, fmt.Errorf("invalid tag value in %q: tag cannot be empty or a wildcard (*)", arg)
-			}
-
-			inputs = append(inputs, ListInput{
-				Type:  InputTypeTag,
-				Value: tag,
-			})
-		} else if strings.HasPrefix(arg, "find:") {
-			// Handle find input
-			searchTerm := strings.TrimPrefix(arg, "find:")
-			if strings.HasPrefix(searchTerm, "\"") && strings.HasSuffix(searchTerm, "\"") {
-				searchTerm = strings.Trim(searchTerm, "\"")
-			}
-
-			// Validate find value
-			if searchTerm == "" || searchTerm == "*" {
-				return nil, fmt.Errorf("invalid find value in %q: find cannot be empty or a wildcard (*)", arg)
-			}
-
-			inputs = append(inputs, ListInput{
-				Type:  InputTypeFind,
-				Value: searchTerm,
-			})
-		} else if strings.Contains(arg, ":") {
-			parts := strings.SplitN(arg, ":", 2)
-			key := strings.TrimSpace(parts[0])
-			val := strings.TrimSpace(parts[1])
-
-			if key == "" || val == "" || val == "*" {
-				return nil, fmt.Errorf("invalid property input %q: both key and value are required", arg)
-			}
-
-			inputs = append(inputs, ListInput{
-				Type:     InputTypeProperty,
-				Value:    val,
-				Property: key,
-			})
-		} else {
-			// Handle file paths
-			inputs = append(inputs, ListInput{
-				Type:  InputTypeFile,
-				Value: arg,
-			})
-		}
-	}
-
-	return inputs, nil
 }
 
 // Debug controls whether debug output is printed
@@ -211,7 +149,15 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 	}
 
 	// Process all inputs to get matching files
-	matches := processInputs(allNotes, vaultPath, note, params)
+	expr := params.Expression
+	if expr == nil {
+		expr = buildOrExpression(params.Inputs)
+	}
+
+	var matches []string
+	if expr != nil {
+		matches = evaluateExpressionMatches(allNotes, vaultPath, note, expr)
+	}
 	debugf("Found %d initial matching files\n", len(matches))
 
 	// Filter out suppressed files
@@ -271,111 +217,64 @@ func notifyMatches(files []string, onMatch func(string)) {
 	}
 }
 
-// processInputs processes all inputs and returns matching files
-func processInputs(allNotes []string, vaultPath string, note obsidian.NoteManager, params ListParams) []string {
-	seen := make(map[string]bool)
-	var matches []string
-
-	// Group inputs by type for efficient processing
-	tagInputs, otherInputs := groupInputsByType(params.Inputs)
-
-	// Process tag inputs together if there are any
-	if len(tagInputs) > 0 {
-		tagMatches := processTagInput(tagInputs, allNotes, vaultPath, note, params)
-		addUniqueMatches(&matches, tagMatches, seen)
+// followMatchedFiles follows wikilinks for matched files
+func followMatchedFiles(matches []string, vaultPath string, note obsidian.NoteManager, params ListParams) []string {
+	// Get all notes first
+	allNotes, err := note.GetNotesList(vaultPath)
+	if err != nil {
+		debugf("Error getting notes list: %v\n", err)
+		return matches
 	}
 
-	// Process other inputs individually
-	for _, input := range otherInputs {
-		var inputMatches []string
-		switch input.Type {
-		case InputTypeFile:
-			inputMatches = processFilePathInput(input, allNotes, params)
-		case InputTypeFind:
-			inputMatches = processFuzzyFindInput(input, allNotes, params)
-		case InputTypeProperty:
-			inputMatches = processPropertyInput(input, allNotes, vaultPath, note)
+	debugf("Found %d total notes in vault\n", len(allNotes))
+
+	// Build the note path cache
+	cache := obsidian.BuildNotePathCache(allNotes)
+	debugf("Built cache with %d entries\n", len(cache.Paths))
+
+	visited := make(map[string]bool)
+	var result []string
+
+	// Create wikilinks options from parameters
+	options := obsidian.CreateWikilinksOptions(params.MaxDepth, params.SkipAnchors, params.SkipEmbeds)
+
+	for _, notePath := range matches {
+		debugf("Following links for note: %s\n", notePath)
+		files, err := obsidian.FollowWikilinks(vaultPath, note, notePath, visited, cache, options)
+		if err != nil {
+			debugf("Error following links for %s: %v\n", notePath, err)
+			continue
 		}
-		addUniqueMatches(&matches, inputMatches, seen)
+		debugf("Found %d linked files for %s\n", len(files), notePath)
+		result = append(result, files...)
 	}
 
-	return matches
+	return obsidian.DeduplicateResults(result)
 }
 
-// groupInputsByType separates tag inputs from other inputs
-func groupInputsByType(inputs []ListInput) (tagInputs, otherInputs []ListInput) {
-	for _, input := range inputs {
-		if input.Type == InputTypeTag {
-			tagInputs = append(tagInputs, input)
-		} else {
-			otherInputs = append(otherInputs, input)
+func buildOrExpression(inputs []ListInput) *InputExpression {
+	if len(inputs) == 0 {
+		return nil
+	}
+	var expr *InputExpression
+	for i := len(inputs) - 1; i >= 0; i-- {
+		current := &InputExpression{
+			Type:  exprLeaf,
+			Input: &inputs[i],
 		}
-	}
-	return
-}
-
-// addUniqueMatches adds matches to the result slice while avoiding duplicates
-func addUniqueMatches(matches *[]string, newMatches []string, seen map[string]bool) {
-	for _, match := range newMatches {
-		if !seen[match] {
-			seen[match] = true
-			*matches = append(*matches, match)
+		if expr == nil {
+			expr = current
+			continue
 		}
-	}
-}
-
-// processFilePathInput processes a single file path input
-func processFilePathInput(input ListInput, allNotes []string, params ListParams) []string {
-	normalizedInputPath := obsidian.NormalizePath(input.Value)
-
-	// Handle wildcard pattern
-	if normalizedInputPath == "*" {
-		return allNotes
-	}
-
-	// Handle regular path matching
-	var matches []string
-	dirPrefix := normalizedInputPath + "/"
-	for _, notePath := range allNotes {
-		normalizedNotePath := obsidian.NormalizePath(notePath)
-		if normalizedNotePath == normalizedInputPath || strings.HasPrefix(normalizedNotePath, dirPrefix) {
-			matches = append(matches, notePath)
+		expr = &InputExpression{
+			Type:  exprOr,
+			Left:  current,
+			Right: expr,
 		}
 	}
-	return matches
+	return expr
 }
 
-// processTagInput processes multiple tag inputs concurrently
-func processTagInput(inputs []ListInput, allNotes []string, vaultPath string, note obsidian.NoteManager, params ListParams) []string {
-	var matches []string
-	var mu sync.Mutex
-	results := make(chan string, len(allNotes))
-
-	tags := extractTagValues(inputs)
-	numWorkers := determineWorkerCount(len(allNotes))
-	processBatches(allNotes, numWorkers, vaultPath, note, tags, results)
-
-	// Collect results without triggering OnMatch (it will be called later)
-	for notePath := range results {
-		mu.Lock()
-		matches = append(matches, notePath)
-		mu.Unlock()
-		// Don't call OnMatch here - all matching will be handled by ListFiles
-	}
-
-	return matches
-}
-
-// extractTagValues extracts tag values from inputs
-func extractTagValues(inputs []ListInput) []string {
-	tags := make([]string, len(inputs))
-	for i, input := range inputs {
-		tags[i] = input.Value
-	}
-	return tags
-}
-
-// determineWorkerCount determines the optimal number of worker goroutines
 func determineWorkerCount(noteCount int) int {
 	numWorkers := runtime.NumCPU()
 	if noteCount < numWorkers {
@@ -384,11 +283,23 @@ func determineWorkerCount(noteCount int) int {
 	return numWorkers
 }
 
-// processBatches processes notes in batches using multiple goroutines
-func processBatches(allNotes []string, numWorkers int, vaultPath string, note obsidian.NoteManager, tags []string, results chan<- string) {
-	var wg sync.WaitGroup
+func evaluateExpressionMatches(allNotes []string, vaultPath string, note obsidian.NoteManager, expr *InputExpression) []string {
+	if expr == nil {
+		return nil
+	}
+
+	if len(allNotes) == 0 {
+		return nil
+	}
+
+	results := make(chan string, len(allNotes))
+	numWorkers := determineWorkerCount(len(allNotes))
+	if numWorkers == 0 {
+		return nil
+	}
 	batchSize := (len(allNotes) + numWorkers - 1) / numWorkers
 
+	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
 		start := i * batchSize
 		end := start + batchSize
@@ -402,63 +313,146 @@ func processBatches(allNotes []string, numWorkers int, vaultPath string, note ob
 		wg.Add(1)
 		go func(files []string) {
 			defer wg.Done()
-			processTagBatch(files, vaultPath, note, tags, results)
+			for _, path := range files {
+				ctx := &noteContext{
+					path:      path,
+					vaultPath: vaultPath,
+					note:      note,
+				}
+				if evaluateExpression(expr, ctx) {
+					results <- path
+				}
+			}
 		}(allNotes[start:end])
 	}
 
-	// Close results channel when all workers are done
 	go func() {
 		wg.Wait()
 		close(results)
 	}()
-}
 
-// processTagBatch processes a batch of files for tag matching
-func processTagBatch(files []string, vaultPath string, note obsidian.NoteManager, tags []string, results chan<- string) {
-	for _, notePath := range files {
-		content, err := note.GetContents(vaultPath, notePath)
-		if err != nil {
-			continue
-		}
-		if obsidian.HasAnyTags(content, tags) {
-			results <- notePath
-		}
-	}
-}
-
-// processFuzzyFindInput processes a single fuzzy find input concurrently
-func processFuzzyFindInput(input ListInput, allNotes []string, params ListParams) []string {
 	var matches []string
-	var mu sync.Mutex
-	results := make(chan string, len(allNotes))
-
-	numWorkers := determineWorkerCount(len(allNotes))
-	processFuzzyBatches(allNotes, numWorkers, input.Value, results)
-
-	// Collect results without triggering OnMatch (it will be called later)
-	for notePath := range results {
-		mu.Lock()
-		matches = append(matches, notePath)
-		mu.Unlock()
-		// Don't call OnMatch here - all matching will be handled by ListFiles
+	for path := range results {
+		matches = append(matches, path)
 	}
-
 	return matches
 }
 
-// processPropertyInput filters notes by a specific frontmatter/inline property value.
-func processPropertyInput(input ListInput, allNotes []string, vaultPath string, note obsidian.NoteManager) []string {
-	var matches []string
-	for _, path := range allNotes {
-		content, err := note.GetContents(vaultPath, path)
-		if err != nil {
-			continue
-		}
-		if propertyHasValue(content, input.Property, input.Value) {
-			matches = append(matches, path)
-		}
+func evaluateExpression(expr *InputExpression, ctx *noteContext) bool {
+	if expr == nil {
+		return false
 	}
-	return matches
+	switch expr.Type {
+	case exprLeaf:
+		return ctx.matchesInput(expr.Input)
+	case exprAnd:
+		return evaluateExpression(expr.Left, ctx) && evaluateExpression(expr.Right, ctx)
+	case exprOr:
+		return evaluateExpression(expr.Left, ctx) || evaluateExpression(expr.Right, ctx)
+	case exprNot:
+		return !evaluateExpression(expr.Left, ctx)
+	default:
+		return false
+	}
+}
+
+type noteContext struct {
+	path      string
+	vaultPath string
+	note      obsidian.NoteManager
+
+	contentOnce sync.Once
+	content     string
+	contentErr  error
+
+	frontmatterOnce sync.Once
+	frontmatter     map[string]interface{}
+
+	inlineOnce     sync.Once
+	inlineProps    map[string][]string
+	inlinePropsErr error
+}
+
+func (c *noteContext) matchesInput(input *ListInput) bool {
+	if input == nil {
+		return false
+	}
+	switch input.Type {
+	case InputTypeFile:
+		return matchFilePath(c.path, input.Value)
+	case InputTypeFind:
+		return obsidian.FuzzyMatch(input.Value, c.path)
+	case InputTypeTag:
+		content, err := c.getContent()
+		if err != nil {
+			return false
+		}
+		return obsidian.HasAnyTags(content, []string{input.Value})
+	case InputTypeProperty:
+		return c.propertyHasValue(input.Property, input.Value)
+	default:
+		return false
+	}
+}
+
+func matchFilePath(notePath, input string) bool {
+	normalizedInputPath := obsidian.NormalizePath(input)
+
+	if normalizedInputPath == "*" {
+		return true
+	}
+
+	normalizedNotePath := obsidian.NormalizePath(notePath)
+	dirPrefix := normalizedInputPath + "/"
+	return normalizedNotePath == normalizedInputPath || strings.HasPrefix(normalizedNotePath, dirPrefix)
+}
+
+func (c *noteContext) getContent() (string, error) {
+	c.contentOnce.Do(func() {
+		content, err := c.note.GetContents(c.vaultPath, c.path)
+		if err != nil {
+			c.contentErr = err
+			return
+		}
+		c.content = content
+	})
+	return c.content, c.contentErr
+}
+
+func (c *noteContext) getFrontmatter() map[string]interface{} {
+	c.frontmatterOnce.Do(func() {
+		content, err := c.getContent()
+		if err != nil {
+			return
+		}
+		fm, _ := obsidian.ExtractFrontmatter(content)
+		c.frontmatter = fm
+	})
+	return c.frontmatter
+}
+
+func (c *noteContext) getInlineProperties() map[string][]string {
+	c.inlineOnce.Do(func() {
+		content, err := c.getContent()
+		if err != nil {
+			c.inlinePropsErr = err
+			return
+		}
+		c.inlineProps = obsidian.ExtractInlineProperties(content)
+	})
+	return c.inlineProps
+}
+
+func (c *noteContext) propertyHasValue(property string, target string) bool {
+	if strings.TrimSpace(property) == "" || strings.TrimSpace(target) == "" {
+		return false
+	}
+
+	content, err := c.getContent()
+	if err != nil {
+		return false
+	}
+	return propertyHasValue(content, property, target)
 }
 
 // propertyHasValue checks if a note content contains the given property with the target value.
@@ -517,77 +511,4 @@ func normalizePropertyValue(v string) string {
 		}
 	}
 	return val
-}
-
-// processFuzzyBatches processes notes in batches for fuzzy matching
-func processFuzzyBatches(allNotes []string, numWorkers int, pattern string, results chan<- string) {
-	var wg sync.WaitGroup
-	batchSize := (len(allNotes) + numWorkers - 1) / numWorkers
-
-	for i := 0; i < numWorkers; i++ {
-		start := i * batchSize
-		end := start + batchSize
-		if end > len(allNotes) {
-			end = len(allNotes)
-		}
-		if start >= len(allNotes) {
-			continue
-		}
-
-		wg.Add(1)
-		go func(files []string) {
-			defer wg.Done()
-			processFuzzyBatch(files, pattern, results)
-		}(allNotes[start:end])
-	}
-
-	// Close results channel when all workers are done
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-}
-
-// processFuzzyBatch processes a batch of files for fuzzy matching
-func processFuzzyBatch(files []string, pattern string, results chan<- string) {
-	for _, notePath := range files {
-		if obsidian.FuzzyMatch(pattern, notePath) {
-			results <- notePath
-		}
-	}
-}
-
-// followMatchedFiles follows wikilinks for matched files
-func followMatchedFiles(matches []string, vaultPath string, note obsidian.NoteManager, params ListParams) []string {
-	// Get all notes first
-	allNotes, err := note.GetNotesList(vaultPath)
-	if err != nil {
-		debugf("Error getting notes list: %v\n", err)
-		return matches
-	}
-
-	debugf("Found %d total notes in vault\n", len(allNotes))
-
-	// Build the note path cache
-	cache := obsidian.BuildNotePathCache(allNotes)
-	debugf("Built cache with %d entries\n", len(cache.Paths))
-
-	visited := make(map[string]bool)
-	var result []string
-
-	// Create wikilinks options from parameters
-	options := obsidian.CreateWikilinksOptions(params.MaxDepth, params.SkipAnchors, params.SkipEmbeds)
-
-	for _, notePath := range matches {
-		debugf("Following links for note: %s\n", notePath)
-		files, err := obsidian.FollowWikilinks(vaultPath, note, notePath, visited, cache, options)
-		if err != nil {
-			debugf("Error following links for %s: %v\n", notePath, err)
-			continue
-		}
-		debugf("Found %d linked files for %s\n", len(files), notePath)
-		result = append(result, files...)
-	}
-
-	return obsidian.DeduplicateResults(result)
 }

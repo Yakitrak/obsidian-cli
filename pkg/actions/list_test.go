@@ -172,6 +172,36 @@ func TestParseInputs(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "Boolean operators ignored in inputs",
+			args: []string{"tag:project", "AND", "tag:work"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeTag,
+					Value: "project",
+				},
+				{
+					Type:  InputTypeTag,
+					Value: "work",
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "Parenthesized boolean expression",
+			args: []string{"(tag:project AND tag:work)"},
+			expectedInputs: []ListInput{
+				{
+					Type:  InputTypeTag,
+					Value: "project",
+				},
+				{
+					Type:  InputTypeTag,
+					Value: "work",
+				},
+			},
+			expectedError: false,
+		},
+		{
 			name: "Property input",
 			args: []string{"Office:AOGR"},
 			expectedInputs: []ListInput{
@@ -527,6 +557,71 @@ func TestListFiles(t *testing.T) {
 			tt.mockNote.AssertExpectations(t)
 		})
 	}
+}
+
+func TestListFilesBooleanExpression(t *testing.T) {
+	vault := &mocks.VaultManager{}
+	note := &mocks.NoteManager{}
+	vault.On("Path").Return("/test/vault", nil)
+	note.On("GetNotesList", "/test/vault").Return([]string{"foo.md", "bar.md", "baz.md"}, nil)
+	note.On("GetContents", "/test/vault", "foo.md").Return("#foo", nil)
+	note.On("GetContents", "/test/vault", "bar.md").Return("#foo #bar", nil)
+	note.On("GetContents", "/test/vault", "baz.md").Return("#bar", nil)
+
+	_, expr, err := ParseInputsWithExpression([]string{"tag:foo", "AND", "tag:bar"})
+	assert.NoError(t, err)
+
+	files, err := ListFiles(vault, note, ListParams{Expression: expr})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"bar.md"}, files)
+
+	vault.AssertExpectations(t)
+	note.AssertExpectations(t)
+}
+
+func TestListFilesBooleanExpressionNot(t *testing.T) {
+	vault := &mocks.VaultManager{}
+	note := &mocks.NoteManager{}
+	vault.On("Path").Return("/test/vault", nil)
+	note.On("GetNotesList", "/test/vault").Return([]string{"foo.md", "bar.md", "baz.md"}, nil)
+	note.On("GetContents", "/test/vault", "foo.md").Return("#foo", nil)
+	note.On("GetContents", "/test/vault", "bar.md").Return("#foo #bar", nil)
+	note.On("GetContents", "/test/vault", "baz.md").Return("#bar", nil)
+
+	// tag:foo AND NOT tag:bar -> should match only foo.md
+	_, expr, err := ParseInputsWithExpression([]string{"tag:foo", "AND", "NOT", "tag:bar"})
+	assert.NoError(t, err)
+
+	files, err := ListFiles(vault, note, ListParams{Expression: expr})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"foo.md"}, files)
+
+	vault.AssertExpectations(t)
+	note.AssertExpectations(t)
+}
+
+func TestListFilesBooleanExpressionNestedParens(t *testing.T) {
+	vault := &mocks.VaultManager{}
+	note := &mocks.NoteManager{}
+	vault.On("Path").Return("/test/vault", nil)
+	note.On("GetNotesList", "/test/vault").Return([]string{"a.md", "b.md", "c.md", "d.md"}, nil)
+	note.On("GetContents", "/test/vault", "a.md").Return("#alpha", nil)
+	note.On("GetContents", "/test/vault", "b.md").Return("#beta", nil)
+	note.On("GetContents", "/test/vault", "c.md").Return("#alpha #gamma", nil)
+	note.On("GetContents", "/test/vault", "d.md").Return("#beta #gamma", nil)
+
+	// (tag:alpha OR tag:beta) AND tag:gamma -> should match c.md and d.md
+	_, expr, err := ParseInputsWithExpression([]string{"(tag:alpha", "OR", "tag:beta)", "AND", "tag:gamma"})
+	assert.NoError(t, err)
+
+	files, err := ListFiles(vault, note, ListParams{Expression: expr})
+	assert.NoError(t, err)
+	assert.Len(t, files, 2)
+	assert.Contains(t, files, "c.md")
+	assert.Contains(t, files, "d.md")
+
+	vault.AssertExpectations(t)
+	note.AssertExpectations(t)
 }
 
 func TestPropertyHasValueWithAlias(t *testing.T) {
