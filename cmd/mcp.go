@@ -3,7 +3,6 @@ package cmd
 import (
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/mcp"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
@@ -108,17 +107,6 @@ Example MCP client configuration (e.g., for Claude Desktop):
 
 		// Add built-in agent guide resource.
 		mcp.AddBuiltinResources(s)
-
-		// Load resources from .cursor/rules/*.mdc files (first mechanism)
-		rulesDir := filepath.Join(vaultPath, ".cursor", "rules")
-		resources, err := mcp.LoadMDCResources(rulesDir)
-		if err == nil {
-			for _, res := range resources {
-				s.AddResource(res.Resource, res.Handler)
-			}
-		} else if debug {
-			log.Printf("No MDC resources loaded: %v", err)
-		}
 
 		if debug {
 			log.Printf("Starting MCP server for vault '%s' at %s", vaultName, vaultPath)
