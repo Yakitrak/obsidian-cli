@@ -18,7 +18,8 @@ bin/
 .idea/
 obsidian-cli
 
-# Local tooling/config (Codex, direnv)
+# Local tooling/config (Codex, direnv, Claude Code)
 .codex/
 .envrc
+.claude/settings.local.json
 
