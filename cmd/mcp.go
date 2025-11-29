@@ -106,6 +106,9 @@ Example MCP client configuration (e.g., for Claude Desktop):
 			log.Fatalf("Failed to register MCP tools: %v", err)
 		}
 
+		// Add built-in agent guide resource.
+		mcp.AddBuiltinResources(s)
+
 		// Load resources from .cursor/rules/*.mdc files (first mechanism)
 		rulesDir := filepath.Join(vaultPath, ".cursor", "rules")
 		resources, err := mcp.LoadMDCResources(rulesDir)
