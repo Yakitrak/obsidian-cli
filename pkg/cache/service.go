@@ -178,11 +178,15 @@ func (s *Service) loadIgnorePatterns() {
 	// .obsidianignore changes because the watcher already guards the main data paths
 	// and this keeps the cache predictable for the lifetime of the process.
 	ignorePath := filepath.Join(s.vaultPath, ".obsidianignore")
+	patterns := obsidian.DefaultIgnorePatterns()
 	content, err := os.ReadFile(ignorePath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			// Log or silently ignore read errors? For now silent as per spec assumptions.
 		}
+		s.mu.Lock()
+		s.ignored = patterns
+		s.mu.Unlock()
 		return
 	}
 	lines := strings.Split(string(content), "\n")
@@ -194,7 +198,11 @@ func (s *Service) loadIgnorePatterns() {
 		}
 	}
 	s.mu.Lock()
-	s.ignored = ignored
+	if len(ignored) == 0 {
+		s.ignored = patterns
+	} else {
+		s.ignored = ignored
+	}
 	s.mu.Unlock()
 }
 

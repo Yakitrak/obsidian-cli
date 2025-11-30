@@ -257,3 +257,23 @@ func TestServiceRespectsObsidianIgnore(t *testing.T) {
 	_, ok := svc.Entry("Ignored.md")
 	assert.False(t, ok, "ignored file should not be indexed")
 }
+
+func TestServiceUsesDefaultIgnoreWhenMissing(t *testing.T) {
+	tmp := t.TempDir()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "node_modules", "mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "node_modules", "mod", "ignored.md"), []byte("#ignored"), 0o644))
+
+	included := filepath.Join(tmp, "Included.md")
+	require.NoError(t, os.WriteFile(included, []byte("#public"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	paths := svc.Paths()
+	assert.Len(t, paths, 1)
+	assert.Equal(t, "Included.md", paths[0])
+}

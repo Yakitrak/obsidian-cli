@@ -341,6 +341,14 @@ obsidian-cli tags --delete work urgent --dry-run
 obsidian-cli tags --delete work urgent --workers 4
 ```
 
+### Default ignores
+
+obsidian-cli skips common tooling clutter even if you haven't created a `.obsidianignore` (e.g., `.git/`, `.cursor/`, `.codex/`, `.cache/`, `node_modules/`, `dist/`, `build/`, `.venv/`). To write the default ignore file into your vault for reuse, run:
+
+```bash
+obsidian-cli install-ignore --vault "MyVault"   # add --force to overwrite an existing file
+```
+
 ## YAML formatting changes when editing tags
 
 When tag-editing operations (delete/rename) touch the YAML front-matter, the block is re-emitted using Go’s `yaml.v3` encoder. As a result:
