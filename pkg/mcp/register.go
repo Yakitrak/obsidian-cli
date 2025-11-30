@@ -21,16 +21,15 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 **Key Options:**
 - **includeContent** (default: true) - Include full note content
 - **includeFrontmatter** (default: false) - Include parsed frontmatter map
-- **followLinks/maxDepth** - Traverse wikilinks to include neighbors
+- **maxDepth** - Traverse wikilinks to include neighbors (set >0 to follow)
 - **includeBacklinks** (default: false) - Include first-degree backlinks for matched notes
 - **suppressTags/noSuppress** - Control tag-based suppression (defaults come from server config)
-- **absolutePaths** - Add absolute paths alongside relative ones`),
+- **absolutePaths** - Add absolute paths alongside relative paths`),
 		mcp.WithArray("inputs",
 			mcp.Required(),
 			mcp.Description("List of input patterns (find:pattern, tag:tagname, or literal folder/file paths). Supports AND/OR/NOT with parentheses; otherwise patterns are OR'd."),
 			mcp.WithStringItems(mcp.Description("Input pattern - use find:*, tag:name, or literal paths")),
 		),
-		mcp.WithBoolean("followLinks", mcp.Description("Follow wikilinks recursively to include referenced notes")),
 		mcp.WithNumber("maxDepth", mcp.Description("Maximum depth for following wikilinks (0 = don't follow, 1 = direct links only)"), mcp.Min(0)),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),

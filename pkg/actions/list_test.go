@@ -742,7 +742,6 @@ func TestListFilesWithWikilinks(t *testing.T) {
 		files        []string
 		fileContents map[string]string
 		inputs       []ListInput
-		followLinks  bool
 		maxDepth     int
 		skipAnchors  bool
 		expected     []string
@@ -759,7 +758,6 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			inputs: []ListInput{
 				{Type: InputTypeTag, Value: "tag1"},
 			},
-			followLinks: false,
 			maxDepth:    0,
 			skipAnchors: false,
 			expected:    []string{"note2.md"}, // only direct tag match
@@ -776,7 +774,6 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			inputs: []ListInput{
 				{Type: InputTypeFile, Value: "folder"},
 			},
-			followLinks: true,
 			maxDepth:    1,
 			skipAnchors: false,
 			expected:    []string{"folder/note1.md", "folder/note2.md", "note3.md", "note4.md"},
@@ -793,7 +790,6 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			inputs: []ListInput{
 				{Type: InputTypeFind, Value: "2025-W12"},
 			},
-			followLinks: true,
 			maxDepth:    2,
 			skipAnchors: false,
 			expected:    []string{"weekly/2025-W12.md", "daily/2025-03-17.md", "daily/2025-03-18.md", "daily/2025-03-19.md"},
@@ -810,7 +806,6 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			inputs: []ListInput{
 				{Type: InputTypeFile, Value: "project.md"},
 			},
-			followLinks: true,
 			maxDepth:    1,
 			skipAnchors: true,
 			expected:    []string{"project.md", "tasks.md"}, // should not include section1.md or section2.md
@@ -830,7 +825,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			mockNote.On("GetNotesList", "/test/vault").Return(tt.files, nil).Once()
 
 			// If following links, we need another GetNotesList call
-			if tt.followLinks {
+			if tt.maxDepth > 0 {
 				mockNote.On("GetNotesList", "/test/vault").Return(tt.files, nil).Once()
 			}
 
@@ -847,7 +842,7 @@ func TestListFilesWithWikilinks(t *testing.T) {
 				}
 			}
 
-			if tt.followLinks {
+			if tt.maxDepth > 0 {
 				for file, content := range tt.fileContents {
 					if !strings.Contains(content, "#") || // Always mock files without tags
 						(len(tt.inputs) > 0 && tt.inputs[0].Type == InputTypeFile) { // Always mock when input is a file path
@@ -859,7 +854,6 @@ func TestListFilesWithWikilinks(t *testing.T) {
 			// Run the test
 			result, err := ListFiles(mockVault, mockNote, ListParams{
 				Inputs:      tt.inputs,
-				FollowLinks: tt.followLinks,
 				MaxDepth:    tt.maxDepth,
 				SkipAnchors: tt.skipAnchors,
 			})
@@ -1144,7 +1138,6 @@ func TestListFilesWithSuppressedTags(t *testing.T) {
 			result, err := ListFiles(mockVault, mockNote, ListParams{
 				Inputs:         tt.inputs,
 				SuppressedTags: tt.suppressedTags,
-				FollowLinks:    false,
 			})
 
 			// Verify results

@@ -115,7 +115,6 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 			inputs[i] = s
 		}
 
-		followLinks, _ := args["followLinks"].(bool)
 		maxDepthFloat, _ := args["maxDepth"].(float64)
 		maxDepth := int(maxDepthFloat)
 		skipAnchors, _ := args["skipAnchors"].(bool)
@@ -147,7 +146,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		}
 
 		if config.Debug {
-			log.Printf("MCP files args: inputs=%v followLinks=%v maxDepth=%d includeContent=%v includeFrontmatter=%v", inputs, followLinks, maxDepth, includeContent, includeFrontmatter)
+			log.Printf("MCP files args: inputs=%v maxDepth=%d includeContent=%v includeFrontmatter=%v", inputs, maxDepth, includeContent, includeFrontmatter)
 		}
 
 		parsedInputs, expr, err := actions.ParseInputsWithExpression(inputs)
@@ -162,7 +161,6 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 
 		params := actions.ListParams{
 			Inputs:         parsedInputs,
-			FollowLinks:    followLinks || maxDepth > 0,
 			MaxDepth:       maxDepth,
 			SkipAnchors:    skipAnchors,
 			SkipEmbeds:     skipEmbeds,
@@ -305,7 +303,6 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 			matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
 				Inputs:         parsed,
 				Expression:     expr,
-				FollowLinks:    false,
 				MaxDepth:       0,
 				SkipAnchors:    false,
 				SkipEmbeds:     false,
@@ -429,7 +426,6 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
 				Inputs:         parsed,
 				Expression:     expr,
-				FollowLinks:    false,
 				MaxDepth:       0,
 				SkipAnchors:    false,
 				SkipEmbeds:     false,
@@ -828,7 +824,6 @@ func AddTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp
 
 		matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
 			Inputs:         parsedInputs,
-			FollowLinks:    false,
 			MaxDepth:       0,
 			SkipAnchors:    false,
 			SkipEmbeds:     false,

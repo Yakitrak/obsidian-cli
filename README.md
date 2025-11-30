@@ -190,11 +190,11 @@ obsidian-cli list tag:career-pathing
 # Find notes tagged with "career-pathing" and follow wikilinks 2 levels deep
 obsidian-cli list tag:"career-pathing" -d 2
 
-# Find notes containing "project" and follow links, skipping anchored links
-obsidian-cli list find:project -f --skip-anchors
+# Find notes (by filename) and follow links 1 level deep, skipping anchored links
+obsidian-cli list find:project -d 1 --skip-anchors
 
-# Find notes containing "notes" and follow links, skipping embedded links
-obsidian-cli list find:notes -f --skip-embeds
+# Find notes (by filename) and follow links 1 level deep, skipping embedded links
+obsidian-cli list find:notes -d 1 --skip-embeds
 
 # Include first-degree backlinks for matches (aliases/heading/block/embed supported)
 obsidian-cli list tag:research --backlinks
@@ -416,7 +416,7 @@ Destructive (require `--read-write`):
   - Literal file or folder paths relative to the vault root, e.g., `Notes/Project.md` or `Daily Notes/`
 - Useful flags:
   - `includeContent` (default `true`), `includeFrontmatter` to control payload size
-  - `followLinks`/`maxDepth` to traverse wikilinks; `skipAnchors` / `skipEmbeds` to filter link types
+  - `maxDepth` to traverse wikilinks; `skipAnchors` / `skipEmbeds` to filter link types
   - `suppressTags` to add more suppressed tags, `noSuppress` to disable defaults (configured via server flags)
   - `absolutePaths` to include absolute paths in each entry
 
@@ -425,7 +425,6 @@ Example call (arguments array):
 ```json
 {
   "inputs": ["tag:project", "find:meeting*"],
-  "followLinks": true,
   "maxDepth": 1,
   "includeContent": true,
   "includeFrontmatter": false

@@ -21,7 +21,6 @@ func resolveMatches(vault *obsidian.Vault, note *obsidian.Note, patterns []strin
 	matchingFiles, err := actions.ListFiles(vault, note, actions.ListParams{
 		Inputs:         inputs,
 		Expression:     expr,
-		FollowLinks:    false,
 		MaxDepth:       0,
 		SkipAnchors:    false,
 		SkipEmbeds:     false,

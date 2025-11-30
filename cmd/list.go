@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	followLinks      bool
 	maxDepth         int
 	skipAnchors      bool
 	skipEmbeds       bool
@@ -43,15 +42,14 @@ Examples:
   obsidian-cli list find:'n/s joe'                 # Notes in folder starting with "n" whose name contains a word starting with "s" and a word starting with "joe"
   obsidian-cli list tag:career-pathing             # Notes tagged with "career-pathing"
   obsidian-cli list tag:"career-pathing" -d 2      # Notes tagged with "career-pathing", notes they link to, and the notes those link to
-  obsidian-cli list find:project -f --skip-anchors # Notes containing "project" and notes they link to, excluding links with section anchors
-  obsidian-cli list find:notes -f --skip-embeds    # Notes containing "notes" and notes they link to, excluding embedded links`,
+  obsidian-cli list find:project -d 1 --skip-anchors # Notes whose names match pattern plus directly linked notes, excluding anchors
+  obsidian-cli list find:notes -d 1 --skip-embeds    # Notes whose names match pattern plus directly linked notes, excluding embedded links`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runList,
 }
 
 func init() {
 	listCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	listCmd.Flags().BoolVarP(&followLinks, "follow", "f", false, "follow wikilinks recursively")
 	listCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
 	listCmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
 	listCmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
@@ -63,11 +61,6 @@ func init() {
 
 func runList(cmd *cobra.Command, args []string) error {
 	actions.Debug = debug
-
-	// If maxDepth is greater than 0, enable followLinks
-	if maxDepth > 0 {
-		followLinks = true
-	}
 
 	// If no vault name is provided, get the default vault name
 	if vaultName == "" {
@@ -123,7 +116,6 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	params := actions.ListParams{
 		Inputs:        inputs,
-		FollowLinks:   followLinks,
 		MaxDepth:      maxDepth,
 		SkipAnchors:   skipAnchors,
 		SkipEmbeds:    skipEmbeds,

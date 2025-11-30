@@ -30,7 +30,6 @@ type ListInput struct {
 // ListParams represents parameters for listing files
 type ListParams struct {
 	Inputs                   []ListInput                     // List of inputs to process
-	FollowLinks              bool                            // Whether to follow wiki links
 	MaxDepth                 int                             // Maximum depth for following links
 	SkipAnchors              bool                            // Whether to skip wikilinks with anchors (e.g. [[Note#Section]])
 	SkipEmbeds               bool                            // Whether to skip embedded wikilinks (e.g. ![[Embedded Note]])
@@ -171,7 +170,7 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 	}
 
 	// If following links, get all connected files
-	if params.FollowLinks {
+	if params.MaxDepth > 0 {
 		linkedFiles := followMatchedFiles(matches, vaultPath, note, params)
 		debugf("Found %d total files after following links\n", len(linkedFiles))
 

@@ -24,7 +24,7 @@ List files and optionally include content/frontmatter. Response: ` + "`" + `{vau
 
 **Inputs** (required array): ` + "`" + `find:pattern` + "`" + `, ` + "`" + `tag:name` + "`" + `, ` + "`" + `key:value` + "`" + `, or literal paths. Combine with AND/OR/NOT.
 
-**Options:** ` + "`" + `includeContent` + "`" + ` (default true), ` + "`" + `includeFrontmatter` + "`" + `, ` + "`" + `includeBacklinks` + "`" + `, ` + "`" + `followLinks` + "`" + `/` + "`" + `maxDepth` + "`" + `, ` + "`" + `absolutePaths` + "`" + `, ` + "`" + `suppressTags` + "`" + `/` + "`" + `noSuppress` + "`" + `.
+**Options:** ` + "`" + `includeContent` + "`" + ` (default true), ` + "`" + `includeFrontmatter` + "`" + `, ` + "`" + `includeBacklinks` + "`" + `, ` + "`" + `maxDepth` + "`" + ` (set >0 to follow links), ` + "`" + `absolutePaths` + "`" + `, ` + "`" + `suppressTags` + "`" + `/` + "`" + `noSuppress` + "`" + `.
 
 ### list_tags
 List all tags with individual and hierarchical counts. Response: ` + "`" + `{tags:[{name, individualCount, aggregateCount}]}` + "`" + `

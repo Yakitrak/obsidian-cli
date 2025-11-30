@@ -34,9 +34,9 @@ Examples:
   obsidian-cli prompt find:'n/s joe'  						# Notes in folder starting with "n" whose name contains a word starting with "s" and a word starting with "joe"
   obsidian-cli prompt tag:career-pathing 					# Notes tagged with "career-pathing"
   obsidian-cli prompt tag:"career-pathing" -d 2 	# Notes tagged with "career-pathing", notes they link to, and the notes those link to
-  obsidian-cli prompt find:project -f --skip-anchors   # Notes containing "project" and notes they link to, excluding links with section anchors
-  obsidian-cli prompt find:notes -f --skip-embeds      # Notes containing "notes" and notes they link to, excluding embedded links
-  obsidian-cli prompt find:docs -f --skip-anchors --skip-embeds  # Skip both anchored and embedded links
+  obsidian-cli prompt find:project -d 1 --skip-anchors   # Notes whose names match pattern plus directly linked notes, excluding anchors
+  obsidian-cli prompt find:notes -d 1 --skip-embeds      # Notes whose names match pattern plus directly linked notes, excluding embedded links
+  obsidian-cli prompt find:docs -d 1 --skip-anchors --skip-embeds  # Skip both anchored and embedded links
   obsidian-cli prompt tag:foo --suppress-tags private,draft     # Find tag:foo but exclude files with private or draft tags
   obsidian-cli prompt Notes --no-suppress                        # Don't exclude any tags (including no-prompt)
 	`,
@@ -44,11 +44,6 @@ Examples:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Enable debug output if debug flag is set
 		actions.Debug = debug
-
-		// If maxDepth is greater than 0, enable followLinks
-		if maxDepth > 0 {
-			followLinks = true
-		}
 
 		// Check if any inputs were provided
 		if len(args) == 0 {
@@ -145,7 +140,6 @@ Examples:
 
 		params := actions.ListParams{
 			Inputs:         inputs,
-			FollowLinks:    followLinks,
 			MaxDepth:       maxDepth,
 			SkipAnchors:    skipAnchors,
 			SkipEmbeds:     skipEmbeds,
@@ -223,7 +217,6 @@ Examples:
 
 func init() {
 	promptCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	promptCmd.Flags().BoolVarP(&followLinks, "follow", "f", false, "follow wikilinks recursively")
 	promptCmd.Flags().IntVarP(&maxDepth, "depth", "d", 0, "maximum depth for following wikilinks (0 means don't follow)")
 	promptCmd.Flags().BoolVar(&skipAnchors, "skip-anchors", false, "skip wikilinks that contain anchors (e.g. [[Note#Section]])")
 	promptCmd.Flags().BoolVar(&skipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
