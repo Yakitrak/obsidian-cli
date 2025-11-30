@@ -16,8 +16,17 @@ import (
 )
 
 // Service maintains an in-memory cache of vault files, metadata, and tags.
-// It performs a full crawl once, watches for filesystem changes, and refreshes
-// dirty entries before serving requests.
+//
+// Operational story (read before editing):
+//  1. EnsureReady() performs a one-time crawl to populate indices and install
+//     directory watches. It is concurrency-safe and uses a simple spin gate.
+//  2. watchLoop translates fsnotify events into "dirty" markers (or, on watcher
+//     failure, flips a stale flag).
+//  3. Refresh() is the front door callers hit before reading; it revalidates
+//     stale caches and applies dirty markers by re-reading or deleting paths.
+//
+// The intent is to keep the dataflow legible rather than aggressively abstracted:
+// callers see the crawl, the watcher, and the refresh step as distinct phases.
 type Service struct {
 	vaultPath string
 
@@ -130,6 +139,9 @@ func (s *Service) EnsureReady(ctx context.Context) error {
 		s.mu.Unlock()
 		return s.Refresh(ctx)
 	}
+
+	// From here exactly one goroutine owns the initial crawl: either we wait
+	// for the in-flight crawl to finish, or we claim the work ourselves.
 	// If another goroutine is already crawling, wait for it.
 	if s.crawling {
 		s.mu.Unlock()
@@ -162,6 +174,9 @@ func (s *Service) EnsureReady(ctx context.Context) error {
 }
 
 func (s *Service) loadIgnorePatterns() {
+	// Ignore patterns are loaded once at startup; we do not attempt to hot-reload
+	// .obsidianignore changes because the watcher already guards the main data paths
+	// and this keeps the cache predictable for the lifetime of the process.
 	ignorePath := filepath.Join(s.vaultPath, ".obsidianignore")
 	content, err := os.ReadFile(ignorePath)
 	if err != nil {
@@ -209,8 +224,11 @@ func (s *Service) Entry(path string) (Entry, bool) {
 	return out, true
 }
 
-// Refresh processes any dirty paths by re-reading or removing them.
-// If the cache was marked stale (watcher failure), a full revalidation is performed.
+// Refresh reconciles in-memory state with the filesystem. Think of it as the
+// “checkpoint” callers hit before reading:
+//   - If this is the first call, it delegates to EnsureReady().
+//   - If the watcher signaled trouble (stale flag), it revalidates every entry.
+//   - Otherwise it consumes any dirty markers emitted by watchLoop().
 func (s *Service) Refresh(ctx context.Context) error {
 	s.mu.Lock()
 	if !s.ready {
@@ -218,6 +236,7 @@ func (s *Service) Refresh(ctx context.Context) error {
 		return s.EnsureReady(ctx)
 	}
 
+	// Snapshot mutable state so we can release the lock while touching disk.
 	stale := s.stale
 	if stale {
 		s.stale = false
@@ -237,6 +256,7 @@ func (s *Service) Refresh(ctx context.Context) error {
 		return nil
 	}
 
+	// Consume dirty markers: remove, rescan parent (for renames), or refresh the file.
 	for path, kind := range dirty {
 		select {
 		case <-ctx.Done():
@@ -295,7 +315,7 @@ func (s *Service) revalidateAll(ctx context.Context) error {
 			continue
 		}
 
-		// Check if file changed (mtime or size mismatch).
+		// Cheap drift detection: if mtime or size differ, re-read the file.
 		if info.ModTime() != entry.ModTime || info.Size() != entry.Size {
 			if err := s.refreshPath(absPath); err != nil {
 				s.markDirty(absPath, DirtyModified)
@@ -314,6 +334,9 @@ func (s *Service) initialCrawl(ctx context.Context) error {
 		info fs.DirEntry
 	}
 
+	// Phase 1: walk and collect work. We collect into jobs so that the second
+	// phase (actual reads + watcher registration) can run with minimal locking
+	// and without mixing concerns inside WalkDir callbacks.
 	var jobs []job
 	err := filepath.WalkDir(s.vaultPath, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -348,6 +371,7 @@ func (s *Service) initialCrawl(ctx context.Context) error {
 		return err
 	}
 
+	// Phase 2: execute the work. Directories are watched; files are refreshed.
 	for _, j := range jobs {
 		select {
 		case <-ctx.Done():
@@ -375,6 +399,7 @@ func (s *Service) refreshPath(absPath string) error {
 		absPath = filepath.Join(s.vaultPath, absPath)
 	}
 
+	// Normalize early so all downstream indexing keys are consistent.
 	rel, err := filepath.Rel(s.vaultPath, absPath)
 	if err != nil {
 		return err
@@ -397,6 +422,7 @@ func (s *Service) refreshPath(absPath string) error {
 		return nil
 	}
 
+	// Read the file once; reuse the content for all extractors to avoid multiple disk hits.
 	content, err := os.ReadFile(absPath)
 	if err != nil {
 		return err
@@ -409,6 +435,7 @@ func (s *Service) refreshPath(absPath string) error {
 		Content: string(content),
 	}
 
+	// Extract frontmatter + inline props + tags in one pass per refresh.
 	fm, _ := obsidian.ExtractFrontmatter(entry.Content)
 	if fm != nil {
 		entry.Frontmatter = fm
@@ -453,6 +480,7 @@ func (s *Service) rescanDir(absDir string) error {
 	if err != nil {
 		return err
 	}
+	// Non-recursive: watcher events will cascade for deeper levels.
 	for _, entry := range entries {
 		if entry.IsDir() {
 			s.addWatch(filepath.Join(absDir, entry.Name()))
@@ -507,7 +535,8 @@ func (s *Service) markDirty(absPath string, kind DirtyKind) {
 
 	s.mu.Lock()
 	if existing, ok := s.dirty[rel]; ok {
-		// Prefer removal markers to avoid stale entries.
+		// Prefer removal markers to avoid stale entries; once a path is gone we
+		// do not want later modify events to resurrect it.
 		if existing == DirtyRemoved || kind == DirtyRemoved {
 			s.dirty[rel] = DirtyRemoved
 		}
@@ -519,6 +548,7 @@ func (s *Service) markDirty(absPath string, kind DirtyKind) {
 }
 
 func (s *Service) startWatcher() {
+	// watchLoop is intentionally fire-and-forget; errors bubble through markStale().
 	s.watchOnce.Do(func() {
 		go s.watchLoop()
 	})
@@ -542,6 +572,9 @@ func (s *Service) addWatch(path string) {
 }
 
 func (s *Service) watchLoop() {
+	// This loop translates filesystem noise into coarse-grained signals:
+	// mark paths dirty so Refresh() can reconcile, or mark the whole cache
+	// stale when the watcher itself fails.
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -609,7 +642,7 @@ func shouldSkip(vaultPath, relPath string, info fileInfo, ignored []string) bool
 		return true
 	}
 
-	// Check ignore patterns
+	// Check ignore patterns (.obsidianignore)
 	absPath := filepath.Join(vaultPath, relPath)
 	return obsidian.ShouldIgnorePath(vaultPath, absPath, ignored)
 }
