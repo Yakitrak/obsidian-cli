@@ -13,7 +13,10 @@ var (
 )
 
 var addVaultCmd = &cobra.Command{
-	Use:   "add-vault [name] [path]",
+	Use: "add [name] [path]",
+	Aliases: []string{
+		"add-vault",
+	},
 	Short: "Add or override a vault path in obsidian-cli preferences",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -31,5 +34,5 @@ var addVaultCmd = &cobra.Command{
 
 func init() {
 	addVaultCmd.Flags().BoolVar(&addVaultForce, "force", false, "overwrite existing path for this vault name")
-	rootCmd.AddCommand(addVaultCmd)
+	vaultCmd.AddCommand(addVaultCmd)
 }

@@ -28,5 +28,5 @@ var printDefaultCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(printDefaultCmd)
+	vaultCmd.AddCommand(printDefaultCmd)
 }

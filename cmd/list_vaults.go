@@ -12,7 +12,10 @@ import (
 )
 
 var listVaultsCmd = &cobra.Command{
-	Use:   "list-vaults",
+	Use: "list",
+	Aliases: []string{
+		"list-vaults",
+	},
 	Short: "List vault mappings stored in obsidian-cli preferences",
 	Run: func(cmd *cobra.Command, args []string) {
 		vaults, defaultName, err := obsidian.ListPreferenceVaults()
@@ -71,5 +74,5 @@ var listVaultsCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(listVaultsCmd)
+	vaultCmd.AddCommand(listVaultsCmd)
 }

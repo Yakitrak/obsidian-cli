@@ -9,7 +9,10 @@ import (
 )
 
 var removeVaultCmd = &cobra.Command{
-	Use:   "remove-vault [name]",
+	Use: "remove [name]",
+	Aliases: []string{
+		"remove-vault",
+	},
 	Short: "Remove a vault path from obsidian-cli preferences",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -24,5 +27,5 @@ var removeVaultCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(removeVaultCmd)
+	vaultCmd.AddCommand(removeVaultCmd)
 }

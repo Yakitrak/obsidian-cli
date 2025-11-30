@@ -30,5 +30,5 @@ var setDefaultCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(setDefaultCmd)
+	vaultCmd.AddCommand(setDefaultCmd)
 }
