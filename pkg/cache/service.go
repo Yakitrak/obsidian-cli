@@ -29,7 +29,7 @@ type Service struct {
 	tagIndex  map[string]map[string]struct{}
 	dirIndex  map[string]struct{} // directories currently watched
 	dirty     map[string]DirtyKind
-	ignored   []string            // loaded from .obsidianignore
+	ignored   []string // loaded from .obsidianignore
 
 	watcher   Watcher
 	watchOnce sync.Once
@@ -337,7 +337,7 @@ func (s *Service) initialCrawl(ctx context.Context) error {
 			jobs = append(jobs, job{path: path, info: d})
 			return nil
 		}
-		
+
 		if shouldSkip(s.vaultPath, rel, d, ignored) {
 			return nil
 		}
@@ -608,7 +608,7 @@ func shouldSkip(vaultPath, relPath string, info fileInfo, ignored []string) bool
 	if filepath.Ext(relPath) != ".md" {
 		return true
 	}
-	
+
 	// Check ignore patterns
 	absPath := filepath.Join(vaultPath, relPath)
 	return obsidian.ShouldIgnorePath(vaultPath, absPath, ignored)

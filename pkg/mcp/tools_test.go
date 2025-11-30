@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
@@ -216,4 +218,72 @@ count: 2
 		}
 	}
 	assert.True(t, officeFound, "expected office property in response")
+}
+
+func TestListPropertiesToolWithOnlyRaisesValueLimit(t *testing.T) {
+	tempDir := t.TempDir()
+	vaultPath := filepath.Join(tempDir, "vault")
+	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
+		t.Fatalf("failed to create vault dir: %v", err)
+	}
+
+	var contentBuilder strings.Builder
+	contentBuilder.WriteString("---\nwho:\n")
+	for i := 1; i <= 30; i++ {
+		fmt.Fprintf(&contentBuilder, "  - Person %02d\n", i)
+	}
+	contentBuilder.WriteString("omit: skip\n---")
+
+	if err := os.WriteFile(filepath.Join(vaultPath, "note.md"), []byte(contentBuilder.String()), 0o644); err != nil {
+		t.Fatalf("failed to write note.md: %v", err)
+	}
+
+	obsidianConfig := filepath.Join(tempDir, "obsidian.json")
+	configJSON := `{"vaults":{"vault":{"path":"` + vaultPath + `"}}}`
+	if err := os.WriteFile(obsidianConfig, []byte(configJSON), 0o644); err != nil {
+		t.Fatalf("failed to write obsidian config: %v", err)
+	}
+
+	origConfig := obsidian.ObsidianConfigFile
+	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
+	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+
+	cfg := Config{
+		Vault:     &obsidian.Vault{Name: "vault"},
+		VaultPath: vaultPath,
+		Debug:     false,
+	}
+
+	tool := ListPropertiesTool(cfg)
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "list_properties",
+			Arguments: map[string]interface{}{
+				"only": []interface{}{"who"},
+			},
+		},
+	}
+
+	resp, err := tool(context.Background(), req)
+	assert.NoError(t, err)
+	if !assert.Len(t, resp.Content, 1) {
+		return
+	}
+
+	text, ok := resp.Content[0].(mcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", resp.Content[0])
+	}
+
+	var parsed PropertyListResponse
+	err = json.Unmarshal([]byte(text.Text), &parsed)
+	assert.NoError(t, err)
+	if !assert.Len(t, parsed.Properties, 1) {
+		return
+	}
+
+	assert.Equal(t, "who", parsed.Properties[0].Name)
+	assert.Equal(t, 30, parsed.Properties[0].DistinctValueCount)
+	assert.False(t, parsed.Properties[0].TruncatedValueSet)
+	assert.Len(t, parsed.Properties[0].EnumValues, 30, "valueLimit should be raised to enumerate all values")
 }

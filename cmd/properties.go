@@ -26,6 +26,7 @@ Tags are included by default; use --exclude-tags to skip them.`,
 			valueLimit, _ = cmd.Flags().GetInt("enum-threshold")
 		}
 		maxValues, _ := cmd.Flags().GetInt("max-values")
+		onlyProps, _ := cmd.Flags().GetStringSlice("only")
 		matchPatterns, _ := cmd.Flags().GetStringSlice("match")
 		verboseEnums, _ := cmd.Flags().GetBool("verbose")
 		includeValueCounts, _ := cmd.Flags().GetBool("value-counts")
@@ -70,6 +71,18 @@ Tags are included by default; use --exclude-tags to skip them.`,
 			return nil
 		}
 
+		valueLimitChanged := cmd.Flags().Changed("value-limit") || cmd.Flags().Changed("enum-threshold")
+		if len(onlyProps) > 0 && !valueLimitChanged {
+			if maxValues <= 0 {
+				maxValues = 500
+			}
+			if maxValues > 1 {
+				valueLimit = maxValues - 1
+			} else {
+				valueLimit = maxValues
+			}
+		}
+
 		if verboseEnums && valueLimit < 50 {
 			valueLimit = 50
 		}
@@ -82,6 +95,7 @@ Tags are included by default; use --exclude-tags to skip them.`,
 			ValueLimit:         valueLimit,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,
+			Only:               onlyProps,
 			ForceEnumMixed:     verboseEnums,
 			Source:             source,
 			IncludeValueCounts: includeValueCounts,
@@ -171,6 +185,7 @@ func init() {
 	propertiesCmd.Flags().Int("value-limit", 5, "Emit values when distinct counts are at or below this limit")
 	propertiesCmd.Flags().Int("enum-threshold", 5, "Deprecated: use --value-limit")
 	propertiesCmd.Flags().Int("max-values", 500, "Maximum distinct values to track per property for reporting")
+	propertiesCmd.Flags().StringSlice("only", nil, "Only include these property names (repeatable)")
 	propertiesCmd.Flags().StringSliceP("match", "m", nil, "Restrict analysis to files matched by find/tag/path patterns")
 	propertiesCmd.Flags().Bool("verbose", false, "Show expanded enums: allow mixed-type enums and raise value limit to 50")
 	propertiesCmd.Flags().Bool("value-counts", false, "Include per-value note counts for value outputs")

@@ -36,6 +36,7 @@ type PropertiesOptions struct {
 	ValueLimit         int // max distinct values to emit as enum/value list
 	MaxValues          int // cap stored values to avoid unbounded memory
 	Notes              []string
+	Only               []string
 	ForceEnumMixed     bool
 	Source             PropertySource // which property sources to scan (default: all)
 	IncludeValueCounts bool
@@ -88,6 +89,23 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 		numWorkers = 1
 	}
 
+	filterProps := make(map[string]struct{})
+	for _, name := range opts.Only {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		filterProps[name] = struct{}{}
+	}
+
+	allowProperty := func(name string) bool {
+		if len(filterProps) == 0 {
+			return true
+		}
+		_, ok := filterProps[name]
+		return ok
+	}
+
 	batchSize := (len(scanNotes) + numWorkers - 1) / numWorkers
 	results := make(chan map[string]*propertyCounts, numWorkers)
 	var wg sync.WaitGroup
@@ -127,6 +145,9 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 					if key == "tags" && opts.ExcludeTags {
 						return
 					}
+					if !allowProperty(key) {
+						return
+					}
 					np, ok := perNote[key]
 					if !ok {
 						np = &propertyCounts{
@@ -153,11 +174,17 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 				}
 
 				for key, raw := range frontmatter {
+					if !allowProperty(key) {
+						continue
+					}
 					info := obsidian.AnalyzePropertyValue(raw)
 					addPerNote(key, info)
 				}
 
 				for key, values := range inline {
+					if !allowProperty(key) {
+						continue
+					}
 					info := obsidian.AnalyzePropertyValue(values)
 					info.Shape = "scalar" // inline treated as scalar entries per line
 					addPerNote(key, info)

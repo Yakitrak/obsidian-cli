@@ -52,8 +52,9 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 
 	// Register list_properties tool
 	listPropertiesTool := mcp.NewTool("list_properties",
-		mcp.WithDescription(`Inspect properties across the vault (frontmatter + inline 'Key:: Value'). Returns inferred shape/type, note counts, enums, and per-value counts. Supports 'match' filters (find:, tag:, paths) with boolean AND/OR/NOT. Defaults: valueLimit=25, valueCounts=true, source=all. Response: {properties:[{name,noteCount,shape,valueType,enumValues?,enumValueCounts?,distinctValueCount,truncatedValueSet?}]}`),
+		mcp.WithDescription(`Inspect properties across the vault (frontmatter + inline 'Key:: Value'). Returns inferred shape/type, note counts, enums, and per-value counts. Supports 'match' filters (find:, tag:, paths) with boolean AND/OR/NOT. Defaults: valueLimit=25 (or maxValues-1 when 'only' is set), valueCounts=true, source=all. Response: {properties:[{name,noteCount,shape,valueType,enumValues?,enumValueCounts?,distinctValueCount,truncatedValueSet?}]}`),
 		mcp.WithBoolean("excludeTags", mcp.Description("Exclude the tags field (default false; included by default)")),
+		mcp.WithArray("only", mcp.Description("Restrict output to these property names"), mcp.WithStringItems()),
 		mcp.WithString("source", mcp.Description("Property source: 'all' (default), 'frontmatter' (YAML only), or 'inline' (Dataview Key:: Value only)")),
 		mcp.WithArray("match", mcp.Description("Optional: restrict scan to files matched by these patterns (find:*, tag:, or paths). Boolean AND/OR/NOT and parentheses are supported."), mcp.WithStringItems()),
 		mcp.WithNumber("valueLimit", mcp.Description("Emit values when distinct counts are at or below this limit (default 25)"), mcp.Min(1)),

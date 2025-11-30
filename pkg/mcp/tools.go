@@ -360,16 +360,38 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
+		onlyProps := make([]string, 0)
+		if raw, ok := args["only"]; ok {
+			switch v := raw.(type) {
+			case []interface{}:
+				for _, item := range v {
+					if s, ok := item.(string); ok {
+						onlyProps = append(onlyProps, s)
+					}
+				}
+			case []string:
+				onlyProps = v
+			case string:
+				onlyProps = append(onlyProps, v)
+			}
+		}
+
 		valueLimit := 25
+		valueLimitSet := false
 		if v, ok := args["valueLimit"].(float64); ok {
 			valueLimit = int(v)
+			valueLimitSet = true
 		} else if v, ok := args["enumThreshold"].(float64); ok { // backward compatibility
 			valueLimit = int(v)
+			valueLimitSet = true
 		}
 
 		maxValues := 500
 		if v, ok := args["maxValues"].(float64); ok {
 			maxValues = int(v)
+		}
+		if maxValues <= 0 {
+			maxValues = 500
 		}
 
 		includeValueCounts := true
@@ -384,6 +406,13 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			forceEnumMixed = true
 			if valueLimit < 50 {
 				valueLimit = 50
+			}
+		}
+		if len(onlyProps) > 0 && !valueLimitSet {
+			if maxValues > 1 {
+				valueLimit = maxValues - 1
+			} else {
+				valueLimit = maxValues
 			}
 		}
 		if maxValues < valueLimit+1 {
@@ -420,6 +449,7 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			ValueLimit:         valueLimit,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,
+			Only:               onlyProps,
 			ForceEnumMixed:     forceEnumMixed,
 			IncludeValueCounts: includeValueCounts,
 		})

@@ -34,7 +34,7 @@ List all tags with individual and hierarchical counts. Response: ` + "`" + `{tag
 ### list_properties
 Inspect frontmatter and inline properties. Response: ` + "`" + `{properties:[{name, noteCount, shape, valueType, enumValues?, enumValueCounts?}]}` + "`" + `
 
-**Options:** ` + "`" + `source` + "`" + ` ("all", "frontmatter", or "inline"), ` + "`" + `match` + "`" + `, ` + "`" + `excludeTags` + "`" + `, ` + "`" + `valueLimit` + "`" + ` (default 25), ` + "`" + `verbose` + "`" + `, ` + "`" + `valueCounts` + "`" + ` (default true).
+**Options:** ` + "`" + `source` + "`" + ` ("all", "frontmatter", or "inline"), ` + "`" + `match` + "`" + `, ` + "`" + `excludeTags` + "`" + `, ` + "`" + `only` + "`" + ` (limit to specific properties), ` + "`" + `valueLimit` + "`" + ` (default 25; maxValues-1 when ` + "`" + `only` + "`" + ` is used), ` + "`" + `verbose` + "`" + `, ` + "`" + `valueCounts` + "`" + ` (default true).
 
 ### daily_note / daily_note_path
 Get or locate the daily note. Defaults to today; pass ` + "`" + `date` + "`" + ` as YYYY-MM-DD.

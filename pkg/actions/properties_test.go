@@ -229,6 +229,44 @@ prop: b
 	}
 }
 
+func TestPropertiesOnlyFiltersProperties(t *testing.T) {
+	notes := map[string]string{
+		"note.md": `---
+keep: front
+drop: skip
+---
+keep:: inline
+drop:: nope
+`,
+	}
+
+	vaultManager := &mocks.VaultManager{}
+	noteManager := &mocks.NoteManager{}
+
+	vaultManager.On("Path").Return("/mock/vault", nil)
+	noteManager.On("GetNotesList", "/mock/vault").Return([]string{"note.md"}, nil)
+	noteManager.On("GetContents", "/mock/vault", "note.md").Return(notes["note.md"], nil)
+
+	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
+		ValueLimit: 10,
+		MaxValues:  10,
+		Only:       []string{"keep"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 property, got %d", len(result))
+	}
+	if result[0].Name != "keep" {
+		t.Fatalf("expected only 'keep' property, got %s", result[0].Name)
+	}
+	if result[0].DistinctValueCount != 2 {
+		t.Fatalf("expected two values for keep, got %d", result[0].DistinctValueCount)
+	}
+}
+
 func TestPropertiesMaxValuesFollowsValueLimit(t *testing.T) {
 	notes := map[string]string{
 		"one.md": `---

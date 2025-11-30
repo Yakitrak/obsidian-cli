@@ -231,7 +231,7 @@ func TestServiceStaleRevalidation(t *testing.T) {
 
 func TestServiceRespectsObsidianIgnore(t *testing.T) {
 	tmp := t.TempDir()
-	
+
 	// Create ignored file
 	ignoredPath := filepath.Join(tmp, "Ignored.md")
 	require.NoError(t, os.WriteFile(ignoredPath, []byte("#secret"), 0o644))
