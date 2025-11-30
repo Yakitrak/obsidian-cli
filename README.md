@@ -277,6 +277,24 @@ Key flags:
 - `--verbose`: allow enums for mixed types and bump value limit to 50
 - `--value-counts`: include per-value note counts in output
 
+### Link Graph (wikilinks)
+
+Summarize connectedness; all commands are under `graph`:
+
+```bash
+# Per-note in/out degrees
+obsidian-cli graph degrees --vault "{vault-name}"
+
+# Mutual-link clusters (SCCs)
+obsidian-cli graph clusters --vault "{vault-name}"
+
+# Notes with no inbound or outbound links (self-links ignored)
+obsidian-cli graph orphans --vault "{vault-name}"
+
+# Skip anchors or embeds when parsing links
+obsidian-cli graph clusters --skip-anchors --skip-embeds
+```
+
 ### Tags (listing)
 
 List tags with per-note and hierarchical counts. You can scope listing to a subset of files using the same match patterns as `list`.

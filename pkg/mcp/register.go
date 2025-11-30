@@ -63,6 +63,20 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	)
 	s.AddTool(listPropertiesTool, ListPropertiesTool(config))
 
+	graphStatsTool := mcp.NewTool("graph_stats",
+		mcp.WithDescription(`Compute link-graph degree counts and mutual-link clusters. Response: {nodes:{path:{inbound, outbound}}, components:[[...]], orphans:[...]} (paths are vault-relative). Cycles are not treated as errors.`),
+		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
+		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+	)
+	s.AddTool(graphStatsTool, GraphStatsTool(config))
+
+	orphansTool := mcp.NewTool("orphans",
+		mcp.WithDescription(`List notes with no inbound or outbound wikilinks. Uses the same parsing options as graph_stats.`),
+		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
+		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+	)
+	s.AddTool(orphansTool, OrphansTool(config))
+
 	// Register daily_note tool (returns content)
 	dailyNoteTool := mcp.NewTool("daily_note",
 		mcp.WithDescription(`Return JSON with path, existence, and content for the daily note. Creates an empty note if it doesn't exist. Response: {path,date,exists,content}

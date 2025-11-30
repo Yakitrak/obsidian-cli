@@ -36,6 +36,16 @@ Inspect frontmatter and inline properties. Response: ` + "`" + `{properties:[{na
 
 **Options:** ` + "`" + `source` + "`" + ` ("all", "frontmatter", or "inline"), ` + "`" + `match` + "`" + `, ` + "`" + `excludeTags` + "`" + `, ` + "`" + `only` + "`" + ` (limit to specific properties), ` + "`" + `valueLimit` + "`" + ` (default 25; maxValues-1 when ` + "`" + `only` + "`" + ` is used), ` + "`" + `verbose` + "`" + `, ` + "`" + `valueCounts` + "`" + ` (default true).
 
+### graph_stats
+Compute wikilink degree counts and mutual-link clusters (SCCs). Response: ` + "`" + `{nodes:{path:{inbound, outbound}}, components:[[...]], orphans:[...]}` + "`" + ` (paths are vault-relative). Cycles are informational, not errors.
+
+**Options:** ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `.
+
+### orphans
+List notes with no inbound or outbound wikilinks. Response: ` + "`" + `{orphans:[paths...]}` + "`" + `.
+
+**Options:** ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `.
+
 ### daily_note / daily_note_path
 Get or locate the daily note. Defaults to today; pass ` + "`" + `date` + "`" + ` as YYYY-MM-DD.
 

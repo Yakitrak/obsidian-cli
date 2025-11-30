@@ -58,6 +58,18 @@ type PropertyListResponse struct {
 	Properties []actions.PropertySummary `json:"properties"`
 }
 
+// GraphStatsResponse describes link-graph degree counts and components.
+type GraphStatsResponse struct {
+	Nodes      map[string]obsidian.NodeStats `json:"nodes"`
+	Components [][]string                    `json:"components"`
+	Orphans    []string                      `json:"orphans"`
+}
+
+// OrphansResponse describes orphaned note paths.
+type OrphansResponse struct {
+	Orphans []string `json:"orphans"`
+}
+
 // TagMutationResult describes the JSON shape returned by tag mutators
 type TagMutationResult struct {
 	DryRun       bool           `json:"dryRun,omitempty"`
@@ -459,6 +471,59 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling property list: %s", err)), nil
 		}
 
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+// GraphStatsTool exposes link-graph degree counts and SCCs.
+func GraphStatsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+		skipAnchors, _ := args["skipAnchors"].(bool)
+		skipEmbeds, _ := args["skipEmbeds"].(bool)
+
+		stats, err := actions.GraphStats(config.Vault, resolveNoteManager(config), obsidian.WikilinkOptions{
+			SkipAnchors: skipAnchors,
+			SkipEmbeds:  skipEmbeds,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error computing graph stats: %s", err)), nil
+		}
+
+		resp := GraphStatsResponse{
+			Nodes:      stats.Nodes,
+			Components: stats.Components,
+			Orphans:    stats.Orphans(),
+		}
+		encoded, err := json.Marshal(resp)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling graph stats: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+// OrphansTool returns notes with zero inbound and outbound wikilinks.
+func OrphansTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+		skipAnchors, _ := args["skipAnchors"].(bool)
+		skipEmbeds, _ := args["skipEmbeds"].(bool)
+
+		orphans, err := actions.Orphans(config.Vault, resolveNoteManager(config), obsidian.WikilinkOptions{
+			SkipAnchors: skipAnchors,
+			SkipEmbeds:  skipEmbeds,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error finding orphans: %s", err)), nil
+		}
+
+		resp := OrphansResponse{Orphans: orphans}
+		encoded, err := json.Marshal(resp)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling orphans: %s", err)), nil
+		}
 		return mcp.NewToolResultText(string(encoded)), nil
 	}
 }
