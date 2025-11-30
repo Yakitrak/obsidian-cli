@@ -205,9 +205,12 @@ obsidian-cli list Office:AOGR
 # Combine filters with boolean logic (inputs default to OR)
 obsidian-cli list tag:project AND tag:person
 obsidian-cli list tag:project AND NOT Office:AOGR
+obsidian-cli list "( tag:project AND NOT tag:archived ) OR find:*proposal*"
+obsidian-cli list tag:project OR tag:research
+obsidian-cli list "( find:*notes* OR find:*journal* ) AND NOT tag:private"
 ```
 
-Patterns support `find:` (filename glob), `tag:` (frontmatter + inline hashtags), `key:value` (frontmatter + inline `Key:: Value`, including Dataview), boolean `AND/OR/NOT`, and parentheses. Terms without operators are ORed.
+Patterns support `find:` (filename glob, matches file names only—not content), `tag:` (frontmatter + inline hashtags), `key:value` (frontmatter + inline `Key:: Value`, including Dataview), boolean `AND/OR/NOT`, and parentheses. Terms without operators are ORed.
 
 ### Properties (frontmatter + inline)
 
