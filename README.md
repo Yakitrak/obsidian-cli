@@ -44,6 +44,30 @@ obsidian-cli set-default "{vault-name}"
 
 Note: `open` and other commands in `obsidian-cli` use this vault's base directory as the working directory, not the current working directory of your terminal.
 
+### Add Vault Path (outside Obsidian)
+
+Store a vault name and path directly in `obsidian-cli` preferences. This is useful when the vault is not registered in Obsidian's `obsidian.json`. Use `--force` to overwrite an existing mapping.
+
+```bash
+obsidian-cli add-vault "{vault-name}" "/path/to/vault" [--force]
+```
+
+### Remove Vault Path
+
+Remove a vault mapping from `obsidian-cli` preferences.
+
+```bash
+obsidian-cli remove-vault "{vault-name}"
+```
+
+### List Vault Paths
+
+Show vault mappings stored in `obsidian-cli` preferences and Obsidian's own `obsidian.json` (includes the default marker when set).
+
+```bash
+obsidian-cli list-vaults
+```
+
 ### Print Default Vault
 
 Prints default vault and path. Please set this with `set-default` command if not set.

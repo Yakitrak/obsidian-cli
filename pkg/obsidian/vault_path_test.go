@@ -102,4 +102,35 @@ func TestVaultPath(t *testing.T) {
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.ObsidianConfigVaultNotFoundError)
 	})
+
+	t.Run("Uses CLI preferences when present", func(t *testing.T) {
+		obsidian.ObsidianConfigFile = func() (string, error) {
+			return mockObsidianConfigFile, nil
+		}
+
+		mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
+		obsidian.CliConfigPath = func() (string, string, error) {
+			return mockCliConfigDir, mockCliConfigFile, nil
+		}
+		err := os.WriteFile(mockCliConfigFile, []byte(`{"vaults":{"vault1":{"path":"/manual/path"}}}`), 0644)
+		assert.NoError(t, err)
+
+		vault := obsidian.Vault{Name: "vault1"}
+		vaultPath, err := vault.Path()
+		assert.NoError(t, err)
+		assert.Equal(t, "/manual/path", vaultPath)
+	})
+
+	t.Run("ListObsidianVaults returns configured entries", func(t *testing.T) {
+		obsidian.ObsidianConfigFile = func() (string, error) {
+			return mockObsidianConfigFile, nil
+		}
+		err := os.WriteFile(mockObsidianConfigFile, []byte(obsidianConfig), 0644)
+		assert.NoError(t, err)
+
+		vaults, err := obsidian.ListObsidianVaults()
+		assert.NoError(t, err)
+		assert.Equal(t, "/path/to/vault1", vaults["random1"].Path)
+		assert.Equal(t, "/path/to/vault2", vaults["random2"].Path)
+	})
 }

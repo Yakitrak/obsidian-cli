@@ -99,6 +99,7 @@ All tag tools support ` + "`" + `dryRun` + "`" + ` to preview changes.
 - **Use dryRun** before any destructive tag operation.
 - **Batch operations**: pass multiple tags/patterns in one call rather than looping.
 - **Prefer read-only tools** (` + "`" + `files` + "`" + `, ` + "`" + `list_tags` + "`" + `, ` + "`" + `list_properties` + "`" + `) unless writes are requested.
+- **Add vaults not registered in Obsidian** via the CLI command ` + "`" + `add-vault <name> <path>` + "`" + `; defaults and MCP tools honor these preferences alongside Obsidian's own config.
 `
 
 	res := mcp.Resource{

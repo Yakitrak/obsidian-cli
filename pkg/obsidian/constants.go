@@ -14,4 +14,8 @@ const (
 	ObsidianConfigReadError            = "Failed to read Obsidian config file. Please ensure vault has been set up in Obsidian."
 	ObsidianConfigParseError           = "Failed to parse Obsidian config file. Please ensure vault has been set up in Obsidian."
 	ObsidianConfigVaultNotFoundError   = "Vault not found in Obsidian config file. Please ensure vault has been set up in Obsidian."
+	ObsidianCLIVaultExistsError        = "Vault already exists in obsidian-cli preferences; use --force to overwrite"
+	ObsidianCLIVaultNotFoundError      = "Vault not found in obsidian-cli preferences"
+	ObsidianCLIVaultPathInvalidError   = "Vault path must be an existing directory"
+	ObsidianCLIVaultNameRequiredError  = "Vault name is required"
 )
