@@ -27,5 +27,5 @@ var OpenVaultCmd = &cobra.Command{
 
 func init() {
 	OpenVaultCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
-	rootCmd.AddCommand(OpenVaultCmd)
+	noteCmd.AddCommand(OpenVaultCmd)
 }

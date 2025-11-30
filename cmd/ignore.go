@@ -37,5 +37,5 @@ var installIgnoreCmd = &cobra.Command{
 func init() {
 	installIgnoreCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	installIgnoreCmd.Flags().Bool("force", false, "Overwrite an existing .obsidianignore")
-	rootCmd.AddCommand(installIgnoreCmd)
+	vaultCmd.AddCommand(installIgnoreCmd)
 }

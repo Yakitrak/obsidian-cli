@@ -42,5 +42,5 @@ func init() {
 	renameCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	renameCmd.Flags().BoolVar(&renameOverwrite, "overwrite", false, "overwrite target note if it exists")
 	renameCmd.Flags().BoolVar(&renameNoBacklinks, "no-backlinks", false, "skip rewriting backlinks to the renamed note")
-	rootCmd.AddCommand(renameCmd)
+	noteCmd.AddCommand(renameCmd)
 }

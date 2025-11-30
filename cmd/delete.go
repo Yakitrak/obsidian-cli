@@ -28,5 +28,5 @@ var deleteCmd = &cobra.Command{
 func init() {
 	deleteCmd.Flags().BoolVarP(&shouldOpen, "open", "o", false, "open new note")
 	deleteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	rootCmd.AddCommand(deleteCmd)
+	noteCmd.AddCommand(deleteCmd)
 }

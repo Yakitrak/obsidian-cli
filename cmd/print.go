@@ -32,5 +32,5 @@ var printCmd = &cobra.Command{
 
 func init() {
 	printCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	rootCmd.AddCommand(printCmd)
+	noteCmd.AddCommand(printCmd)
 }

@@ -82,10 +82,10 @@ Open given note name in Obsidian. Note can also be an absolute path from top lev
 
 ```bash
 # Opens note in obsidian vault
-obsidian-cli open "{note-name}"
+obsidian-cli note open "{note-name}"
 
 # Opens note in specified obsidian vault
-obsidian-cli open "{note-name}" --vault "{vault-name}"
+obsidian-cli note open "{note-name}" --vault "{vault-name}"
 
 ```
 
@@ -121,10 +121,10 @@ Prints the contents of given note name in Obsidian.
 
 ```bash
 # Prints note in default vault
-obsidian-cli print "{note-name}"
+obsidian-cli note print "{note-name}"
 
 # Prints note in specified obsidian
-obsidian-cli print "{note-name}" --vault "{vault-name}"
+obsidian-cli note print "{note-name}" --vault "{vault-name}"
 
 ```
 
@@ -159,10 +159,10 @@ Moves or renames notes within the vault. By default, Obsidian links match note n
 
 ```bash
 # Rename or move a single note
-obsidian-cli move "{current-note-path}" "{new-note-path}" [--vault "{vault-name}"] [--overwrite] [--update-backlinks] [--open]
+obsidian-cli note move "{current-note-path}" "{new-note-path}" [--vault "{vault-name}"] [--overwrite] [--update-backlinks] [--open]
 
 # Bulk move notes into a folder (preserves filenames)
-obsidian-cli move --to-folder "Archive/2024" "NoteA.md" "NoteB.md" [--vault "{vault-name}"] [--overwrite] [--update-backlinks]
+obsidian-cli note move --to-folder "Archive/2024" "NoteA.md" "NoteB.md" [--vault "{vault-name}"] [--overwrite] [--update-backlinks]
 ```
 
 Flags:
@@ -177,7 +177,7 @@ Flags:
 Renames a note and rewrites backlinks (aliases, headers, block refs, embeds) to the new path. Tries `git mv` when the vault is a git repo (to keep history); if git cannot complete the move (e.g., due to conflicts), falls back to a filesystem rename.
 
 ```bash
-obsidian-cli rename "{source-note}" "{target-note}" [--vault "{vault-name}"] [--overwrite] [--no-backlinks]
+obsidian-cli note rename "{source-note}" "{target-note}" [--vault "{vault-name}"] [--overwrite] [--no-backlinks]
 ```
 
 Flags:
@@ -191,10 +191,10 @@ Deletes a given note (path from top level of vault).
 
 ```bash
 # Deletes a note in default obsidian
-obsidian-cli delete "{note-path}"
+obsidian-cli note delete "{note-path}"
 
 # Deletes a note in given obsidian
-obsidian-cli delete "{note-path}" --vault "{vault-name}"
+obsidian-cli note delete "{note-path}" --vault "{vault-name}"
 ```
 
 ### List Files
@@ -314,10 +314,10 @@ Show detailed information about a file including its frontmatter and all tags.
 
 ```bash
 # Show file info in default vault
-obsidian-cli info "Notes/Project.md"
+obsidian-cli note info "Notes/Project.md"
 
 # Show file info in specified vault
-obsidian-cli info "Notes/Project.md" --vault "{vault-name}"
+obsidian-cli note info "Notes/Project.md" --vault "{vault-name}"
 ```
 
 ### Prompt (LLM Format)
@@ -391,7 +391,7 @@ obsidian-cli tags --delete work urgent --workers 4
 obsidian-cli skips common tooling clutter even if you haven't created a `.obsidianignore` (e.g., `.git/`, `.cursor/`, `.codex/`, `.cache/`, `node_modules/`, `dist/`, `build/`, `.venv/`). To write the default ignore file into your vault for reuse, run:
 
 ```bash
-obsidian-cli install-ignore --vault "MyVault"   # add --force to overwrite an existing file
+obsidian-cli vault install-ignore --vault "MyVault"   # add --force to overwrite an existing file
 ```
 
 ## YAML formatting changes when editing tags

@@ -34,7 +34,7 @@ func TestRenameCommand(t *testing.T) {
 		t.Fatalf("seed ref: %v", err)
 	}
 
-	rootCmd.SetArgs([]string{"rename", "Old", "New", "--vault", "testvault"})
+	rootCmd.SetArgs([]string{"note", "rename", "Old", "New", "--vault", "testvault"})
 	err := rootCmd.Execute()
 	rootCmd.SetArgs([]string{})
 

@@ -78,5 +78,5 @@ func init() {
 	moveCmd.Flags().BoolVar(&moveOverwrite, "overwrite", false, "overwrite target note if it exists")
 	moveCmd.Flags().BoolVar(&moveUpdateBacklinks, "update-backlinks", false, "rewrite backlinks to point to the moved note (default: false)")
 	moveCmd.Flags().StringVar(&moveToFolder, "to-folder", "", "move one or more notes into the specified folder (preserves filenames)")
-	rootCmd.AddCommand(moveCmd)
+	noteCmd.AddCommand(moveCmd)
 }

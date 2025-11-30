@@ -61,5 +61,5 @@ Example:
 
 func init() {
 	infoCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	rootCmd.AddCommand(infoCmd)
+	noteCmd.AddCommand(infoCmd)
 }
