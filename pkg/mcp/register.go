@@ -9,7 +9,7 @@ import (
 func RegisterAll(s *server.MCPServer, config Config) error {
 	// Register files tool (list files and optionally return content/frontmatter as JSON)
 	promptFilesTool := mcp.NewTool("files",
-		mcp.WithDescription(`List matching files and optionally return their contents/frontmatter as JSON. Response: {vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]} Designed for agents to fetch paths or bulk-load note bodies in one call.
+		mcp.WithDescription(`List matching files and optionally return their contents/frontmatter as JSON. Response: {vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]} Designed for agents to fetch paths or bulk-load note bodies in one call. Uses a hot in-memory cache with filesystem watching after the first crawl for fast responses.
 
 **Input Patterns:**
 - **find:pattern** - Filename pattern (supports * and ? wildcards)

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/mcp"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/server"
@@ -80,6 +81,14 @@ Example MCP client configuration (e.g., for Claude Desktop):
 			server.WithInstructions(instructions),
 		)
 
+		// Create cache service but don't block on initial crawl.
+		// The first tool call that needs vault data will trigger the crawl lazily.
+		cacheService, err := cache.NewService(vaultPath, cache.Options{})
+		if err != nil {
+			log.Fatalf("Failed to initialize cache: %v", err)
+		}
+		defer cacheService.Close()
+
 		// Configure MCP tools
 		config := mcp.Config{
 			Vault:          &vault,
@@ -87,6 +96,7 @@ Example MCP client configuration (e.g., for Claude Desktop):
 			Debug:          debug,
 			SuppressedTags: []string{"no-prompt"}, // Default suppression
 			ReadWrite:      mcpReadWrite,
+			Cache:          cacheService,
 		}
 
 		// Add any additional suppressed tags from global flags

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/obsidian-cli/pkg/actions"
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -88,6 +89,13 @@ type MoveNoteEntry struct {
 	GitHistoryPreserved bool   `json:"gitHistoryPreserved"`
 }
 
+func resolveNoteManager(config Config) obsidian.NoteManager {
+	if config.Cache != nil {
+		return cache.NewNoteAdapter(config.Cache, &obsidian.Note{})
+	}
+	return &obsidian.Note{}
+}
+
 // FilesTool implements the files MCP tool (paths + optional content/frontmatter as JSON).
 func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -147,7 +155,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 			return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
 		}
 
-		note := obsidian.Note{}
+		note := resolveNoteManager(config)
 
 		unique := make(map[string]bool)
 		order := make([]string, 0)
@@ -180,7 +188,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 			params.PrimaryMatches = &primaryMatches
 		}
 
-		_, err = actions.ListFiles(config.Vault, &note, params)
+		_, err = actions.ListFiles(config.Vault, note, params)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error listing files: %s", err)), nil
 		}
@@ -198,7 +206,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		}
 
 		for _, file := range order {
-			info, err := actions.GetFileInfo(config.Vault, &note, file)
+			info, err := actions.GetFileInfo(config.Vault, note, file)
 			if err != nil {
 				if config.Debug {
 					log.Printf("Unable to get info for %s: %v", file, err)
@@ -293,8 +301,8 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
 			}
-			note := obsidian.Note{}
-			matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
+			note := resolveNoteManager(config)
+			matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
 				Inputs:         parsed,
 				Expression:     expr,
 				FollowLinks:    false,
@@ -310,8 +318,8 @@ func ListTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mc
 			scanNotes = matchingFiles
 		}
 
-		note := obsidian.Note{}
-		tagSummaries, err := actions.Tags(config.Vault, &note, actions.TagsOptions{Notes: scanNotes})
+		note := resolveNoteManager(config)
+		tagSummaries, err := actions.Tags(config.Vault, note, actions.TagsOptions{Notes: scanNotes})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error listing tags: %s", err)), nil
 		}
@@ -381,8 +389,8 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Error parsing inputs: %s", err)), nil
 			}
-			note := obsidian.Note{}
-			matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
+			note := resolveNoteManager(config)
+			matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
 				Inputs:         parsed,
 				Expression:     expr,
 				FollowLinks:    false,
@@ -398,8 +406,8 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			scanNotes = matchingFiles
 		}
 
-		note := obsidian.Note{}
-		summaries, err := actions.Properties(config.Vault, &note, actions.PropertiesOptions{
+		note := resolveNoteManager(config)
+		summaries, err := actions.Properties(config.Vault, note, actions.PropertiesOptions{
 			ExcludeTags:        excludeTags,
 			Source:             source,
 			EnumThreshold:      enumThreshold,
@@ -571,7 +579,7 @@ func DailyNoteTool(config Config) func(context.Context, mcp.CallToolRequest) (*m
 		}
 
 		dailyRelPath := fmt.Sprintf("Daily Notes/%s.md", dateStr)
-		note := obsidian.Note{}
+		note := resolveNoteManager(config)
 
 		content, err := note.GetContents(config.VaultPath, dailyRelPath)
 		exists := true
@@ -659,9 +667,9 @@ func DeleteTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*
 			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
 		}
 
-		note := obsidian.Note{}
+		note := resolveNoteManager(config)
 
-		summary, err := actions.DeleteTags(config.Vault, &note, tags, dryRun)
+		summary, err := actions.DeleteTags(config.Vault, note, tags, dryRun)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error deleting tags: %s", err)), nil
 		}
@@ -712,9 +720,9 @@ func RenameTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*
 			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
 		}
 
-		note := obsidian.Note{}
+		note := resolveNoteManager(config)
 
-		summary, err := actions.RenameTags(config.Vault, &note, fromTags, toTag, dryRun)
+		summary, err := actions.RenameTags(config.Vault, note, fromTags, toTag, dryRun)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error renaming tags: %s", err)), nil
 		}
@@ -779,9 +787,9 @@ func AddTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp
 			return mcp.NewToolResultError(fmt.Sprintf("Error parsing input criteria: %s", err)), nil
 		}
 
-		note := obsidian.Note{}
+		note := resolveNoteManager(config)
 
-		matchingFiles, err := actions.ListFiles(config.Vault, &note, actions.ListParams{
+		matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
 			Inputs:         parsedInputs,
 			FollowLinks:    false,
 			MaxDepth:       0,
@@ -795,7 +803,7 @@ func AddTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp
 			return mcp.NewToolResultError(fmt.Sprintf("Error getting matching files: %s", err)), nil
 		}
 
-		summary, err := actions.AddTagsToFiles(config.Vault, &note, tags, matchingFiles, dryRun)
+		summary, err := actions.AddTagsToFiles(config.Vault, note, tags, matchingFiles, dryRun)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error adding tags: %s", err)), nil
 		}

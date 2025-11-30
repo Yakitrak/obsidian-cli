@@ -6,6 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/atotto/clipboard v0.1.4
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/ktr0731/go-fuzzyfinder v0.8.0
 	github.com/mark3labs/mcp-go v0.34.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
