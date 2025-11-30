@@ -21,11 +21,17 @@ Tags are included by default; use --exclude-tags to skip them.`,
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		markdownOutput, _ := cmd.Flags().GetBool("markdown")
 		excludeTags, _ := cmd.Flags().GetBool("exclude-tags")
-		enumThreshold, _ := cmd.Flags().GetInt("enum-threshold")
+		valueLimit, _ := cmd.Flags().GetInt("value-limit")
+		if !cmd.Flags().Changed("value-limit") && cmd.Flags().Changed("enum-threshold") {
+			valueLimit, _ = cmd.Flags().GetInt("enum-threshold")
+		}
 		maxValues, _ := cmd.Flags().GetInt("max-values")
 		matchPatterns, _ := cmd.Flags().GetStringSlice("match")
 		verboseEnums, _ := cmd.Flags().GetBool("verbose")
-		includeValueCounts, _ := cmd.Flags().GetBool("enum-counts")
+		includeValueCounts, _ := cmd.Flags().GetBool("value-counts")
+		if !cmd.Flags().Changed("value-counts") && cmd.Flags().Changed("enum-counts") {
+			includeValueCounts, _ = cmd.Flags().GetBool("enum-counts")
+		}
 		sourceFlag, _ := cmd.Flags().GetString("source")
 
 		// Validate source flag
@@ -64,13 +70,16 @@ Tags are included by default; use --exclude-tags to skip them.`,
 			return nil
 		}
 
-		if verboseEnums && enumThreshold < 50 {
-			enumThreshold = 50
+		if verboseEnums && valueLimit < 50 {
+			valueLimit = 50
+		}
+		if maxValues < valueLimit+1 {
+			maxValues = valueLimit + 1
 		}
 
 		summaries, err := actions.Properties(&vault, &note, actions.PropertiesOptions{
 			ExcludeTags:        excludeTags,
-			EnumThreshold:      enumThreshold,
+			ValueLimit:         valueLimit,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,
 			ForceEnumMixed:     verboseEnums,
@@ -159,11 +168,15 @@ func init() {
 	propertiesCmd.Flags().Bool("json", false, "Output properties as JSON")
 	propertiesCmd.Flags().Bool("markdown", false, "Output properties as markdown table")
 	propertiesCmd.Flags().Bool("exclude-tags", false, "Exclude the tags frontmatter field")
-	propertiesCmd.Flags().Int("enum-threshold", 5, "Emit enum values when distinct values are at or below this count")
+	propertiesCmd.Flags().Int("value-limit", 5, "Emit values when distinct counts are at or below this limit")
+	propertiesCmd.Flags().Int("enum-threshold", 5, "Deprecated: use --value-limit")
 	propertiesCmd.Flags().Int("max-values", 500, "Maximum distinct values to track per property for reporting")
 	propertiesCmd.Flags().StringSliceP("match", "m", nil, "Restrict analysis to files matched by find/tag/path patterns")
-	propertiesCmd.Flags().Bool("verbose", false, "Show expanded enums: allow mixed-type enums and raise enum threshold to 50")
-	propertiesCmd.Flags().Bool("enum-counts", false, "Include per-value note counts for enum outputs")
+	propertiesCmd.Flags().Bool("verbose", false, "Show expanded enums: allow mixed-type enums and raise value limit to 50")
+	propertiesCmd.Flags().Bool("value-counts", false, "Include per-value note counts for value outputs")
+	propertiesCmd.Flags().Bool("enum-counts", false, "Deprecated: use --value-counts")
 	propertiesCmd.Flags().String("source", "all", "Property source to scan: all, frontmatter, or inline")
+	propertiesCmd.Flags().MarkDeprecated("enum-threshold", "use --value-limit")
+	propertiesCmd.Flags().MarkDeprecated("enum-counts", "use --value-counts")
 	rootCmd.AddCommand(propertiesCmd)
 }

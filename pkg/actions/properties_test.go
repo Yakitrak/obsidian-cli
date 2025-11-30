@@ -46,10 +46,10 @@ note: some text
 	}
 
 	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
-		ExcludeTags:   false,
-		EnumThreshold: 5,
-		MaxValues:     50,
-		Notes:         []string{"alpha.md", "beta.md", "gamma.md"},
+		ExcludeTags: false,
+		ValueLimit:  5,
+		MaxValues:   50,
+		Notes:       []string{"alpha.md", "beta.md", "gamma.md"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -148,9 +148,9 @@ custom: yes
 	noteManager.On("GetContents", "/mock/vault", "note.md").Return(notes["note.md"], nil)
 
 	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
-		ExcludeTags:   true,
-		EnumThreshold: 10,
-		MaxValues:     10,
+		ExcludeTags: true,
+		ValueLimit:  10,
+		MaxValues:   10,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -178,8 +178,8 @@ tags: [project, work]
 	noteManager.On("GetContents", "/mock/vault", "note.md").Return(notes["note.md"], nil)
 
 	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
-		EnumThreshold: 10,
-		MaxValues:     10,
+		ValueLimit: 10,
+		MaxValues:  10,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -216,9 +216,9 @@ prop: b
 	noteManager.On("GetContents", "/mock/vault", "two.md").Return(notes["two.md"], nil)
 
 	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
-		Notes:         []string{"one.md"},
-		EnumThreshold: 10,
-		MaxValues:     10,
+		Notes:      []string{"one.md"},
+		ValueLimit: 10,
+		MaxValues:  10,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -227,6 +227,53 @@ prop: b
 	if len(result) != 1 || result[0].Name != "prop" || result[0].EnumValues[0] != "a" {
 		t.Fatalf("expected only subset property, got %+v", result)
 	}
+}
+
+func TestPropertiesMaxValuesFollowsValueLimit(t *testing.T) {
+	notes := map[string]string{
+		"one.md": `---
+prop: a
+---`,
+		"two.md": `---
+prop: b
+---`,
+		"three.md": `---
+prop: c
+---`,
+		"four.md": `---
+prop: d
+---`,
+	}
+
+	vaultManager := &mocks.VaultManager{}
+	noteManager := &mocks.NoteManager{}
+
+	vaultManager.On("Path").Return("/mock/vault", nil)
+	noteManager.On("GetNotesList", "/mock/vault").Return([]string{"one.md", "two.md", "three.md", "four.md"}, nil)
+	for path, content := range notes {
+		noteManager.On("GetContents", "/mock/vault", path).Return(content, nil)
+	}
+
+	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
+		ValueLimit: 4,
+		MaxValues:  3, // deliberately low; should be raised to valueLimit+1 internally
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, summary := range result {
+		if summary.Name == "prop" {
+			if summary.TruncatedValueSet {
+				t.Fatalf("expected prop values not to be truncated")
+			}
+			if len(summary.EnumValues) != 4 {
+				t.Fatalf("expected 4 enum values, got %d", len(summary.EnumValues))
+			}
+			return
+		}
+	}
+	t.Fatalf("expected prop summary to be present")
 }
 
 func TestPropertiesForceEnumMixed(t *testing.T) {
@@ -248,7 +295,7 @@ prop: 1
 	noteManager.On("GetContents", "/mock/vault", "two.md").Return(notes["two.md"], nil)
 
 	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
-		EnumThreshold:  10,
+		ValueLimit:     10,
 		MaxValues:      10,
 		ForceEnumMixed: true,
 	})
@@ -289,7 +336,7 @@ office: AOG
 	noteManager.On("GetContents", "/mock/vault", "two.md").Return(notes["two.md"], nil)
 
 	result, err := Properties(vaultManager, noteManager, PropertiesOptions{
-		EnumThreshold:      5,
+		ValueLimit:         5,
 		MaxValues:          10,
 		IncludeValueCounts: true,
 	})

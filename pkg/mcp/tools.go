@@ -360,9 +360,11 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		enumThreshold := 25
-		if v, ok := args["enumThreshold"].(float64); ok {
-			enumThreshold = int(v)
+		valueLimit := 25
+		if v, ok := args["valueLimit"].(float64); ok {
+			valueLimit = int(v)
+		} else if v, ok := args["enumThreshold"].(float64); ok { // backward compatibility
+			valueLimit = int(v)
 		}
 
 		maxValues := 500
@@ -371,16 +373,21 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 		}
 
 		includeValueCounts := true
-		if v, ok := args["includeEnumCounts"].(bool); ok {
+		if v, ok := args["valueCounts"].(bool); ok {
+			includeValueCounts = v
+		} else if v, ok := args["includeEnumCounts"].(bool); ok { // backward compatibility
 			includeValueCounts = v
 		}
 
 		forceEnumMixed := false
 		if v, ok := args["verbose"].(bool); ok && v {
 			forceEnumMixed = true
-			if enumThreshold < 50 {
-				enumThreshold = 50
+			if valueLimit < 50 {
+				valueLimit = 50
 			}
+		}
+		if maxValues < valueLimit+1 {
+			maxValues = valueLimit + 1
 		}
 
 		var scanNotes []string
@@ -410,7 +417,7 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 		summaries, err := actions.Properties(config.Vault, note, actions.PropertiesOptions{
 			ExcludeTags:        excludeTags,
 			Source:             source,
-			EnumThreshold:      enumThreshold,
+			ValueLimit:         valueLimit,
 			MaxValues:          maxValues,
 			Notes:              scanNotes,
 			ForceEnumMixed:     forceEnumMixed,

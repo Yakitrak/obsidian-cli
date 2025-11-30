@@ -25,15 +25,15 @@ type PropertySummary struct {
 type PropertySource string
 
 const (
-	PropertySourceAll        PropertySource = "all"        // both frontmatter and inline
+	PropertySourceAll         PropertySource = "all"         // both frontmatter and inline
 	PropertySourceFrontmatter PropertySource = "frontmatter" // YAML frontmatter only
-	PropertySourceInline     PropertySource = "inline"     // dataview-style inline only (Key:: Value)
+	PropertySourceInline      PropertySource = "inline"      // dataview-style inline only (Key:: Value)
 )
 
 // PropertiesOptions controls scanning and enum detection behavior.
 type PropertiesOptions struct {
 	ExcludeTags        bool
-	EnumThreshold      int // max distinct values to emit as enum
+	ValueLimit         int // max distinct values to emit as enum/value list
 	MaxValues          int // cap stored values to avoid unbounded memory
 	Notes              []string
 	ForceEnumMixed     bool
@@ -52,13 +52,16 @@ type propertyCounts struct {
 
 // Properties returns summaries for all frontmatter properties in the vault.
 func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts PropertiesOptions) ([]PropertySummary, error) {
-	enumThreshold := opts.EnumThreshold
-	if enumThreshold <= 0 {
-		enumThreshold = 10
+	valueLimit := opts.ValueLimit
+	if valueLimit <= 0 {
+		valueLimit = 10
 	}
 	maxValues := opts.MaxValues
 	if maxValues <= 0 {
 		maxValues = 500
+	}
+	if maxValues < valueLimit+1 {
+		maxValues = valueLimit + 1
 	}
 
 	vaultPath, err := vault.Path()
@@ -245,7 +248,7 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 		valueType := pickOrMixed(pc.types)
 
 		var enumValues []string
-		shouldEnumerate := (isEnumCandidate(valueType) || (valueType == "mixed" && len(pc.values) <= enumThreshold)) && len(pc.values) > 0 && len(pc.values) <= enumThreshold && !pc.overflow
+		shouldEnumerate := (isEnumCandidate(valueType) || (valueType == "mixed" && len(pc.values) <= valueLimit)) && len(pc.values) > 0 && len(pc.values) <= valueLimit && !pc.overflow
 		if key == "tags" && len(pc.values) > 0 {
 			shouldEnumerate = true
 		}

@@ -226,10 +226,10 @@ obsidian-cli properties --exclude-tags
 # Disable inline Key:: Value parsing
 obsidian-cli properties --disable-inline
 
-# Include per-value counts in enums
-obsidian-cli properties --enum-counts
+# Include per-value counts in value lists
+obsidian-cli properties --value-counts
 
-# Show enums even for mixed types and raise enum threshold to 50
+# Show enums even for mixed types and raise value limit to 50
 obsidian-cli properties --verbose
 
 # JSON output
@@ -241,10 +241,10 @@ Key flags:
 - `--match/-m`: restrict analysis to files matched by find/tag/path patterns (supports AND/OR/NOT with parentheses)
 - `--exclude-tags`: omit the `tags` property
 - `--disable-inline`: ignore Dataview `Key:: Value` inline fields
-- `--enum-threshold`: max distinct values to emit as enum (default 5)
-- `--max-values`: cap distinct values tracked per property (except tags)
-- `--verbose`: allow enums for mixed types and bump threshold to 50
-- `--enum-counts`: include per-value note counts in enum output
+- `--value-limit`: max distinct values to emit inline (default 5)
+- `--max-values`: cap distinct values tracked per property (except tags); automatically raised to `value-limit+1` if set lower
+- `--verbose`: allow enums for mixed types and bump value limit to 50
+- `--value-counts`: include per-value note counts in output
 
 ### Tags (listing)
 
@@ -383,7 +383,7 @@ Core (read-only):
 
 - **`files`**: List files matching criteria and optionally include content/frontmatter. Returns JSON with `{vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]}`. Use `match` patterns like `find:`, `tag:`, `key:value`, or paths; supports AND/OR/NOT with parentheses. `includeFrontmatter` true returns raw frontmatter/properties.
 - **`list_tags`**: JSON list of tags with individual/aggregate counts. Supports `match` filter (same patterns/boolean logic as `files`).
-- **`list_properties`**: Inspect properties across the vault (frontmatter + inline `Key:: Value`). Returns inferred shape/type, note counts, enums, and per-value counts. Supports `match` (same patterns/boolean logic as `files`), `excludeTags`, `disableInline`, `enumThreshold` (default 25), `maxValues`, `verbose`, and `includeEnumCounts` (default true).
+- **`list_properties`**: Inspect properties across the vault (frontmatter + inline `Key:: Value`). Returns inferred shape/type, note counts, enums, and per-value counts. Supports `match` (same patterns/boolean logic as `files`), `excludeTags`, `disableInline`, `valueLimit` (default 25), `maxValues`, `verbose`, and `valueCounts` (default true).
 - **`move_notes`**: Move or rename one or more notes. Accepts `moves:[{source,target}]` (or single `source`/`target`). Options: `overwrite`, `updateBacklinks` (default false), `open`.
 - **`daily_note`**: JSON describing the daily note `{path,date,exists,content}` (defaults to today).
 - **`daily_note_path`**: JSON with `{path,date,exists}`.

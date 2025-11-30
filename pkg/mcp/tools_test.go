@@ -186,7 +186,7 @@ count: 2
 		Params: mcp.CallToolParams{
 			Name: "list_properties",
 			Arguments: map[string]interface{}{
-				"enumThreshold": float64(5),
+				"valueLimit": float64(5),
 			},
 		},
 	}
