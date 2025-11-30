@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 type MoveParams struct {

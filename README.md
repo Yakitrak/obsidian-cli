@@ -13,31 +13,17 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 
 ## Install
 
-### Windows
+### Using Go
 
-You will need to have [Scoop](https://scoop.sh/) installed. On powershell run:
+If you have Go installed, you can install directly:
 
-```
-scoop bucket add scoop-yakitrak https://github.com/yakitrak/scoop-yakitrak.git
-```
-
-```
-scoop install obsidian-cli
+```bash
+go install github.com/atomicobject/obsidian-cli@latest
 ```
 
-### Mac and Linux
+### Manual Installation
 
-You will need to have [Homebrew](https://brew.sh/) installed.
-
-```Bash
-brew tap yakitrak/yakitrak
-```
-
-```Bash
-brew install yakitrak/yakitrak/obsidian-cli
-```
-
-For full installation instructions, see [Mac and Linux manual](https://yakitrak.github.io/obsidian-cli-docs/docs/install/mac-and-linux).
+Download the latest release for your platform from the [releases page](https://github.com/atomicobject/obsidian-cli/releases) and add the binary to your PATH.
 
 ## Usage
 
@@ -156,6 +142,7 @@ obsidian-cli move --to-folder "Archive/2024" "NoteA.md" "NoteB.md" [--vault "{va
 ```
 
 Flags:
+
 - `--to-folder`: move one or more sources into the given folder (filenames are preserved)
 - `--overwrite`: allow replacing an existing target
 - `--update-backlinks`: rewrite backlinks to the new path(s); defaults to false for moves
@@ -170,6 +157,7 @@ obsidian-cli rename "{source-note}" "{target-note}" [--vault "{vault-name}"] [--
 ```
 
 Flags:
+
 - `--overwrite`: allow replacing an existing target
 - `--no-backlinks`: skip backlink rewrites (defaults to rewriting)
 
@@ -249,6 +237,7 @@ obsidian-cli properties --json
 ```
 
 Key flags:
+
 - `--match/-m`: restrict analysis to files matched by find/tag/path patterns (supports AND/OR/NOT with parentheses)
 - `--exclude-tags`: omit the `tags` property
 - `--disable-inline`: ignore Dataview `Key:: Value` inline fields
@@ -391,6 +380,7 @@ obsidian-cli mcp --no-suppress
 The MCP server exposes the following tools:
 
 Core (read-only):
+
 - **`files`**: List files matching criteria and optionally include content/frontmatter. Returns JSON with `{vault,count,files:[{path,absolutePath?,tags,frontmatter?,content?}]}`. Use `match` patterns like `find:`, `tag:`, `key:value`, or paths; supports AND/OR/NOT with parentheses. `includeFrontmatter` true returns raw frontmatter/properties.
 - **`list_tags`**: JSON list of tags with individual/aggregate counts. Supports `match` filter (same patterns/boolean logic as `files`).
 - **`list_properties`**: Inspect properties across the vault (frontmatter + inline `Key:: Value`). Returns inferred shape/type, note counts, enums, and per-value counts. Supports `match` (same patterns/boolean logic as `files`), `excludeTags`, `disableInline`, `enumThreshold` (default 25), `maxValues`, `verbose`, and `includeEnumCounts` (default true).
@@ -399,10 +389,12 @@ Core (read-only):
 - **`daily_note_path`**: JSON with `{path,date,exists}`.
 
 Destructive (require `--read-write`):
+
 - **`add_tags`**, **`delete_tags`**, **`rename_tag`** (all respect `dryRun`).
   - Example (delete_tags): `{"tags":["old","deprecated"],"dryRun":true}` to preview; set `dryRun:false` to apply. Destructive tools register only when the server is started with `--read-write`.
 
 #### files inputs and options
+
 - Inputs are **OR'd** and support:
   - `find:<pattern>`: filename glob (supports `*` and `?`), e.g. `find:2024-*.md`
   - `tag:<tag>`: hierarchical tag match (e.g., `tag:project` matches `project/work`)
@@ -414,6 +406,7 @@ Destructive (require `--read-write`):
   - `absolutePaths` to include absolute paths in each entry
 
 Example call (arguments array):
+
 ```json
 {
   "inputs": ["tag:project", "find:meeting*"],
@@ -423,26 +416,43 @@ Example call (arguments array):
   "includeFrontmatter": false
 }
 ```
+
 Example response (files):
+
 ```json
 {
   "vault": "MyVault",
   "count": 2,
   "files": [
-    {"path": "Notes/Project.md", "tags": ["project"], "content": "# Project\n..."},
-    {"path": "Notes/meeting-notes.md", "tags": ["project","meeting"], "content": "# Meeting\n..."}
+    {
+      "path": "Notes/Project.md",
+      "tags": ["project"],
+      "content": "# Project\n..."
+    },
+    {
+      "path": "Notes/meeting-notes.md",
+      "tags": ["project", "meeting"],
+      "content": "# Meeting\n..."
+    }
   ]
 }
 ```
 
 `list_tags` response example:
+
 ```json
-{"tags":[{"name":"project","individualCount":12,"aggregateCount":20}]}
+{ "tags": [{ "name": "project", "individualCount": 12, "aggregateCount": 20 }] }
 ```
 
 `delete_tags` dry-run response example:
+
 ```json
-{"dryRun":true,"notesTouched":3,"tagChanges":{"old":2,"deprecated":1},"filesChanged":["Notes/a.md","Notes/b.md","Notes/c.md"]}
+{
+  "dryRun": true,
+  "notesTouched": 3,
+  "tagChanges": { "old": 2, "deprecated": 1 },
+  "filesChanged": ["Notes/a.md", "Notes/b.md", "Notes/c.md"]
+}
 ```
 
 ### Claude Desktop Configuration
@@ -481,9 +491,13 @@ Once configured, you can ask AI assistants to:
 
 The AI assistant will use the appropriate MCP tools to interact with your Obsidian vault and provide the requested information.
 
+## Acknowledgments
+
+This project is a fork of [Yakitrak/obsidian-cli](https://github.com/Yakitrak/obsidian-cli) by Kartikay Jainwal. We thank the original author and contributors for their foundational work.
+
 ## Contribution
 
-Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
+Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/atomicobject/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
 ## License
 

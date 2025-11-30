@@ -1,6 +1,6 @@
 package main
 
-import "github.com/Yakitrak/obsidian-cli/cmd"
+import "github.com/atomicobject/obsidian-cli/cmd"
 
 func main() {
 	cmd.Execute()

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Yakitrak/obsidian-cli/mocks"
-	"github.com/Yakitrak/obsidian-cli/pkg/actions"
+	"github.com/atomicobject/obsidian-cli/mocks"
+	"github.com/atomicobject/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/actions"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
 )
 

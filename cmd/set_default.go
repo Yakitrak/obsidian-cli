@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
 	"log"
 )

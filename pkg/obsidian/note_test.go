@@ -2,7 +2,7 @@ package obsidian_test
 
 import (
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"

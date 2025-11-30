@@ -1,4 +1,4 @@
-module github.com/Yakitrak/obsidian-cli
+module github.com/atomicobject/obsidian-cli
 
 go 1.23.0
 

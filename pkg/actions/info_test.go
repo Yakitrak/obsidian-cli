@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Yakitrak/obsidian-cli/mocks"
+	"github.com/atomicobject/obsidian-cli/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

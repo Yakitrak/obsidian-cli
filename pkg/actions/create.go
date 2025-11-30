@@ -1,7 +1,7 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"strconv"
 	"strings"
 )

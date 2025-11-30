@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/mcp"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/mcp"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
 )

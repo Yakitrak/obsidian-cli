@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 // InputType represents the type of input for listing files

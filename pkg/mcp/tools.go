@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/actions"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

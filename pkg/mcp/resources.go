@@ -15,49 +15,90 @@ func AddBuiltinResources(s *server.MCPServer) {
 
 	body := `# Obsidian CLI – Agent Guide
 
-This MCP server exposes Obsidian vault operations to AI agents. Tools are preferred for dynamic queries; resources are for static reference.
+This MCP server exposes Obsidian vault operations to AI agents. Use tools for dynamic queries; this resource is for reference.
 
-## Core Tools
+## Tools Reference
 
-- **files**: List files and optionally include content/frontmatter.
-  - Inputs: pass an array of patterns (` + "`" + `find:` + "`" + ` for filename globs, ` + "`" + `tag:` + "`" + ` for tags, ` + "`" + `key:value` + "`" + ` for property filters, or literal paths/folders). Combine with AND/OR/NOT and parentheses; otherwise patterns are ORed.
-  - Options: ` + "`" + `includeContent` + "`" + ` (default true), ` + "`" + `includeFrontmatter` + "`" + ` (default false), ` + "`" + `includeBacklinks` + "`" + `, ` + "`" + `followLinks/maxDepth` + "`" + `, ` + "`" + `absolutePaths` + "`" + `.
-  - Good for: grabbing note bodies, titles, or frontmatter without a second call.
+### files
+List files and optionally include content/frontmatter. Response: ` + "`" + `{vault, count, files:[{path, tags, frontmatter?, content?}]}` + "`" + `
 
-- **list_tags**: Aggregate tags with per-note and hierarchical counts.
-  - Options: ` + "`" + `match` + "`" + ` to scope scan using the same patterns as ` + "`" + `files` + "`" + ` (find:/tag:/paths).
-  - Good for: discovering tag vocabularies or pruning unused tags.
+**Inputs** (required array): ` + "`" + `find:pattern` + "`" + `, ` + "`" + `tag:name` + "`" + `, ` + "`" + `key:value` + "`" + `, or literal paths. Combine with AND/OR/NOT.
 
-- **list_properties**: Inspect properties (YAML frontmatter + inline ` + "`" + `Key:: Value` + "`" + `) across the vault.
-  - Defaults: enumThreshold=25, includeEnumCounts=true, inline parsing enabled, tags included.
-  - Options: ` + "`" + `match` + "`" + ` (find:/tag:/paths), ` + "`" + `excludeTags` + "`" + `, ` + "`" + `disableInline` + "`" + `, ` + "`" + `enumThreshold` + "`" + `, ` + "`" + `maxValues` + "`" + `, ` + "`" + `verbose` + "`" + ` (forces enums for mixed types, raises threshold to 50), ` + "`" + `includeEnumCounts` + "`" + `.
-  - Good for: discovering metadata schemas, enums like Office or Archetype, spotting mixed/dirty fields.
+**Options:** ` + "`" + `includeContent` + "`" + ` (default true), ` + "`" + `includeFrontmatter` + "`" + `, ` + "`" + `includeBacklinks` + "`" + `, ` + "`" + `followLinks` + "`" + `/` + "`" + `maxDepth` + "`" + `, ` + "`" + `absolutePaths` + "`" + `, ` + "`" + `suppressTags` + "`" + `/` + "`" + `noSuppress` + "`" + `.
 
-- **daily_note / daily_note_path**: Retrieve or locate the daily note for a date (defaults to today).
+### list_tags
+List all tags with individual and hierarchical counts. Response: ` + "`" + `{tags:[{name, individualCount, aggregateCount}]}` + "`" + `
 
-- **move_notes / rename_note**: Move/rename notes. ` + "`" + `updateBacklinks` + "`" + ` controls backlink rewriting. Use cautiously; destructive operations require read-write mode.
+**Options:** ` + "`" + `match` + "`" + ` array to scope the scan.
 
-## How to Choose a Tool
+### list_properties
+Inspect frontmatter and inline properties. Response: ` + "`" + `{properties:[{name, noteCount, shape, valueType, enumValues?, enumValueCounts?}]}` + "`" + `
 
-- Need bodies or frontmatter from specific notes? Use ` + "`" + `files` + "`" + ` with ` + "`" + `includeContent` + "`" + ` or ` + "`" + `includeFrontmatter` + "`" + `.
-- Need tag vocab/counts? Use ` + "`" + `list_tags` + "`" + ` (optionally scoped with ` + "`" + `match` + "`" + `).
-- Need property schemas/enums? Use ` + "`" + `list_properties` + "`" + ` (optionally scoped with ` + "`" + `match` + "`" + `).
-- Need today’s note? Use ` + "`" + `daily_note` + "`" + ` or ` + "`" + `daily_note_path` + "`" + `.
-- Need to move/rename? Use ` + "`" + `move_notes` + "`" + ` or ` + "`" + `rename_note` + "`" + `; prefer dry runs if available in client UX.
+**Options:** ` + "`" + `source` + "`" + ` ("all", "frontmatter", or "inline"), ` + "`" + `match` + "`" + `, ` + "`" + `excludeTags` + "`" + `, ` + "`" + `enumThreshold` + "`" + ` (default 25), ` + "`" + `verbose` + "`" + `, ` + "`" + `includeEnumCounts` + "`" + ` (default true).
 
-## Patterns and Matching
+### daily_note / daily_note_path
+Get or locate the daily note. Defaults to today; pass ` + "`" + `date` + "`" + ` as YYYY-MM-DD.
 
-- ` + "`" + `find:` + "`" + ` uses filename globbing (` + "`" + `*` + "`" + `, ` + "`" + `?` + "`" + `).
-- ` + "`" + `tag:` + "`" + ` matches frontmatter tags and inline hashtags (hierarchical: ` + "`" + `tag:project` + "`" + ` matches ` + "`" + `project/work` + "`" + `).
-- ` + "`" + `key:value` + "`" + ` matches frontmatter and inline properties (including Dataview ` + "`" + `Key:: Value` + "`" + `; normalizes wikilinks/aliases).
-- Boolean logic: combine patterns with AND/OR/NOT and parentheses. Pass operators as separate inputs (e.g., ` + "`" + `["tag:project","AND","Office:AOGR"]` + "`" + `). Terms without operators are ORed.
-- Literal paths/folders are relative to vault root.
+### rename_note
+Rename a note and update backlinks. Requires ` + "`" + `source` + "`" + ` and ` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + ` (default true), ` + "`" + `overwrite` + "`" + `.
 
-## Safe Usage Notes
+### move_notes
+Move one or more notes. Pass ` + "`" + `moves` + "`" + ` array of ` + "`" + `{source, target}` + "`" + ` or single ` + "`" + `source` + "`" + `/` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + `, ` + "`" + `overwrite` + "`" + `, ` + "`" + `open` + "`" + `.
 
-- Avoid destructive tools unless explicitly requested; prefer read-only tools (` + "`" + `files` + "`" + `, ` + "`" + `list_tags` + "`" + `, ` + "`" + `list_properties` + "`" + `).
-- Large scans: scope with ` + "`" + `match` + "`" + ` when possible to reduce payloads.
-- Inline properties: ` + "`" + `list_properties` + "`" + ` treats ` + "`" + `Key:: Value` + "`" + ` lines as properties by default; disable with ` + "`" + `disableInline` + "`" + ` if that’s noisy.
+### Tag Management (read-write mode only)
+
+- **add_tags**: Add tags to notes matching input criteria. Requires ` + "`" + `tags` + "`" + ` and ` + "`" + `inputs` + "`" + ` arrays.
+- **delete_tags**: Remove tags vault-wide. Requires ` + "`" + `tags` + "`" + ` array.
+- **rename_tag**: Rename tags vault-wide. Requires ` + "`" + `fromTags` + "`" + ` array and ` + "`" + `toTag` + "`" + ` string.
+
+All tag tools support ` + "`" + `dryRun` + "`" + ` to preview changes.
+
+## Input Patterns
+
+- ` + "`" + `find:*.md` + "`" + ` – filename glob (` + "`" + `*` + "`" + `, ` + "`" + `?` + "`" + ` wildcards)
+- ` + "`" + `tag:project` + "`" + ` – matches ` + "`" + `#project` + "`" + ` and children like ` + "`" + `#project/work` + "`" + `
+- ` + "`" + `Status:active` + "`" + ` – match property value (frontmatter or inline ` + "`" + `Key:: Value` + "`" + `)
+- ` + "`" + `folder/path` + "`" + ` – literal path relative to vault root
+- Boolean: ` + "`" + `["tag:meeting", "AND", "NOT", "tag:archived"]` + "`" + `
+
+## Example Use Cases
+
+**Find all meeting notes from Q4:**
+` + "```" + `json
+{"inputs": ["find:*meeting*", "AND", "find:2024-1*"]}
+` + "```" + `
+
+**Get project notes with their backlinks:**
+` + "```" + `json
+{"inputs": ["tag:project"], "includeBacklinks": true, "includeContent": false}
+` + "```" + `
+
+**Discover what properties exist on person notes:**
+` + "```" + `json
+{"match": ["tag:person"], "source": "frontmatter"}
+` + "```" + `
+
+**Find notes by a specific author:**
+` + "```" + `json
+{"inputs": ["Author:[[Jane Smith]]"]}
+` + "```" + `
+
+**Archive old project tags:**
+` + "```" + `json
+{"fromTags": ["project/2023"], "toTag": "archive/project/2023", "dryRun": true}
+` + "```" + `
+
+**Add review tag to untagged notes in a folder:**
+` + "```" + `json
+{"tags": ["needs-review"], "inputs": ["Inbox/"], "dryRun": true}
+` + "```" + `
+
+## Best Practices
+
+- **Scope queries** with ` + "`" + `match` + "`" + ` to reduce payload size on large vaults.
+- **Use dryRun** before any destructive tag operation.
+- **Batch operations**: pass multiple tags/patterns in one call rather than looping.
+- **Prefer read-only tools** (` + "`" + `files` + "`" + `, ` + "`" + `list_tags` + "`" + `, ` + "`" + `list_properties` + "`" + `) unless writes are requested.
 `
 
 	res := mcp.Resource{

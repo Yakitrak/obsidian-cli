@@ -3,7 +3,7 @@ package obsidian
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Yakitrak/obsidian-cli/pkg/config"
+	"github.com/atomicobject/obsidian-cli/pkg/config"
 	"os"
 )
 

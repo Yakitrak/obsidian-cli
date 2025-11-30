@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Yakitrak/obsidian-cli/mocks"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/mocks"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

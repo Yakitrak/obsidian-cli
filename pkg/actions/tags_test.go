@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Yakitrak/obsidian-cli/mocks"
+	"github.com/atomicobject/obsidian-cli/mocks"
 )
 
 func TestTags(t *testing.T) {

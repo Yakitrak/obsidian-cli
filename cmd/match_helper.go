@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/actions"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/actions"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 // resolveMatches converts find/tag/path patterns into a note list. Returns nil if no patterns provided.

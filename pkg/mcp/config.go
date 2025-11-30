@@ -1,6 +1,6 @@
 package mcp
 
-import "github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+import "github.com/atomicobject/obsidian-cli/pkg/obsidian"
 
 // Config holds configuration for MCP tools
 type Config struct {

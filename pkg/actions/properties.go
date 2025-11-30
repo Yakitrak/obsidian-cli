@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 // PropertySummary describes a vault property, note count, and inferred value details.

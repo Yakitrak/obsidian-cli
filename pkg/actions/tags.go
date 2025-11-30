@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 // TagSummary represents a tag with its individual and aggregate counts

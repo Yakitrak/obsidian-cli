@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 // TagMutationSummary represents the result of a tag mutation operation

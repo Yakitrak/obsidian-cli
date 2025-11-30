@@ -3,7 +3,7 @@ package obsidian_test
 import (
 	"errors"
 	"fmt"
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
