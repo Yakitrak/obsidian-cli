@@ -395,4 +395,24 @@ func TestCommunityListAndDetailTools(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(detailText.Text), &detailParsed))
 	assert.Equal(t, commID, detailParsed.ID)
 	require.Len(t, detailParsed.Members, 2)
+
+	fileReq := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "community_detail",
+			Arguments: map[string]interface{}{
+				"file": filepath.Join(vaultPath, "A.md"),
+			},
+		},
+	}
+
+	fileResp, err := detailTool(context.Background(), fileReq)
+	require.NoError(t, err)
+	require.Len(t, fileResp.Content, 1)
+	fileText, ok := fileResp.Content[0].(mcp.TextContent)
+	require.True(t, ok)
+
+	var fileParsed CommunityDetailResponse
+	require.NoError(t, json.Unmarshal([]byte(fileText.Text), &fileParsed))
+	assert.Equal(t, commID, fileParsed.ID)
+	require.Len(t, fileParsed.Members, 2)
 }

@@ -619,8 +619,12 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
 		id, _ := args["id"].(string)
-		if strings.TrimSpace(id) == "" {
-			return mcp.NewToolResultError("id is required"), nil
+		file, _ := args["file"].(string)
+		if strings.TrimSpace(id) == "" && strings.TrimSpace(file) == "" {
+			return mcp.NewToolResultError("id or file is required"), nil
+		}
+		if strings.TrimSpace(id) != "" && strings.TrimSpace(file) != "" {
+			return mcp.NewToolResultError("provide only one of id or file"), nil
 		}
 		skipAnchors, _ := args["skipAnchors"].(bool)
 		skipEmbeds, _ := args["skipEmbeds"].(bool)
@@ -678,67 +682,34 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 		}
 
 		var target *obsidian.CommunitySummary
-		for i := range analysis.Communities {
-			if analysis.Communities[i].ID == id {
-				target = &analysis.Communities[i]
-				break
-			}
-		}
-		if target == nil {
-			return mcp.NewToolResultError(fmt.Sprintf("community %s not found under current filters", id)), nil
-		}
-
-		memberSet := make(map[string]struct{}, len(target.Nodes))
-		for _, n := range target.Nodes {
-			memberSet[n] = struct{}{}
-		}
-		edgeCount := 0
-		for _, n := range target.Nodes {
-			for _, neigh := range analysis.Nodes[n].Neighbors {
-				if _, ok := memberSet[neigh]; ok {
-					edgeCount++
+		if strings.TrimSpace(id) != "" {
+			for i := range analysis.Communities {
+				if analysis.Communities[i].ID == id {
+					target = &analysis.Communities[i]
+					break
 				}
 			}
+			if target == nil {
+				return mcp.NewToolResultError(fmt.Sprintf("community %s not found under current filters", id)), nil
+			}
+		} else {
+			normalized := obsidian.NormalizePath(obsidian.AddMdSuffix(file))
+			if filepath.IsAbs(file) && config.VaultPath != "" {
+				if rel, err := filepath.Rel(config.VaultPath, file); err == nil {
+					normalized = obsidian.NormalizePath(obsidian.AddMdSuffix(rel))
+				}
+			}
+			if _, ok := analysis.Nodes[normalized]; !ok {
+				return mcp.NewToolResultError(fmt.Sprintf("file %s not found in graph (use vault-relative path and check include/exclude filters)", file)), nil
+			}
+			lookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+			target = lookup[normalized]
+			if target == nil {
+				return mcp.NewToolResultError(fmt.Sprintf("file %s is not assigned to a community under current filters", file)), nil
+			}
 		}
 
-		members := rankMembers(target.Nodes, analysis.Nodes)
-		if limit > 0 && limit < len(members) {
-			members = members[:limit]
-		}
-
-		payloadMembers := make([]GraphNodePayload, 0, len(members))
-		for _, m := range members {
-			payload := GraphNodePayload{
-				Path:      m.path,
-				Title:     m.title,
-				Inbound:   m.in,
-				Outbound:  m.out,
-				Pagerank:  m.pr,
-				Community: id,
-				Tags:      m.tags,
-				WeakComp:  analysis.Nodes[m.path].WeakCompID,
-				SCC:       analysis.Nodes[m.path].SCC,
-			}
-			if includeNeighbors {
-				payload.Neighbors = analysis.Nodes[m.path].Neighbors
-			}
-			if !includeTags {
-				payload.Tags = nil
-			}
-			payloadMembers = append(payloadMembers, payload)
-		}
-
-		resp := CommunityDetailResponse{
-			ID:            target.ID,
-			Anchor:        target.Anchor,
-			Size:          len(target.Nodes),
-			Density:       target.Density,
-			Bridges:       target.Bridges,
-			TopTags:       target.TopTags,
-			TopPagerank:   target.TopPagerank,
-			Members:       payloadMembers,
-			InternalEdges: edgeCount,
-		}
+		resp := communityDetailPayload(target, analysis, includeTags, includeNeighbors, limit)
 
 		encoded, err := json.Marshal(resp)
 		if err != nil {
@@ -777,6 +748,49 @@ func rankMembers(members []string, nodes map[string]obsidian.GraphNode) []ranked
 		return list[i].pr > list[j].pr
 	})
 	return list
+}
+
+func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, includeTags bool, includeNeighbors bool, limit int) CommunityDetailResponse {
+	edgeCount := obsidian.CommunityInternalEdges(target, analysis.Nodes)
+
+	members := rankMembers(target.Nodes, analysis.Nodes)
+	if limit > 0 && limit < len(members) {
+		members = members[:limit]
+	}
+
+	payloadMembers := make([]GraphNodePayload, 0, len(members))
+	for _, m := range members {
+		payload := GraphNodePayload{
+			Path:      m.path,
+			Title:     m.title,
+			Inbound:   m.in,
+			Outbound:  m.out,
+			Pagerank:  m.pr,
+			Community: target.ID,
+			Tags:      m.tags,
+			WeakComp:  analysis.Nodes[m.path].WeakCompID,
+			SCC:       analysis.Nodes[m.path].SCC,
+		}
+		if includeNeighbors {
+			payload.Neighbors = analysis.Nodes[m.path].Neighbors
+		}
+		if !includeTags {
+			payload.Tags = nil
+		}
+		payloadMembers = append(payloadMembers, payload)
+	}
+
+	return CommunityDetailResponse{
+		ID:            target.ID,
+		Anchor:        target.Anchor,
+		Size:          len(target.Nodes),
+		Density:       target.Density,
+		Bridges:       target.Bridges,
+		TopTags:       target.TopTags,
+		TopPagerank:   target.TopPagerank,
+		Members:       payloadMembers,
+		InternalEdges: edgeCount,
+	}
 }
 
 // RenameNoteTool implements the rename_note MCP tool mirroring CLI behavior.

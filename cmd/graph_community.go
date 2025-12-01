@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -18,7 +19,7 @@ var graphCommunityCmd = &cobra.Command{
 	Short: "Show details for a specific community",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		communityID := args[0]
+		communityArg := args[0]
 
 		selectedVault := vaultName
 		if selectedVault == "" {
@@ -53,70 +54,83 @@ var graphCommunityCmd = &cobra.Command{
 
 		var target *obsidian.CommunitySummary
 		for i := range analysis.Communities {
-			if analysis.Communities[i].ID == communityID {
+			if analysis.Communities[i].ID == communityArg {
 				target = &analysis.Communities[i]
 				break
 			}
 		}
-		if target == nil {
-			return fmt.Errorf("community %s not found under current filters", communityID)
-		}
 
-		memberSet := make(map[string]struct{}, len(target.Nodes))
-		for _, n := range target.Nodes {
-			memberSet[n] = struct{}{}
-		}
-		edgeCount := 0
-		for _, n := range target.Nodes {
-			for _, neigh := range analysis.Nodes[n].Neighbors {
-				if _, ok := memberSet[neigh]; ok {
-					edgeCount++
+		if target == nil {
+			normalized := obsidian.NormalizePath(obsidian.AddMdSuffix(communityArg))
+			if filepath.IsAbs(communityArg) {
+				vaultPath, err := vault.Path()
+				if err != nil {
+					return err
+				}
+				if rel, err := filepath.Rel(vaultPath, communityArg); err == nil {
+					normalized = obsidian.NormalizePath(obsidian.AddMdSuffix(rel))
 				}
 			}
-		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Community %s (size %d) in vault %q\n", colorCommunity(target.ID), len(target.Nodes), selectedVault)
-		if target.Anchor != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "  anchor: %s\n", target.Anchor)
-		}
-		if target.Density > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "  density: %.3f\n", target.Density)
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  edges (internal): %d\n", edgeCount)
-		if len(target.TopTags) > 0 {
-			var tags []string
-			for _, tt := range target.TopTags {
-				tags = append(tags, fmt.Sprintf("%s(%d)", tt.Tag, tt.Count))
+			if _, ok := analysis.Nodes[normalized]; !ok {
+				return fmt.Errorf("community %s not found and file %s not in graph (use vault-relative paths, ensure it exists, and check include/exclude filters)", communityArg, communityArg)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "  tags: %s\n", strings.Join(tags, ", "))
-		}
-		if len(target.Bridges) > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "  bridges: %s\n", strings.Join(target.Bridges, ", "))
-		}
 
-		limit := graphLimit
-		if graphShowAll || limit <= 0 || limit > len(target.Nodes) {
-			limit = len(target.Nodes)
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "\nMembers (sorted by pagerank):\n")
-		members := rankCommunityMembers(target.Nodes, analysis)
-		for i := 0; i < limit; i++ {
-			m := members[i]
-			tagStr := ""
-			if len(m.tags) > 0 && graphCommunityIncludeTags {
-				tagStr = fmt.Sprintf(" tags:%s", strings.Join(m.tags, ","))
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s pr=%.4f in=%d out=%d%s\n", i+1, m.path, m.pr, m.in, m.out, tagStr)
-			if graphCommunityIncludeNeighbors {
-				fmt.Fprintf(cmd.OutOrStdout(), "      neighbors: %s\n", strings.Join(m.neighbors, ", "))
+			lookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+			target = lookup[normalized]
+			if target == nil {
+				return fmt.Errorf("file %s is not assigned to a community under current filters", communityArg)
 			}
 		}
-		if !graphShowAll && len(members) > limit {
-			fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(members)-limit)
-		}
 
-		return nil
+		return printCommunityDetail(cmd, target, analysis, selectedVault)
 	},
+}
+
+func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, selectedVault string) error {
+	edgeCount := obsidian.CommunityInternalEdges(target, analysis.Nodes)
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Community %s (size %d) in vault %q\n", colorCommunity(target.ID), len(target.Nodes), selectedVault)
+	if target.Anchor != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "  anchor: %s\n", target.Anchor)
+	}
+	if target.Density > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "  density: %.3f\n", target.Density)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "  edges (internal): %d\n", edgeCount)
+	if len(target.TopTags) > 0 {
+		var tags []string
+		for _, tt := range target.TopTags {
+			tags = append(tags, fmt.Sprintf("%s(%d)", tt.Tag, tt.Count))
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  tags: %s\n", strings.Join(tags, ", "))
+	}
+	if len(target.Bridges) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "  bridges: %s\n", strings.Join(target.Bridges, ", "))
+	}
+
+	limit := graphLimit
+	if graphShowAll || limit <= 0 || limit > len(target.Nodes) {
+		limit = len(target.Nodes)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "\nMembers (sorted by pagerank):\n")
+	members := rankCommunityMembers(target.Nodes, analysis)
+	for i := 0; i < limit; i++ {
+		m := members[i]
+		tagStr := ""
+		if len(m.tags) > 0 && graphCommunityIncludeTags {
+			tagStr = fmt.Sprintf(" tags:%s", strings.Join(m.tags, ","))
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s pr=%.4f in=%d out=%d%s\n", i+1, m.path, m.pr, m.in, m.out, tagStr)
+		if graphCommunityIncludeNeighbors {
+			fmt.Fprintf(cmd.OutOrStdout(), "      neighbors: %s\n", strings.Join(m.neighbors, ", "))
+		}
+	}
+	if !graphShowAll && len(members) > limit {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(members)-limit)
+	}
+
+	return nil
 }
 
 func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []struct {

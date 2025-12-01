@@ -42,9 +42,9 @@ List communities (label propagation) with anchors, top tags, and top pagerank no
 **Options:** same filters as ` + "`" + `graph_stats` + "`" + `: ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `, ` + "`" + `includeTags` + "`" + `, ` + "`" + `exclude` + "`" + `, ` + "`" + `include` + "`" + `, ` + "`" + `minDegree` + "`" + `, ` + "`" + `mutualOnly` + "`" + `, plus ` + "`" + `maxCommunities` + "`" + `, ` + "`" + `maxTopNotes` + "`" + `.
 
 ### community_detail
-Show full detail for a community by ` + "`" + `id` + "`" + ` (from community_list/graph_stats): anchor, density, bridges, top tags/pagerank, and members with pagerank/in/out (optional tags/neighbors). Response: ` + "`" + `{id,anchor,size,density,bridges,topTags,topPagerank,members[{path,title,inbound,outbound,pagerank,community,scc,weakComponent,tags?,neighbors?}],internalEdges}` + "`" + `.
+Show full detail for a community by ` + "`" + `id` + "`" + ` (from community_list/graph_stats) or by ` + "`" + `file` + "`" + ` (vault-relative/absolute path): anchor, density, bridges, top tags/pagerank, and members with pagerank/in/out (optional tags/neighbors). Response: ` + "`" + `{id,anchor,size,density,bridges,topTags,topPagerank,members[{path,title,inbound,outbound,pagerank,community,scc,weakComponent,tags?,neighbors?}],internalEdges}` + "`" + `.
 
-**Options:** same filters: ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `, ` + "`" + `includeTags` + "`" + `, ` + "`" + `includeNeighbors` + "`" + `, ` + "`" + `exclude` + "`" + `, ` + "`" + `include` + "`" + `, ` + "`" + `minDegree` + "`" + `, ` + "`" + `mutualOnly` + "`" + `, ` + "`" + `limit` + "`" + `.
+**Options:** provide one of ` + "`" + `id` + "`" + ` or ` + "`" + `file` + "`" + ` plus: ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `, ` + "`" + `includeTags` + "`" + `, ` + "`" + `includeNeighbors` + "`" + `, ` + "`" + `exclude` + "`" + `, ` + "`" + `include` + "`" + `, ` + "`" + `minDegree` + "`" + `, ` + "`" + `mutualOnly` + "`" + `, ` + "`" + `limit` + "`" + `.
 
 ### daily_note / daily_note_path
 Get or locate the daily note. Defaults to today; pass ` + "`" + `date` + "`" + ` as YYYY-MM-DD.

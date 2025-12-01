@@ -78,8 +78,9 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(communityListTool, CommunityListTool(config))
 
 	communityDetailTool := mcp.NewTool("community_detail",
-		mcp.WithDescription(`Show full detail for a community by ID: anchor, density, bridges, top tags/pagerank, members with pagerank/in/out (optional tags/neighbors).`),
-		mcp.WithString("id", mcp.Required(), mcp.Description("Community ID from community_list/graph_stats (e.g., c1234abcd)")),
+		mcp.WithDescription(`Show full detail for a community by ID or file: anchor, density, bridges, top tags/pagerank, members with pagerank/in/out (optional tags/neighbors). Provide either id (from community_list) or file (vault-relative/absolute).`),
+		mcp.WithString("id", mcp.Description("Community ID from community_list/graph_stats (e.g., c1234abcd)")),
+		mcp.WithString("file", mcp.Description("Vault-relative (or absolute) path to a file contained in the desired community")),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include tags on members (default false)")),

@@ -304,7 +304,8 @@ obsidian-cli graph ignore tag:periodic find:*Archive*
 # Show more detail
 obsidian-cli graph degrees --limit 10        # top 10 lists (pagerank/in/out)
 obsidian-cli graph communities --all         # list every community/member
-obsidian-cli graph community c1234abcd --tags --neighbors --all  # inspect a specific community
+obsidian-cli graph community c1234abcd --tags --neighbors --all  # inspect a specific community (by id)
+obsidian-cli graph community "Projects/Note.md" --tags           # inspect the community containing a specific file
 ```
 
 Graph ignores are stored per-vault in `.obsidian-cli/config.json` (set via `graph ignore`). Patterns use the same AND/OR/NOT DSL as `list`/`prompt`.

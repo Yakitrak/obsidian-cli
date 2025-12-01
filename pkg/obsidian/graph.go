@@ -529,6 +529,40 @@ func topTagsForCommunity(members []string, tags map[string][]string, limit int) 
 	return out
 }
 
+// CommunityMembershipLookup returns a map from note path to its community summary for quick lookups.
+func CommunityMembershipLookup(communities []CommunitySummary) map[string]*CommunitySummary {
+	lookup := make(map[string]*CommunitySummary)
+	for i := range communities {
+		comm := &communities[i]
+		for _, node := range comm.Nodes {
+			lookup[node] = comm
+		}
+	}
+	return lookup
+}
+
+// CommunityInternalEdges counts directed edges whose endpoints both live in the community.
+func CommunityInternalEdges(comm *CommunitySummary, nodes map[string]GraphNode) int {
+	if comm == nil {
+		return 0
+	}
+	memberSet := make(map[string]struct{}, len(comm.Nodes))
+	for _, n := range comm.Nodes {
+		memberSet[n] = struct{}{}
+	}
+
+	edgeCount := 0
+	for _, n := range comm.Nodes {
+		node := nodes[n]
+		for _, neigh := range node.Neighbors {
+			if _, ok := memberSet[neigh]; ok {
+				edgeCount++
+			}
+		}
+	}
+	return edgeCount
+}
+
 func assignIDs(components [][]string, prefix string) map[string]string {
 	ids := make(map[string]string)
 	for idx, comp := range components {
