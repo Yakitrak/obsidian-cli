@@ -130,26 +130,26 @@ obsidian-cli note print "{note-name}" --vault "{vault-name}"
 
 ### Create / Update Note
 
-Creates note (can also be a path with name) in vault. By default, if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
+Creates note (can also be a path with name) in vault via `note create`. By default, if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
 
 ```bash
 # Creates empty note in default obsidian and opens it
-obsidian-cli create "{note-name}"
+obsidian-cli note create "{note-name}"
 
 # Creates empty note in given obsidian and opens it
-obsidian-cli create "{note-name}"  --vault "{vault-name}"
+obsidian-cli note create "{note-name}"  --vault "{vault-name}"
 
 # Creates note in default obsidian with content
-obsidian-cli create "{note-name}" --content "abcde"
+obsidian-cli note create "{note-name}" --content "abcde"
 
 # Creates note in default obsidian with content - overwrite existing note
-obsidian-cli create "{note-name}" --content "abcde" --overwrite
+obsidian-cli note create "{note-name}" --content "abcde" --overwrite
 
 # Creates note in default obsidian with content - append existing note
-obsidian-cli create "{note-name}" --content "abcde" --append
+obsidian-cli note create "{note-name}" --content "abcde" --append
 
 # Creates note and opens it
-obsidian-cli create "{note-name}" --content "abcde" --open
+obsidian-cli note create "{note-name}" --content "abcde" --open
 
 ```
 
@@ -315,13 +315,12 @@ Graph ignores are stored per-vault in `.obsidian-cli/config.json` (set via `grap
 List tags with per-note and hierarchical counts. You can scope listing to a subset of files using the same match patterns as `list`.
 
 ```bash
-obsidian-cli tags
-obsidian-cli tags --match "tag:project" --match "find:*2025*"
-obsidian-cli tags --json
+obsidian-cli tags list
+obsidian-cli tags list --match "tag:project" --match "find:*2025*"
+obsidian-cli tags list --json
 ```
 
-Mutating operations (`--add/--delete/--rename`) ignore `--match` to avoid partial edits and will error if combined.
-`--match` accepts the same patterns and boolean logic as `list`.
+`--match` accepts the same patterns and boolean logic as `list` and only applies to `tags`/`tags list`.
 
 ### File Information
 
@@ -370,35 +369,34 @@ obsidian-cli prompt find:project --backlinks
 
 ### Manage Tags
 
-List, delete, or rename tags across your vault. By default, shows all tags with individual and aggregate counts.
+List, add, delete, or rename tags across your vault. By default, `tags` lists all tags with individual and aggregate counts.
 
 **Note:** Delete and rename operations only affect tags with non-zero "Indiv" counts (exact tag matches). Tags with zero individual count are parent tags in hierarchies (e.g., `context` when only `context/work` exists) and won't be modified.
 
 ```bash
 # List all tags with counts
-obsidian-cli tags
+obsidian-cli tags list
 
 # List tags as JSON
-obsidian-cli tags --json
+obsidian-cli tags list --json
 
 # List tags as markdown table
-obsidian-cli tags --markdown
+obsidian-cli tags list --markdown
 
-# Delete specific tags from all notes (multiple syntaxes supported)
-obsidian-cli tags --delete work urgent              # Space-separated
-obsidian-cli tags --delete work,urgent              # Comma-separated
-obsidian-cli tags --delete work --delete urgent     # Repeated flags
+# Add tags to matching notes (combine multiple inputs for OR logic)
+obsidian-cli tags add work urgent --inputs tag:project find:meeting
 
-# Rename tags across all notes (multiple syntaxes supported)
-obsidian-cli tags --rename old --to new
-obsidian-cli tags --rename foo bar --to baz         # Multiple source tags
-obsidian-cli tags --rename foo,bar --to baz         # Comma-separated
+# Delete specific tags from all notes
+obsidian-cli tags delete work urgent
+
+# Rename tags across all notes
+obsidian-cli tags rename old --to new
 
 # Preview changes without making them
-obsidian-cli tags --delete work urgent --dry-run
+obsidian-cli tags delete work urgent --dry-run
 
 # Control parallelism with custom worker count
-obsidian-cli tags --delete work urgent --workers 4
+obsidian-cli tags rename foo bar --to baz --workers 4
 ```
 
 ### Default ignores

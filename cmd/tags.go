@@ -12,177 +12,167 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	tagsJSON         bool
+	tagsMarkdown     bool
+	tagsMatch        []string
+	tagsMutationJSON bool
+	tagsMutationMD   bool
+	tagsDryRun       bool
+	tagsWorkers      int
+	tagsInputs       []string
+	tagsRenameTarget string
+)
+
 var tagsCmd = &cobra.Command{
 	Use:   "tags",
-	Short: "List, add, delete, or rename tags in the vault",
-	Long: `Manage tags in the vault. By default, lists all tags found in the vault, showing both individual counts 
-(notes that contain this exact tag) and aggregate counts (notes that contain this tag or any descendant tag).
-
-Tags are sorted by aggregate count in descending order, with hierarchical tags grouped together.
-
-You can also add, delete, or rename tags:
-- Use --add to add tags to specific notes (requires input criteria)
-- Use --delete to remove tags from all notes that have them
-- Use --rename with --to to rename tags across all notes that have them
-- Use --dry-run to preview changes without making them
-- Use --workers to control parallelism (default: CPU count)
+	Short: "Manage tags (list/add/delete/rename)",
+	Long: `Manage tags in the vault using subcommands.
 
 Examples:
-  obscli tags                                    # List all tags
-  obscli tags --add work,urgent tag:project     # Add 'work' and 'urgent' tags to notes tagged 'project'
-  obscli tags --add important find:meeting      # Add 'important' tag to notes with 'meeting' in filename
-  obscli tags --add done "Notes/Project.md"     # Add 'done' tag to specific file
-  obscli tags --delete work urgent              # Delete 'work' and 'urgent' tags from all notes
-  obscli tags --rename old --to new             # Rename 'old' tag to 'new'
-  obscli tags --add urgent tag:project --dry-run # Preview adding 'urgent' tag to notes tagged 'project'
-  obscli tags --delete work --workers 4         # Delete with 4 parallel workers`,
+  obscli tags list                           # List all tags
+  obscli tags list --match tag:project       # List tags for project notes
+  obscli tags add work urgent --inputs tag:project find:meeting
+  obscli tags delete work urgent --dry-run
+  obscli tags rename old --to new --workers 4`,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
+}
+
+var listTagsCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List tags with individual and aggregate counts",
+	RunE:    runListTags,
+}
+
+var addTagsCmd = &cobra.Command{
+	Use:   "add <tag> [<tag>...] --inputs <criteria...>",
+	Short: "Add tags to notes matching input criteria",
+	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
-		markdownOutput, _ := cmd.Flags().GetBool("markdown")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		workers, _ := cmd.Flags().GetInt("workers")
-		matchPatterns, _ := cmd.Flags().GetStringSlice("match")
-
-		deleteTags, _ := cmd.Flags().GetStringSlice("delete")
-		renameTags, _ := cmd.Flags().GetStringSlice("rename")
-		addTags, _ := cmd.Flags().GetStringSlice("add")
-		toTag, _ := cmd.Flags().GetString("to")
-
-		// Support space-separated tags as positional arguments for delete/rename
-		// For --add, positional args are input criteria (tag:, find:, paths), not additional tags
-		if len(args) > 0 {
-			if len(deleteTags) > 0 {
-				deleteTags = append(deleteTags, args...)
-			} else if len(renameTags) > 0 {
-				renameTags = append(renameTags, args...)
-			}
-			// NOTE: For --add, args are treated as input criteria, not additional tags
+		if len(tagsInputs) == 0 {
+			return fmt.Errorf("--inputs is required (e.g., tag:project, find:meeting, paths)")
 		}
 
-		// Validate flag combinations
-		operationCount := 0
-		if len(deleteTags) > 0 {
-			operationCount++
-		}
-		if len(renameTags) > 0 {
-			operationCount++
-		}
-		if len(addTags) > 0 {
-			operationCount++
+		if err := ensureVaultName(); err != nil {
+			return err
 		}
 
-		if operationCount > 1 {
-			return fmt.Errorf("cannot use --delete, --rename, and --add together")
-		}
-
-		if operationCount > 0 && len(matchPatterns) > 0 {
-			return fmt.Errorf("--match is only supported when listing tags")
-		}
-
-		if len(renameTags) > 0 && toTag == "" {
-			return fmt.Errorf("--rename requires --to destination tag")
-		}
-
-		if len(deleteTags) == 0 && len(renameTags) == 0 && toTag != "" {
-			return fmt.Errorf("--to can only be used with --rename")
-		}
-
-		if len(addTags) > 0 && len(args) == 0 {
-			return fmt.Errorf("--add requires input criteria (e.g., tag:project, find:meeting, file paths)")
-		}
-
-		// If no vault name is provided, get the default vault name
-		if vaultName == "" {
-			vault := &obsidian.Vault{}
-			defaultName, err := vault.DefaultName()
-			if err != nil {
-				return fmt.Errorf("failed to get default vault name: %w", err)
-			}
-			vaultName = defaultName
-		}
-
-		// Get vault and note managers
 		vault := obsidian.Vault{Name: vaultName}
 		note := obsidian.Note{}
 
-		// Handle delete operation
-		if len(deleteTags) > 0 {
-			summary, err := actions.DeleteTagsWithWorkers(&vault, &note, deleteTags, dryRun, workers)
-			if err != nil {
-				return fmt.Errorf("failed to delete tags: %w", err)
-			}
-			return outputMutationSummary(summary, "delete", dryRun, jsonOutput, markdownOutput)
-		}
-
-		// Handle rename operation
-		if len(renameTags) > 0 {
-			summary, err := actions.RenameTagsWithWorkers(&vault, &note, renameTags, toTag, dryRun, workers)
-			if err != nil {
-				return fmt.Errorf("failed to rename tags: %w", err)
-			}
-			return outputMutationSummary(summary, "rename", dryRun, jsonOutput, markdownOutput)
-		}
-
-		// Handle add operation
-		if len(addTags) > 0 {
-			// Parse input criteria to get matching files
-			inputs, expr, err := actions.ParseInputsWithExpression(args)
-			if err != nil {
-				return fmt.Errorf("error parsing input criteria: %w", err)
-			}
-
-			// Get list of files matching the input criteria
-			matchingFiles, err := actions.ListFiles(&vault, &note, actions.ListParams{
-				Inputs:         inputs,
-				Expression:     expr,
-				MaxDepth:       0,
-				SkipAnchors:    false,
-				SkipEmbeds:     false,
-				AbsolutePaths:  false,
-				SuppressedTags: []string{},
-			})
-			if err != nil {
-				return fmt.Errorf("failed to get matching files: %w", err)
-			}
-
-			if len(matchingFiles) == 0 {
-				fmt.Println("No files match the specified criteria.")
-				return nil
-			}
-
-			// Add tags to the specific matching files
-			summary, err := actions.AddTagsToFilesWithWorkers(&vault, &note, addTags, matchingFiles, dryRun, workers)
-			if err != nil {
-				return fmt.Errorf("failed to add tags: %w", err)
-			}
-			return outputMutationSummary(summary, "add", dryRun, jsonOutput, markdownOutput)
-		}
-
-		// Default: list tags
-		scanNotes, err := resolveMatches(&vault, &note, matchPatterns)
+		inputs, expr, err := actions.ParseInputsWithExpression(tagsInputs)
 		if err != nil {
-			return err
+			return fmt.Errorf("error parsing input criteria: %w", err)
 		}
-		if len(matchPatterns) > 0 && len(scanNotes) == 0 {
+
+		matchingFiles, err := actions.ListFiles(&vault, &note, actions.ListParams{
+			Inputs:         inputs,
+			Expression:     expr,
+			MaxDepth:       0,
+			SkipAnchors:    false,
+			SkipEmbeds:     false,
+			AbsolutePaths:  false,
+			SuppressedTags: []string{},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get matching files: %w", err)
+		}
+
+		if len(matchingFiles) == 0 {
 			fmt.Println("No files match the specified criteria.")
 			return nil
 		}
 
-		tagSummaries, err := actions.Tags(&vault, &note, actions.TagsOptions{Notes: scanNotes})
+		summary, err := actions.AddTagsToFilesWithWorkers(&vault, &note, args, matchingFiles, tagsDryRun, tagsWorkers)
 		if err != nil {
-			return fmt.Errorf("failed to get tags: %w", err)
+			return fmt.Errorf("failed to add tags: %w", err)
 		}
 
-		if jsonOutput {
-			return outputTagsJSON(tagSummaries)
-		}
-
-		if markdownOutput {
-			return outputTagsMarkdown(tagSummaries)
-		}
-
-		return outputTagsTable(tagSummaries)
+		return outputMutationSummary(summary, "add", tagsDryRun, tagsMutationJSON, tagsMutationMD)
 	},
+}
+
+var deleteTagsCmd = &cobra.Command{
+	Use:     "delete <tag> [<tag>...]",
+	Aliases: []string{"del", "rm"},
+	Short:   "Delete tags from all notes that contain them",
+	Args:    cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := ensureVaultName(); err != nil {
+			return err
+		}
+
+		vault := obsidian.Vault{Name: vaultName}
+		note := obsidian.Note{}
+
+		summary, err := actions.DeleteTagsWithWorkers(&vault, &note, args, tagsDryRun, tagsWorkers)
+		if err != nil {
+			return fmt.Errorf("failed to delete tags: %w", err)
+		}
+
+		return outputMutationSummary(summary, "delete", tagsDryRun, tagsMutationJSON, tagsMutationMD)
+	},
+}
+
+var renameTagsCmd = &cobra.Command{
+	Use:   "rename <from-tag> [<from-tag>...] --to <to-tag>",
+	Short: "Rename tags across the vault",
+	Args:  cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if strings.TrimSpace(tagsRenameTarget) == "" {
+			return fmt.Errorf("--to destination tag is required")
+		}
+
+		if err := ensureVaultName(); err != nil {
+			return err
+		}
+
+		vault := obsidian.Vault{Name: vaultName}
+		note := obsidian.Note{}
+
+		summary, err := actions.RenameTagsWithWorkers(&vault, &note, args, tagsRenameTarget, tagsDryRun, tagsWorkers)
+		if err != nil {
+			return fmt.Errorf("failed to rename tags: %w", err)
+		}
+
+		return outputMutationSummary(summary, "rename", tagsDryRun, tagsMutationJSON, tagsMutationMD)
+	},
+}
+
+func runListTags(cmd *cobra.Command, _ []string) error {
+	if err := ensureVaultName(); err != nil {
+		return err
+	}
+
+	vault := obsidian.Vault{Name: vaultName}
+	note := obsidian.Note{}
+
+	scanNotes, err := resolveMatches(&vault, &note, tagsMatch)
+	if err != nil {
+		return err
+	}
+	if len(tagsMatch) > 0 && len(scanNotes) == 0 {
+		fmt.Println("No files match the specified criteria.")
+		return nil
+	}
+
+	tagSummaries, err := actions.Tags(&vault, &note, actions.TagsOptions{Notes: scanNotes})
+	if err != nil {
+		return fmt.Errorf("failed to get tags: %w", err)
+	}
+
+	if tagsJSON {
+		return outputTagsJSON(tagSummaries)
+	}
+
+	if tagsMarkdown {
+		return outputTagsMarkdown(tagSummaries)
+	}
+
+	return outputTagsTable(tagSummaries)
 }
 
 func outputTagsJSON(tagSummaries []actions.TagSummary) error {
@@ -297,16 +287,48 @@ func outputMutationSummaryMarkdown(summary actions.TagMutationSummary, operation
 	return nil
 }
 
+func ensureVaultName() error {
+	if vaultName != "" {
+		return nil
+	}
+
+	vault := &obsidian.Vault{}
+	defaultName, err := vault.DefaultName()
+	if err != nil {
+		return fmt.Errorf("failed to get default vault name: %w", err)
+	}
+	vaultName = defaultName
+	return nil
+}
+
+func addListFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&tagsJSON, "json", false, "Output tags as JSON")
+	cmd.Flags().BoolVar(&tagsMarkdown, "markdown", false, "Output tags as markdown table")
+	cmd.Flags().StringSliceVarP(&tagsMatch, "match", "m", nil, "Restrict listing to files matched by find/tag/path patterns (only for listing)")
+}
+
+func addMutationFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&tagsMutationJSON, "json", false, "Output results as JSON")
+	cmd.Flags().BoolVar(&tagsMutationMD, "markdown", false, "Output results as markdown table")
+	cmd.Flags().BoolVar(&tagsDryRun, "dry-run", false, "Show what would be changed without making changes")
+	cmd.Flags().IntVarP(&tagsWorkers, "workers", "w", runtime.NumCPU(), "Number of parallel workers")
+}
+
 func init() {
-	tagsCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	tagsCmd.Flags().Bool("json", false, "Output tags as JSON")
-	tagsCmd.Flags().Bool("markdown", false, "Output tags as markdown table")
-	tagsCmd.Flags().StringSliceP("delete", "d", nil, "Delete specified tags from all notes")
-	tagsCmd.Flags().StringSliceP("rename", "r", nil, "Rename specified tags (use with --to)")
-	tagsCmd.Flags().StringSliceP("add", "a", nil, "Add specified tags to matching notes (requires input criteria)")
-	tagsCmd.Flags().StringP("to", "t", "", "Destination tag name for rename operation")
-	tagsCmd.Flags().Bool("dry-run", false, "Show what would be changed without making changes")
-	tagsCmd.Flags().IntP("workers", "w", runtime.NumCPU(), "Number of parallel workers")
-	tagsCmd.Flags().StringSliceP("match", "m", nil, "Restrict listing to files matched by find/tag/path patterns (only for listing)")
+	tagsCmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+
+	addListFlags(listTagsCmd)
+
+	addMutationFlags(addTagsCmd)
+	addMutationFlags(deleteTagsCmd)
+	addMutationFlags(renameTagsCmd)
+
+	addTagsCmd.Flags().StringSliceVarP(&tagsInputs, "inputs", "i", nil, "Input criteria (find:/tag:/paths or boolean expressions) to select target notes")
+	renameTagsCmd.Flags().StringVarP(&tagsRenameTarget, "to", "t", "", "Destination tag name for rename operation")
+
+	tagsCmd.AddCommand(listTagsCmd)
+	tagsCmd.AddCommand(addTagsCmd)
+	tagsCmd.AddCommand(deleteTagsCmd)
+	tagsCmd.AddCommand(renameTagsCmd)
 	rootCmd.AddCommand(tagsCmd)
 }

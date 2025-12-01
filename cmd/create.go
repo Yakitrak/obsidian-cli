@@ -40,5 +40,5 @@ func init() {
 	createNoteCmd.Flags().BoolVarP(&shouldAppend, "append", "a", false, "append to note")
 	createNoteCmd.Flags().BoolVarP(&shouldOverwrite, "overwrite", "o", false, "overwrite note")
 	createNoteCmd.MarkFlagsMutuallyExclusive("append", "overwrite")
-	rootCmd.AddCommand(createNoteCmd)
+	noteCmd.AddCommand(createNoteCmd)
 }
