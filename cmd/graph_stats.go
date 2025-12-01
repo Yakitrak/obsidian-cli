@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/atomicobject/obsidian-cli/pkg/actions"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
@@ -32,9 +33,18 @@ var graphStatsCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: selectedVault}
 		note := obsidian.Note{}
 
-		stats, err := actions.GraphStats(&vault, &note, obsidian.WikilinkOptions{
-			SkipAnchors: graphSkipAnchors,
-			SkipEmbeds:  graphSkipEmbeds,
+		analysis, err := actions.GraphAnalysis(&vault, &note, actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: graphSkipAnchors,
+					SkipEmbeds:  graphSkipEmbeds,
+				},
+				MinDegree:  graphMinDegree,
+				MutualOnly: graphMutualOnly,
+			},
+			ExcludePatterns: graphExcludePatterns,
+			IncludePatterns: graphIncludePatterns,
 		})
 		if err != nil {
 			return err
@@ -45,19 +55,10 @@ var graphStatsCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("Link degrees for vault %q (%s)\n", selectedVault, vaultPath)
-		fmt.Printf("Notes scanned: %d\n\n", len(stats.Nodes))
+		fmt.Fprintf(cmd.OutOrStdout(), "Graph for vault %q (%s)\n", selectedVault, vaultPath)
+		fmt.Fprintf(cmd.OutOrStdout(), "Nodes: %d  Edges: %d  Orphans: %d  Communities: %d\n\n", analysis.Stats.NodeCount, analysis.Stats.EdgeCount, len(analysis.Orphans), len(analysis.Communities))
 
-		fmt.Println("Degree counts (outbound -> inbound):")
-		paths := make([]string, 0, len(stats.Nodes))
-		for path := range stats.Nodes {
-			paths = append(paths, path)
-		}
-		sort.Strings(paths)
-		for _, path := range paths {
-			node := stats.Nodes[path]
-			fmt.Printf("  %s: out=%d in=%d\n", path, node.Outbound, node.Inbound)
-		}
+		printTopNodes(cmd, analysis, graphLimit, graphShowAll)
 
 		return nil
 	},
@@ -68,4 +69,95 @@ func init() {
 	graphStatsCmd.Flags().BoolVar(&graphSkipEmbeds, "skip-embeds", false, "skip embedded wikilinks (e.g. ![[Embedded Note]])")
 
 	graphCmd.AddCommand(graphStatsCmd)
+}
+
+func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit int, showAll bool) {
+	if analysis == nil || len(analysis.Nodes) == 0 {
+		return
+	}
+
+	type nodeRank struct {
+		path      string
+		title     string
+		pagerank  float64
+		inbound   int
+		outbound  int
+		community string
+		tags      []string
+	}
+
+	var nodes []nodeRank
+	for _, n := range analysis.Nodes {
+		nodes = append(nodes, nodeRank{
+			path:      n.Path,
+			title:     n.Title,
+			pagerank:  n.Pagerank,
+			inbound:   n.Inbound,
+			outbound:  n.Outbound,
+			community: n.Community,
+			tags:      n.Tags,
+		})
+	}
+
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].pagerank == nodes[j].pagerank {
+			return nodes[i].path < nodes[j].path
+		}
+		return nodes[i].pagerank > nodes[j].pagerank
+	})
+
+	max := limit
+	if showAll {
+		max = len(nodes)
+	}
+	if max > len(nodes) {
+		max = len(nodes)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by pagerank:\n", max)
+	for i := 0; i < max; i++ {
+		n := nodes[i]
+		tagStr := ""
+		if len(n.tags) > 0 {
+			tagStr = fmt.Sprintf(" tags:%s", strings.Join(n.tags, ","))
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s pr=%.4f in=%d out=%d community=%s%s\n", i+1, n.path, n.pagerank, n.inbound, n.outbound, n.community, tagStr)
+	}
+	if !showAll && len(nodes) > max {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(nodes)-max)
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	topInbound := append([]nodeRank{}, nodes...)
+	sort.Slice(topInbound, func(i, j int) bool {
+		if topInbound[i].inbound == topInbound[j].inbound {
+			return topInbound[i].path < topInbound[j].path
+		}
+		return topInbound[i].inbound > topInbound[j].inbound
+	})
+	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by inbound links:\n", max)
+	for i := 0; i < max; i++ {
+		n := topInbound[i]
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s in=%d out=%d pr=%.4f community=%s\n", i+1, n.path, n.inbound, n.outbound, n.pagerank, n.community)
+	}
+	if !showAll && len(topInbound) > max {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(topInbound)-max)
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	topOutbound := append([]nodeRank{}, nodes...)
+	sort.Slice(topOutbound, func(i, j int) bool {
+		if topOutbound[i].outbound == topOutbound[j].outbound {
+			return topOutbound[i].path < topOutbound[j].path
+		}
+		return topOutbound[i].outbound > topOutbound[j].outbound
+	})
+	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by outbound links:\n", max)
+	for i := 0; i < max; i++ {
+		n := topOutbound[i]
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s out=%d in=%d pr=%.4f community=%s\n", i+1, n.path, n.outbound, n.inbound, n.pagerank, n.community)
+	}
+	if !showAll && len(topOutbound) > max {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(topOutbound)-max)
+	}
 }

@@ -31,9 +31,18 @@ var orphansCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: selectedVault}
 		note := obsidian.Note{}
 
-		orphans, err := actions.Orphans(&vault, &note, obsidian.WikilinkOptions{
-			SkipAnchors: orphansSkipAnchors,
-			SkipEmbeds:  orphansSkipEmbeds,
+		analysis, err := actions.GraphAnalysis(&vault, &note, actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: orphansSkipAnchors,
+					SkipEmbeds:  orphansSkipEmbeds,
+				},
+				MinDegree:  graphMinDegree,
+				MutualOnly: graphMutualOnly,
+			},
+			ExcludePatterns: graphExcludePatterns,
+			IncludePatterns: graphIncludePatterns,
 		})
 		if err != nil {
 			return err
@@ -45,13 +54,13 @@ var orphansCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Orphans (no inbound or outbound wikilinks) in %q (%s):\n", selectedVault, vaultPath)
-		if len(orphans) == 0 {
+		if len(analysis.Orphans) == 0 {
 			fmt.Println("  (none)")
 			return nil
 		}
 
-		sorted := make([]string, len(orphans))
-		copy(sorted, orphans)
+		sorted := make([]string, len(analysis.Orphans))
+		copy(sorted, analysis.Orphans)
 		sort.Strings(sorted)
 
 		for _, path := range sorted {

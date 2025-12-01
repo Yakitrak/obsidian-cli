@@ -36,15 +36,15 @@ Inspect frontmatter and inline properties. Response: ` + "`" + `{properties:[{na
 
 **Options:** ` + "`" + `source` + "`" + ` ("all", "frontmatter", or "inline"), ` + "`" + `match` + "`" + `, ` + "`" + `excludeTags` + "`" + `, ` + "`" + `only` + "`" + ` (limit to specific properties), ` + "`" + `valueLimit` + "`" + ` (default 25; maxValues-1 when ` + "`" + `only` + "`" + ` is used), ` + "`" + `verbose` + "`" + `, ` + "`" + `valueCounts` + "`" + ` (default true).
 
-### graph_stats
-Compute wikilink degree counts and mutual-link clusters (SCCs). Response: ` + "`" + `{nodes:{path:{inbound, outbound}}, components:[[...]], orphans:[...]}` + "`" + ` (paths are vault-relative). Cycles are informational, not errors.
+### community_list
+List communities (label propagation) with anchors, top tags, and top pagerank notes. Response: ` + "`" + `{communities:[{id,size,nodes,anchor,topTags,topPagerank,density,bridges}], stats}` + "`" + `. Use the ` + "`" + `id` + "`" + ` for community_detail.
 
-**Options:** ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `.
+**Options:** same filters as ` + "`" + `graph_stats` + "`" + `: ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `, ` + "`" + `includeTags` + "`" + `, ` + "`" + `exclude` + "`" + `, ` + "`" + `include` + "`" + `, ` + "`" + `minDegree` + "`" + `, ` + "`" + `mutualOnly` + "`" + `, plus ` + "`" + `maxCommunities` + "`" + `, ` + "`" + `maxTopNotes` + "`" + `.
 
-### orphans
-List notes with no inbound or outbound wikilinks. Response: ` + "`" + `{orphans:[paths...]}` + "`" + `.
+### community_detail
+Show full detail for a community by ` + "`" + `id` + "`" + ` (from community_list/graph_stats): anchor, density, bridges, top tags/pagerank, and members with pagerank/in/out (optional tags/neighbors). Response: ` + "`" + `{id,anchor,size,density,bridges,topTags,topPagerank,members[{path,title,inbound,outbound,pagerank,community,scc,weakComponent,tags?,neighbors?}],internalEdges}` + "`" + `.
 
-**Options:** ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `.
+**Options:** same filters: ` + "`" + `skipAnchors` + "`" + `, ` + "`" + `skipEmbeds` + "`" + `, ` + "`" + `includeTags` + "`" + `, ` + "`" + `includeNeighbors` + "`" + `, ` + "`" + `exclude` + "`" + `, ` + "`" + `include` + "`" + `, ` + "`" + `minDegree` + "`" + `, ` + "`" + `mutualOnly` + "`" + `, ` + "`" + `limit` + "`" + `.
 
 ### daily_note / daily_note_path
 Get or locate the daily note. Defaults to today; pass ` + "`" + `date` + "`" + ` as YYYY-MM-DD.

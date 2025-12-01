@@ -330,23 +330,16 @@ func TestGraphStatsTool(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TextContent, got %T", resp.Content[0])
 	}
-
-	var parsed GraphStatsResponse
-	require.NoError(t, json.Unmarshal([]byte(text.Text), &parsed))
-
-	assert.Equal(t, 1, parsed.Nodes["A.md"].Outbound)
-	assert.Equal(t, 1, parsed.Nodes["B.md"].Inbound)
-	assert.Empty(t, parsed.Orphans)
-	assert.Equal(t, [][]string{{"A.md"}, {"B.md"}}, parsed.Components)
+	assert.Contains(t, text.Text, "graph_stats removed")
 }
 
-func TestOrphansTool(t *testing.T) {
+func TestCommunityListAndDetailTools(t *testing.T) {
 	root := t.TempDir()
 	vaultPath := filepath.Join(root, "vault")
 	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "Lonely.md"), []byte(""), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "Linked.md"), []byte("See [[Lonely]]"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "A.md"), []byte("Link to [[B]]"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "B.md"), []byte("Link to [[A]]"), 0o644))
 
 	configFile := filepath.Join(root, "obsidian.json")
 	configJSON := fmt.Sprintf(`{"vaults":{"random":{"path":"%s"}}}`, vaultPath)
@@ -363,26 +356,43 @@ func TestOrphansTool(t *testing.T) {
 		ReadWrite:      true,
 	}
 
-	tool := OrphansTool(cfg)
-	req := mcp.CallToolRequest{
+	listTool := CommunityListTool(cfg)
+	listReq := mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
-			Name:      "orphans",
+			Name:      "community_list",
 			Arguments: map[string]interface{}{},
 		},
 	}
-
-	resp, err := tool(context.Background(), req)
+	listResp, err := listTool(context.Background(), listReq)
 	require.NoError(t, err)
-	if !assert.Len(t, resp.Content, 1) {
-		return
+	require.Len(t, listResp.Content, 1)
+	listText, ok := listResp.Content[0].(mcp.TextContent)
+	require.True(t, ok)
+
+	var listParsed CommunityListResponse
+	require.NoError(t, json.Unmarshal([]byte(listText.Text), &listParsed))
+	require.NotEmpty(t, listParsed.Communities)
+
+	commID := listParsed.Communities[0].ID
+
+	detailTool := CommunityDetailTool(cfg)
+	detailReq := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "community_detail",
+			Arguments: map[string]interface{}{
+				"id": commID,
+			},
+		},
 	}
 
-	text, ok := resp.Content[0].(mcp.TextContent)
-	if !ok {
-		t.Fatalf("expected TextContent, got %T", resp.Content[0])
-	}
+	detailResp, err := detailTool(context.Background(), detailReq)
+	require.NoError(t, err)
+	require.Len(t, detailResp.Content, 1)
+	detailText, ok := detailResp.Content[0].(mcp.TextContent)
+	require.True(t, ok)
 
-	var parsed OrphansResponse
-	require.NoError(t, json.Unmarshal([]byte(text.Text), &parsed))
-	assert.Empty(t, parsed.Orphans)
+	var detailParsed CommunityDetailResponse
+	require.NoError(t, json.Unmarshal([]byte(detailText.Text), &detailParsed))
+	assert.Equal(t, commID, detailParsed.ID)
+	require.Len(t, detailParsed.Members, 2)
 }

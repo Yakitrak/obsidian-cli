@@ -288,12 +288,26 @@ obsidian-cli graph degrees --vault "{vault-name}"
 # Mutual-link clusters (SCCs)
 obsidian-cli graph clusters --vault "{vault-name}"
 
+# Communities (looser clusters via label propagation)
+obsidian-cli graph communities --vault "{vault-name}"
+
 # Notes with no inbound or outbound links (self-links ignored)
 obsidian-cli graph orphans --vault "{vault-name}"
 
 # Skip anchors or embeds when parsing links
 obsidian-cli graph clusters --skip-anchors --skip-embeds
+
+# Exclude notes by pattern (same DSL as list/prompt) and persist defaults
+obsidian-cli graph communities --exclude "tag:periodic" --exclude "find:*Archive*"
+obsidian-cli graph ignore tag:periodic find:*Archive*
+
+# Show more detail
+obsidian-cli graph degrees --limit 10        # top 10 lists (pagerank/in/out)
+obsidian-cli graph communities --all         # list every community/member
+obsidian-cli graph community c1234abcd --tags --neighbors --all  # inspect a specific community
 ```
+
+Graph ignores are stored per-vault in `.obsidian-cli/config.json` (set via `graph ignore`). Patterns use the same AND/OR/NOT DSL as `list`/`prompt`.
 
 ### Tags (listing)
 

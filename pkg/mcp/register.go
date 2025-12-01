@@ -63,19 +63,34 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	)
 	s.AddTool(listPropertiesTool, ListPropertiesTool(config))
 
-	graphStatsTool := mcp.NewTool("graph_stats",
-		mcp.WithDescription(`Compute link-graph degree counts and mutual-link clusters. Response: {nodes:{path:{inbound, outbound}}, components:[[...]], orphans:[...]} (paths are vault-relative). Cycles are not treated as errors.`),
+	communityListTool := mcp.NewTool("community_list",
+		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, and top pagerank notes. Respects include/exclude/minDegree/mutualOnly filters. Response: {communities:[{id,size,nodes,anchor,topTags,topPagerank,density,bridges}], stats}.`),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (may be heavier on large vaults)")),
+		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
+		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
+		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 25)"), mcp.Min(1)),
+		mcp.WithNumber("maxTopNotes", mcp.Description("Maximum top-pagerank notes per community (default 5)"), mcp.Min(1)),
 	)
-	s.AddTool(graphStatsTool, GraphStatsTool(config))
+	s.AddTool(communityListTool, CommunityListTool(config))
 
-	orphansTool := mcp.NewTool("orphans",
-		mcp.WithDescription(`List notes with no inbound or outbound wikilinks. Uses the same parsing options as graph_stats.`),
+	communityDetailTool := mcp.NewTool("community_detail",
+		mcp.WithDescription(`Show full detail for a community by ID: anchor, density, bridges, top tags/pagerank, members with pagerank/in/out (optional tags/neighbors).`),
+		mcp.WithString("id", mcp.Required(), mcp.Description("Community ID from community_list/graph_stats (e.g., c1234abcd)")),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+		mcp.WithBoolean("includeTags", mcp.Description("Include tags on members (default false)")),
+		mcp.WithBoolean("includeNeighbors", mcp.Description("Include neighbor lists on members (default false)")),
+		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
+		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
+		mcp.WithNumber("limit", mcp.Description("Limit members returned (default all)"), mcp.Min(1)),
 	)
-	s.AddTool(orphansTool, OrphansTool(config))
+	s.AddTool(communityDetailTool, CommunityDetailTool(config))
 
 	// Register daily_note tool (returns content)
 	dailyNoteTool := mcp.NewTool("daily_note",

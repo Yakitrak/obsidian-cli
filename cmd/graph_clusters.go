@@ -31,9 +31,18 @@ var graphClustersCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: selectedVault}
 		note := obsidian.Note{}
 
-		stats, err := actions.GraphStats(&vault, &note, obsidian.WikilinkOptions{
-			SkipAnchors: clustersSkipAnchors,
-			SkipEmbeds:  clustersSkipEmbeds,
+		analysis, err := actions.GraphAnalysis(&vault, &note, actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: clustersSkipAnchors,
+					SkipEmbeds:  clustersSkipEmbeds,
+				},
+				MinDegree:  graphMinDegree,
+				MutualOnly: graphMutualOnly,
+			},
+			ExcludePatterns: graphExcludePatterns,
+			IncludePatterns: graphIncludePatterns,
 		})
 		if err != nil {
 			return err
@@ -46,16 +55,33 @@ var graphClustersCmd = &cobra.Command{
 
 		fmt.Printf("Mutual-link clusters for vault %q (%s)\n", selectedVault, vaultPath)
 
-		found := false
-		for _, component := range stats.Components {
+		var clusters [][]string
+		for _, component := range analysis.StrongComponents {
 			if len(component) <= 1 {
 				continue
 			}
-			found = true
+			clusters = append(clusters, component)
+		}
+
+		if len(clusters) == 0 {
+			fmt.Println("  (none)")
+			return nil
+		}
+
+		limit := graphLimit
+		if graphShowAll || limit <= 0 || limit > len(clusters) {
+			limit = len(clusters)
+		}
+		if !graphShowAll && limit < len(clusters) {
+			fmt.Printf("Showing top %d of %d clusters:\n", limit, len(clusters))
+		}
+
+		for i := 0; i < limit; i++ {
+			component := clusters[i]
 			fmt.Printf("  size %d: %s\n", len(component), strings.Join(component, ", "))
 		}
-		if !found {
-			fmt.Println("  (none)")
+		if !graphShowAll && limit < len(clusters) {
+			fmt.Printf("  ... (%d more)\n", len(clusters)-limit)
 		}
 
 		return nil

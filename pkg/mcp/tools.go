@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -58,11 +59,48 @@ type PropertyListResponse struct {
 	Properties []actions.PropertySummary `json:"properties"`
 }
 
-// GraphStatsResponse describes link-graph degree counts and components.
-type GraphStatsResponse struct {
-	Nodes      map[string]obsidian.NodeStats `json:"nodes"`
-	Components [][]string                    `json:"components"`
-	Orphans    []string                      `json:"orphans"`
+// GraphNodePayload captures node-level metrics for MCP clients.
+type GraphNodePayload struct {
+	Path      string   `json:"path"`
+	Title     string   `json:"title"`
+	Inbound   int      `json:"inbound"`
+	Outbound  int      `json:"outbound"`
+	Pagerank  float64  `json:"pagerank"`
+	Community string   `json:"community"`
+	SCC       string   `json:"scc"`
+	Neighbors []string `json:"neighbors,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	WeakComp  string   `json:"weakComponent,omitempty"`
+}
+
+// GraphCommunityPayload summarizes a community.
+type GraphCommunityPayload struct {
+	ID          string              `json:"id"`
+	Nodes       []string            `json:"nodes"`
+	TopTags     []obsidian.TagCount `json:"topTags,omitempty"`
+	TopPagerank []string            `json:"topPagerank,omitempty"`
+	Anchor      string              `json:"anchor,omitempty"`
+	Density     float64             `json:"density,omitempty"`
+	Bridges     []string            `json:"bridges,omitempty"`
+}
+
+// CommunityListResponse summarizes communities.
+type CommunityListResponse struct {
+	Communities []GraphCommunityPayload    `json:"communities"`
+	Stats       obsidian.GraphStatsSummary `json:"stats"`
+}
+
+// CommunityDetailResponse provides full detail for a single community.
+type CommunityDetailResponse struct {
+	ID            string              `json:"id"`
+	Anchor        string              `json:"anchor,omitempty"`
+	Size          int                 `json:"size"`
+	Density       float64             `json:"density,omitempty"`
+	Bridges       []string            `json:"bridges,omitempty"`
+	TopTags       []obsidian.TagCount `json:"topTags,omitempty"`
+	TopPagerank   []string            `json:"topPagerank,omitempty"`
+	Members       []GraphNodePayload  `json:"members"`
+	InternalEdges int                 `json:"internalEdges,omitempty"`
 }
 
 // OrphansResponse describes orphaned note paths.
@@ -475,57 +513,270 @@ func ListPropertiesTool(config Config) func(context.Context, mcp.CallToolRequest
 	}
 }
 
-// GraphStatsTool exposes link-graph degree counts and SCCs.
+// GraphStatsTool has been removed; kept for backward compatibility to return an error.
 func GraphStatsTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return mcp.NewToolResultError("graph_stats removed; use community_list/community_detail"), nil
+	}
+}
+
+// CommunityListTool returns community summaries only.
+func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
 		skipAnchors, _ := args["skipAnchors"].(bool)
 		skipEmbeds, _ := args["skipEmbeds"].(bool)
+		includeTags, _ := args["includeTags"].(bool)
+		minDegree := 0
+		if v, ok := args["minDegree"].(float64); ok {
+			minDegree = int(v)
+		}
+		mutualOnly, _ := args["mutualOnly"].(bool)
+		var exclude []string
+		var include []string
+		if raw, ok := args["exclude"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					exclude = append(exclude, s)
+				}
+			}
+		} else if raw, ok := args["exclude"].([]string); ok {
+			exclude = raw
+		}
+		if raw, ok := args["include"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					include = append(include, s)
+				}
+			}
+		} else if raw, ok := args["include"].([]string); ok {
+			include = raw
+		}
+		exclude = actions.ExpandPatterns(exclude)
+		include = actions.ExpandPatterns(include)
 
-		stats, err := actions.GraphStats(config.Vault, resolveNoteManager(config), obsidian.WikilinkOptions{
-			SkipAnchors: skipAnchors,
-			SkipEmbeds:  skipEmbeds,
+		analysis, err := actions.GraphAnalysis(config.Vault, resolveNoteManager(config), actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: skipAnchors,
+					SkipEmbeds:  skipEmbeds,
+				},
+				IncludeTags: includeTags,
+				MinDegree:   minDegree,
+				MutualOnly:  mutualOnly,
+			},
+			ExcludePatterns: exclude,
+			IncludePatterns: include,
 		})
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("error computing graph stats: %s", err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("error computing communities: %s", err)), nil
 		}
 
-		resp := GraphStatsResponse{
-			Nodes:      stats.Nodes,
-			Components: stats.Components,
-			Orphans:    stats.Orphans(),
+		maxCommunities := 25
+		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
+			maxCommunities = int(v)
+		}
+		maxTopNotes := 5
+		if v, ok := args["maxTopNotes"].(float64); ok && int(v) > 0 {
+			maxTopNotes = int(v)
+		}
+
+		var comms []GraphCommunityPayload
+		for idx, comm := range analysis.Communities {
+			if idx >= maxCommunities {
+				break
+			}
+			topPagerank := comm.TopPagerank
+			if len(topPagerank) > maxTopNotes {
+				topPagerank = topPagerank[:maxTopNotes]
+			}
+			comms = append(comms, GraphCommunityPayload{
+				ID:          comm.ID,
+				Nodes:       nil, // omit members from list response
+				TopTags:     comm.TopTags,
+				TopPagerank: topPagerank,
+				Anchor:      comm.Anchor,
+				Density:     comm.Density,
+				Bridges:     comm.Bridges,
+			})
+		}
+
+		resp := CommunityListResponse{
+			Communities: comms,
+			Stats:       analysis.Stats,
 		}
 		encoded, err := json.Marshal(resp)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("error marshaling graph stats: %s", err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling community list: %s", err)), nil
 		}
-
 		return mcp.NewToolResultText(string(encoded)), nil
 	}
 }
 
-// OrphansTool returns notes with zero inbound and outbound wikilinks.
-func OrphansTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+// CommunityDetailTool returns full detail for a specific community.
+func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
+		id, _ := args["id"].(string)
+		if strings.TrimSpace(id) == "" {
+			return mcp.NewToolResultError("id is required"), nil
+		}
 		skipAnchors, _ := args["skipAnchors"].(bool)
 		skipEmbeds, _ := args["skipEmbeds"].(bool)
+		includeTags, _ := args["includeTags"].(bool)
+		includeNeighbors, _ := args["includeNeighbors"].(bool)
+		minDegree := 0
+		if v, ok := args["minDegree"].(float64); ok {
+			minDegree = int(v)
+		}
+		mutualOnly, _ := args["mutualOnly"].(bool)
+		var exclude []string
+		var include []string
+		if raw, ok := args["exclude"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					exclude = append(exclude, s)
+				}
+			}
+		} else if raw, ok := args["exclude"].([]string); ok {
+			exclude = raw
+		}
+		if raw, ok := args["include"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					include = append(include, s)
+				}
+			}
+		} else if raw, ok := args["include"].([]string); ok {
+			include = raw
+		}
+		exclude = actions.ExpandPatterns(exclude)
+		include = actions.ExpandPatterns(include)
 
-		orphans, err := actions.Orphans(config.Vault, resolveNoteManager(config), obsidian.WikilinkOptions{
-			SkipAnchors: skipAnchors,
-			SkipEmbeds:  skipEmbeds,
-		})
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("error finding orphans: %s", err)), nil
+		limit := 0
+		if v, ok := args["limit"].(float64); ok && int(v) > 0 {
+			limit = int(v)
 		}
 
-		resp := OrphansResponse{Orphans: orphans}
+		analysis, err := actions.GraphAnalysis(config.Vault, resolveNoteManager(config), actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: skipAnchors,
+					SkipEmbeds:  skipEmbeds,
+				},
+				IncludeTags: includeTags,
+				MinDegree:   minDegree,
+				MutualOnly:  mutualOnly,
+			},
+			ExcludePatterns: exclude,
+			IncludePatterns: include,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
+		}
+
+		var target *obsidian.CommunitySummary
+		for i := range analysis.Communities {
+			if analysis.Communities[i].ID == id {
+				target = &analysis.Communities[i]
+				break
+			}
+		}
+		if target == nil {
+			return mcp.NewToolResultError(fmt.Sprintf("community %s not found under current filters", id)), nil
+		}
+
+		memberSet := make(map[string]struct{}, len(target.Nodes))
+		for _, n := range target.Nodes {
+			memberSet[n] = struct{}{}
+		}
+		edgeCount := 0
+		for _, n := range target.Nodes {
+			for _, neigh := range analysis.Nodes[n].Neighbors {
+				if _, ok := memberSet[neigh]; ok {
+					edgeCount++
+				}
+			}
+		}
+
+		members := rankMembers(target.Nodes, analysis.Nodes)
+		if limit > 0 && limit < len(members) {
+			members = members[:limit]
+		}
+
+		payloadMembers := make([]GraphNodePayload, 0, len(members))
+		for _, m := range members {
+			payload := GraphNodePayload{
+				Path:      m.path,
+				Title:     m.title,
+				Inbound:   m.in,
+				Outbound:  m.out,
+				Pagerank:  m.pr,
+				Community: id,
+				Tags:      m.tags,
+				WeakComp:  analysis.Nodes[m.path].WeakCompID,
+				SCC:       analysis.Nodes[m.path].SCC,
+			}
+			if includeNeighbors {
+				payload.Neighbors = analysis.Nodes[m.path].Neighbors
+			}
+			if !includeTags {
+				payload.Tags = nil
+			}
+			payloadMembers = append(payloadMembers, payload)
+		}
+
+		resp := CommunityDetailResponse{
+			ID:            target.ID,
+			Anchor:        target.Anchor,
+			Size:          len(target.Nodes),
+			Density:       target.Density,
+			Bridges:       target.Bridges,
+			TopTags:       target.TopTags,
+			TopPagerank:   target.TopPagerank,
+			Members:       payloadMembers,
+			InternalEdges: edgeCount,
+		}
+
 		encoded, err := json.Marshal(resp)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("error marshaling orphans: %s", err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling community detail: %s", err)), nil
 		}
 		return mcp.NewToolResultText(string(encoded)), nil
 	}
+}
+
+type rankedMember struct {
+	path  string
+	title string
+	pr    float64
+	in    int
+	out   int
+	tags  []string
+}
+
+func rankMembers(members []string, nodes map[string]obsidian.GraphNode) []rankedMember {
+	var list []rankedMember
+	for _, p := range members {
+		n := nodes[p]
+		list = append(list, rankedMember{
+			path:  p,
+			title: n.Title,
+			pr:    n.Pagerank,
+			in:    n.Inbound,
+			out:   n.Outbound,
+			tags:  n.Tags,
+		})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].pr == list[j].pr {
+			return list[i].path < list[j].path
+		}
+		return list[i].pr > list[j].pr
+	})
+	return list
 }
 
 // RenameNoteTool implements the rename_note MCP tool mirroring CLI behavior.

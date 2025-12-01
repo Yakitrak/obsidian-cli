@@ -33,3 +33,35 @@ func TestComputeGraphStatsAndOrphans(t *testing.T) {
 
 	assert.Equal(t, []string{"orphan.md", "selflink.md"}, stats.Orphans())
 }
+
+func TestCommunitiesLabelPropagation(t *testing.T) {
+	vaultPath := filepath.Join("..", "..", "mocks", "vaults", "graph")
+	stats, err := ComputeGraphStats(vaultPath, &Note{}, DefaultWikilinkOptions)
+	require.NoError(t, err)
+
+	communities := stats.Communities()
+
+	var cluster []string
+	for _, c := range communities {
+		if len(c.Nodes) >= 3 {
+			cluster = c.Nodes
+			break
+		}
+	}
+
+	assert.ElementsMatch(t, []string{"alpha.md", "beta.md", "gamma.md"}, cluster)
+}
+
+func TestGraphAnalysisRespectsExcludes(t *testing.T) {
+	vaultPath := filepath.Join("..", "..", "mocks", "vaults", "graph")
+	analysis, err := ComputeGraphAnalysis(vaultPath, &Note{}, GraphAnalysisOptions{
+		WikilinkOptions: DefaultWikilinkOptions,
+		ExcludedPaths: map[string]struct{}{
+			"gamma.md": {},
+		},
+	})
+	require.NoError(t, err)
+
+	_, hasGamma := analysis.Nodes["gamma.md"]
+	assert.False(t, hasGamma)
+}
