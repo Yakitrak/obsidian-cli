@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -147,4 +148,46 @@ func TestRenameNote_DirtyGitBlocks(t *testing.T) {
 	// dirty file should not block; expect fallback to git mv success or fs rename success
 	_, err := RenameNote(stubVault{path: vaultDir}, params)
 	assert.NoError(t, err)
+}
+
+func TestRenameNote_DuplicateBasenameSkipsBareLinks(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vaultDir, "Folder"), 0o755); err != nil {
+		t.Fatalf("make folder: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vaultDir, "Area"), 0o755); err != nil {
+		t.Fatalf("make area: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vaultDir, "Area", "Old Note.md"), []byte("# Old root"), 0o644); err != nil {
+		t.Fatalf("write area note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vaultDir, "Folder", "Old Note.md"), []byte("# Old other"), 0o644); err != nil {
+		t.Fatalf("write folder note: %v", err)
+	}
+
+	refContent := strings.Join([]string{
+		"[[Old Note]]",           // ambiguous, should not rewrite
+		"[md](Area/Old Note.md)", // fully-qualified, should rewrite
+		"[[Folder/Old Note]]",    // points to other file, should stay
+	}, "\n")
+	refPath := filepath.Join(vaultDir, "Ref.md")
+	if err := os.WriteFile(refPath, []byte(refContent), 0o644); err != nil {
+		t.Fatalf("write ref: %v", err)
+	}
+
+	params := RenameParams{
+		Source:          "Area/Old Note",
+		Target:          "Area/New Note",
+		UpdateBacklinks: true,
+	}
+	_, err := RenameNote(stubVault{path: vaultDir}, params)
+	assert.NoError(t, err)
+
+	updated, readErr := os.ReadFile(refPath)
+	assert.NoError(t, readErr)
+	updatedStr := string(updated)
+	assert.Contains(t, updatedStr, "[md](Area/New Note.md)")
+	assert.Contains(t, updatedStr, "[[Old Note]]")
+	assert.Contains(t, updatedStr, "[[Folder/Old Note]]")
+	assert.NotContains(t, updatedStr, "[[New Note]]")
 }

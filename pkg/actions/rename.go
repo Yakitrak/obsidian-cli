@@ -131,6 +131,32 @@ func rewriteVaultLinks(vaultPath, oldRel, newRel string, ignored []string) (int,
 	totalUpdates := 0
 	var skipped []string
 
+	// First pass: check if the basename is unique in the vault
+	// Use case-insensitive comparison on macOS/Windows to match filesystem behavior
+	oldBasename := filepath.Base(strings.TrimSuffix(oldRel, ".md"))
+	oldBasenameNorm := obsidian.NormalizeForComparison(oldBasename)
+	newBasename := filepath.Base(strings.TrimSuffix(newRel, ".md"))
+	newBasenameNorm := obsidian.NormalizeForComparison(newBasename)
+	basenameCount := 0
+	_ = filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(d.Name()) != ".md" {
+			return nil
+		}
+		if obsidian.ShouldIgnorePath(vaultPath, path, ignored) {
+			return nil
+		}
+		if obsidian.NormalizeForComparison(strings.TrimSuffix(d.Name(), ".md")) == oldBasenameNorm {
+			basenameCount++
+		}
+		return nil
+	})
+	// If the note was renamed to a different basename, add it back into the count so we
+	// consider the pre-rename state when deciding if bare wikilinks are ambiguous.
+	if oldBasenameNorm != newBasenameNorm && !obsidian.ShouldIgnorePath(vaultPath, filepath.Join(vaultPath, oldRel), ignored) {
+		basenameCount++
+	}
+	basenameUnique := basenameCount <= 1
+
 	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -155,7 +181,7 @@ func rewriteVaultLinks(vaultPath, oldRel, newRel string, ignored []string) (int,
 			return readErr
 		}
 		content := string(contentBytes)
-		rewritten, count := obsidian.RewriteLinksInContent(content, oldRel, newRel)
+		rewritten, count := obsidian.RewriteLinksInContentWithOptions(content, oldRel, newRel, basenameUnique)
 		if count == 0 {
 			return nil
 		}

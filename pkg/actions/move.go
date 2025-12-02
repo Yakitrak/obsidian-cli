@@ -151,8 +151,9 @@ func MoveNotes(vault obsidian.VaultManager, uri obsidian.UriManager, params Move
 }
 
 type linkMapping struct {
-	Old string
-	New string
+	Old            string
+	New            string
+	BasenameUnique bool // true if no other note in the vault shares this basename
 }
 
 // rewriteVaultLinksBatch rewrites backlinks for multiple moves in a single vault walk.
@@ -160,6 +161,36 @@ func rewriteVaultLinksBatch(vaultPath string, mappings []linkMapping, ignored []
 	totalUpdates := 0
 	perTarget := make(map[string]int)
 	var skipped []string
+
+	// First pass: collect all basenames in the vault to detect duplicates
+	// Use case-insensitive keys on macOS/Windows to match filesystem behavior
+	basenameCount := make(map[string]int)
+	_ = filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(d.Name()) != ".md" {
+			return nil
+		}
+		if obsidian.ShouldIgnorePath(vaultPath, path, ignored) {
+			return nil
+		}
+		basename := strings.TrimSuffix(d.Name(), ".md")
+		basenameCount[obsidian.NormalizeForComparison(basename)]++
+		return nil
+	})
+
+	// Mark which mappings have unique basenames
+	for _, m := range mappings {
+		oldBase := filepath.Base(strings.TrimSuffix(m.Old, ".md"))
+		newBase := filepath.Base(strings.TrimSuffix(m.New, ".md"))
+		if obsidian.NormalizeForComparison(oldBase) != obsidian.NormalizeForComparison(newBase) &&
+			!obsidian.ShouldIgnorePath(vaultPath, filepath.Join(vaultPath, m.Old), ignored) {
+			basenameCount[obsidian.NormalizeForComparison(oldBase)]++
+		}
+	}
+
+	for i := range mappings {
+		oldBasename := filepath.Base(strings.TrimSuffix(mappings[i].Old, ".md"))
+		mappings[i].BasenameUnique = basenameCount[obsidian.NormalizeForComparison(oldBasename)] <= 1
+	}
 
 	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -190,7 +221,7 @@ func rewriteVaultLinksBatch(vaultPath string, mappings []linkMapping, ignored []
 		fileUpdates := 0
 		rewritten := content
 		for _, m := range mappings {
-			next, count := obsidian.RewriteLinksInContent(rewritten, m.Old, m.New)
+			next, count := obsidian.RewriteLinksInContentWithOptions(rewritten, m.Old, m.New, m.BasenameUnique)
 			if count > 0 {
 				fileUpdates += count
 				perTarget[obsidian.NormalizePath(m.New)] += count

@@ -170,3 +170,45 @@ func TestMoveNotes_BacklinkRewriteFolderSpecific(t *testing.T) {
 	assert.Contains(t, updatedStr, "(Archive/Note.md#h)")
 	assert.Contains(t, updatedStr, "[[Note]]") // bare note name should remain untouched
 }
+
+func TestMoveNotes_DuplicateBasenameSkipsBareLinks(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vaultDir, "Folder"), 0o755); err != nil {
+		t.Fatalf("make folder: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vaultDir, "Area"), 0o755); err != nil {
+		t.Fatalf("make area: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vaultDir, "Area", "Old Note.md"), []byte("# root"), 0o644); err != nil {
+		t.Fatalf("write root note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vaultDir, "Folder", "Old Note.md"), []byte("# other"), 0o644); err != nil {
+		t.Fatalf("write folder note: %v", err)
+	}
+
+	refContent := strings.Join([]string{
+		"[[Old Note]]",           // ambiguous, should not rewrite
+		"[md](Area/Old Note.md)", // fully-qualified, should rewrite
+		"[[Folder/Old Note]]",    // should stay untouched
+	}, "\n")
+	refPath := filepath.Join(vaultDir, "Ref.md")
+	if err := os.WriteFile(refPath, []byte(refContent), 0o644); err != nil {
+		t.Fatalf("write ref: %v", err)
+	}
+
+	uri := &mocks.MockUriManager{}
+	summary, err := MoveNotes(moveStubVault{path: vaultDir}, uri, MoveParams{
+		Moves:           []MoveRequest{{Source: "Area/Old Note", Target: "Area/Renamed Note"}},
+		UpdateBacklinks: true,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(summary.Results))
+
+	updated, readErr := os.ReadFile(refPath)
+	assert.NoError(t, readErr)
+	updatedStr := string(updated)
+	assert.Contains(t, updatedStr, "[md](Area/Renamed Note.md)")
+	assert.Contains(t, updatedStr, "[[Old Note]]")
+	assert.Contains(t, updatedStr, "[[Folder/Old Note]]")
+	assert.NotContains(t, updatedStr, "[[Renamed Note]]")
+}
