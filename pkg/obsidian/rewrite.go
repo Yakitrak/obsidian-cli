@@ -1,6 +1,7 @@
 package obsidian
 
 import (
+	"net/url"
 	"regexp"
 	"runtime"
 	"strings"
@@ -30,6 +31,81 @@ func NormalizeForComparison(s string) string {
 	return s
 }
 
+// protectedRegion represents a code block or inline code that should not be modified
+type protectedRegion struct {
+	placeholder string
+	content     string
+}
+
+// extractProtectedRegions finds all fenced code blocks and inline code spans
+// and returns placeholders to protect them from link rewriting
+func extractProtectedRegions(content string) (string, []protectedRegion) {
+	var regions []protectedRegion
+	result := content
+	counter := 0
+
+	// Pattern for fenced code blocks (``` or ~~~) - must match the same fence type
+	// Use (?s) for dot-matches-newline mode
+	fencedBacktickPattern := regexp.MustCompile("(?s)```[^`]*```")
+	fencedTildePattern := regexp.MustCompile("(?s)~~~[^~]*~~~")
+
+	// Replace fenced code blocks with backticks
+	result = fencedBacktickPattern.ReplaceAllStringFunc(result, func(match string) string {
+		placeholder := "\x00CODEBLOCK" + string(rune('A'+counter)) + "\x00"
+		counter++
+		regions = append(regions, protectedRegion{
+			placeholder: placeholder,
+			content:     match,
+		})
+		return placeholder
+	})
+
+	// Replace fenced code blocks with tildes
+	result = fencedTildePattern.ReplaceAllStringFunc(result, func(match string) string {
+		placeholder := "\x00CODEBLOCK" + string(rune('A'+counter)) + "\x00"
+		counter++
+		regions = append(regions, protectedRegion{
+			placeholder: placeholder,
+			content:     match,
+		})
+		return placeholder
+	})
+
+	// Pattern for inline code (single backticks with non-empty content)
+	inlinePattern := regexp.MustCompile("`[^`]+`")
+
+	// Replace inline code spans
+	result = inlinePattern.ReplaceAllStringFunc(result, func(match string) string {
+		placeholder := "\x00INLINE" + string(rune('A'+counter)) + "\x00"
+		counter++
+		regions = append(regions, protectedRegion{
+			placeholder: placeholder,
+			content:     match,
+		})
+		return placeholder
+	})
+
+	return result, regions
+}
+
+// restoreProtectedRegions puts the original code blocks and inline code back
+func restoreProtectedRegions(content string, regions []protectedRegion) string {
+	result := content
+	for _, region := range regions {
+		result = strings.Replace(result, region.placeholder, region.content, 1)
+	}
+	return result
+}
+
+// decodeURLPath attempts to URL-decode a path for matching purposes
+func decodeURLPath(path string) string {
+	decoded, err := url.PathUnescape(path)
+	if err != nil {
+		return path
+	}
+	return decoded
+}
+
 // RewriteLinksInContent updates internal wikilinks and markdown links targeting oldPath to point to newPath.
 // It preserves alias text and fragments (headings/block refs) and returns the rewritten content plus count of replacements.
 // If basenameUnique is true, links matching just the basename (without folder) will also be rewritten.
@@ -39,7 +115,11 @@ func RewriteLinksInContent(content, oldPath, newPath string) (string, int) {
 }
 
 // RewriteLinksInContentWithOptions is like RewriteLinksInContent but allows controlling basename matching.
+// It skips links inside fenced code blocks and inline code spans to match Obsidian behavior.
 func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basenameUnique bool) (string, int) {
+	// Protect code blocks and inline code from modification
+	protectedContent, regions := extractProtectedRegions(content)
+
 	oldNorm := NormalizePath(AddMdSuffix(oldPath))
 	oldBase := strings.TrimSuffix(oldNorm, ".md")
 	// Also match against just the filename (no folder), since Obsidian wikilinks often omit the path
@@ -51,7 +131,7 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 	wikiPattern := regexp.MustCompile(`(!)?\[\[(.+?)\]\]`)
 	rewriteCount := 0
 
-	content = wikiPattern.ReplaceAllStringFunc(content, func(match string) string {
+	protectedContent = wikiPattern.ReplaceAllStringFunc(protectedContent, func(match string) string {
 		m := wikiPattern.FindStringSubmatch(match)
 		if len(m) < 3 {
 			return match
@@ -112,7 +192,7 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 
 	// Markdown links and embeds: [text](...) or ![text](...)
 	mdPattern := regexp.MustCompile(`(!)?\[([^\]]*)\]\(([^)]+)\)`)
-	content = mdPattern.ReplaceAllStringFunc(content, func(match string) string {
+	protectedContent = mdPattern.ReplaceAllStringFunc(protectedContent, func(match string) string {
 		m := mdPattern.FindStringSubmatch(match)
 		if len(m) < 4 {
 			return match
@@ -133,8 +213,12 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 			base = base[:hashIdx]
 		}
 
-		hadExt := strings.HasSuffix(base, ".md")
-		targetNorm := NormalizePath(AddMdSuffix(base))
+		// Check if the path is URL-encoded and decode for matching
+		decodedBase := decodeURLPath(base)
+		wasEncoded := decodedBase != base
+
+		hadExt := strings.HasSuffix(decodedBase, ".md")
+		targetNorm := NormalizePath(AddMdSuffix(decodedBase))
 		targetBase := strings.TrimSuffix(targetNorm, ".md")
 		// Match against full path OR just basename (Obsidian links often omit folder)
 		// Only match by basename if basenameUnique is true (no other notes share this basename)
@@ -158,6 +242,12 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 				newBase = strings.TrimSuffix(newBase, ".md")
 			}
 		}
+
+		// If the original was URL-encoded, encode the new path too
+		if wasEncoded {
+			newBase = url.PathEscape(newBase)
+		}
+
 		newHref := newBase + fragment
 
 		rewriteCount++
@@ -168,7 +258,10 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 		return prefix + "[" + text + "](" + newHref + ")"
 	})
 
-	return content, rewriteCount
+	// Restore protected code blocks and inline code
+	result := restoreProtectedRegions(protectedContent, regions)
+
+	return result, rewriteCount
 }
 
 // baseName returns the last element of a path (the filename without directory).

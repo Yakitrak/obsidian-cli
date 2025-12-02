@@ -135,3 +135,136 @@ func TestNormalizeForComparison(t *testing.T) {
 		assert.Equal(t, "OLD NOTE", NormalizeForComparison("OLD NOTE"))
 	}
 }
+
+func TestRewriteLinksInContent_SkipsFencedCodeBlocks(t *testing.T) {
+	// Links inside fenced code blocks should NOT be rewritten (matches Obsidian behavior)
+	content := `Regular [[Old Note]] link.
+
+` + "```" + `
+[[Old Note]] in code block
+` + "```" + `
+
+Another [[Old Note]] link.`
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 2, count) // Only the two regular links, not the one in code block
+	assert.Contains(t, rewritten, "Regular [[New Note]] link")
+	assert.Contains(t, rewritten, "Another [[New Note]] link")
+	assert.Contains(t, rewritten, "[[Old Note]] in code block") // Preserved in code block
+}
+
+func TestRewriteLinksInContent_SkipsTildeFencedCodeBlocks(t *testing.T) {
+	// Links inside ~~~ fenced code blocks should also be skipped
+	content := `Regular [[Old Note]] link.
+
+~~~
+[[Old Note]] in tilde code block
+~~~
+
+Another [[Old Note]] link.`
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 2, count)
+	assert.Contains(t, rewritten, "[[Old Note]] in tilde code block") // Preserved
+}
+
+func TestRewriteLinksInContent_SkipsInlineCode(t *testing.T) {
+	// Links inside inline code (backticks) should NOT be rewritten
+	content := "Regular [[Old Note]] and `[[Old Note]]` in inline code and [[Old Note]] again."
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 2, count) // Only the two regular links
+	assert.Contains(t, rewritten, "Regular [[New Note]]")
+	assert.Contains(t, rewritten, "`[[Old Note]]`") // Preserved in inline code
+	assert.Contains(t, rewritten, "[[New Note]] again")
+}
+
+func TestRewriteLinksInContent_URLEncodedMarkdownLinks(t *testing.T) {
+	// URL-encoded markdown links should be matched and rewritten
+	content := "[link](Old%20Note.md) and [normal](Old Note.md)"
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 2, count)
+	assert.Contains(t, rewritten, "[link](New%20Note.md)") // Preserves URL encoding
+	assert.Contains(t, rewritten, "[normal](New Note.md)")
+}
+
+func TestRewriteLinksInContent_URLEncodedWithFragment(t *testing.T) {
+	// URL-encoded links with fragments should work correctly
+	content := "[section](Old%20Note.md#heading)"
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 1, count)
+	assert.Contains(t, rewritten, "[section](New%20Note.md#heading)")
+}
+
+func TestRewriteLinksInContent_URLEncodedPathWithFolder(t *testing.T) {
+	// URL-encoded paths with folders
+	content := "[link](Folder%2FOld%20Note.md)"
+
+	rewritten, count := RewriteLinksInContent(content, "Folder/Old Note.md", "Archive/New Note.md")
+
+	assert.Equal(t, 1, count)
+	assert.Contains(t, rewritten, "[link](Archive%2FNew%20Note.md)")
+}
+
+func TestRewriteLinksInContent_MixedCodeAndLinks(t *testing.T) {
+	// Complex content with multiple code blocks and inline code
+	content := `# Title
+
+See [[Old Note]] for details.
+
+` + "```go" + `
+// This is code: [[Old Note]]
+link := "[[Old Note]]"
+` + "```" + `
+
+More text with ` + "`[[Old Note]]`" + ` inline.
+
+Also check [[Old Note#Section]] and:
+
+` + "```" + `
+[[Old Note]]
+` + "```" + `
+
+Final [[Old Note]] reference.`
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 3, count) // Only: "See [[Old Note]]", "[[Old Note#Section]]", "Final [[Old Note]]"
+
+	// Regular links rewritten
+	assert.Contains(t, rewritten, "See [[New Note]] for details")
+	assert.Contains(t, rewritten, "[[New Note#Section]]")
+	assert.Contains(t, rewritten, "Final [[New Note]] reference")
+
+	// Code block links preserved
+	assert.Contains(t, rewritten, "// This is code: [[Old Note]]")
+	assert.Contains(t, rewritten, `link := "[[Old Note]]"`)
+
+	// Inline code preserved
+	assert.Contains(t, rewritten, "`[[Old Note]]`")
+}
+
+func TestRewriteLinksInContent_MarkdownLinksInCodeBlocks(t *testing.T) {
+	// Markdown-style links in code blocks should also be skipped
+	content := `Regular [link](Old Note.md).
+
+` + "```" + `
+[link](Old Note.md) in code
+` + "```" + `
+
+And ` + "`[link](Old Note.md)`" + ` inline.`
+
+	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "New Note.md")
+
+	assert.Equal(t, 1, count) // Only the regular link
+	assert.Contains(t, rewritten, "Regular [link](New Note.md)")
+	assert.Contains(t, rewritten, "[link](Old Note.md) in code")       // Preserved
+	assert.Contains(t, rewritten, "`[link](Old Note.md)`")             // Preserved
+}
