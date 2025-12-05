@@ -25,7 +25,9 @@ brews:
     homepage: https://github.com/atomicobject/obsidian-cli
     repository:
       owner: atomicobject
-      name: homebrew-obsidian-cli
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.BREW_GITHUB_TOKEN }}"
     # commit_author:
     #   name: your-name
     #   email: your-email@atomicobject.com

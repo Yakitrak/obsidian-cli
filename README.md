@@ -13,6 +13,13 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 
 ## Install
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew tap atomicobject/homebrew-tap
+brew install obsidian-cli
+```
+
 ### Using Go
 
 If you have Go installed, you can install directly:
@@ -24,6 +31,14 @@ go install github.com/atomicobject/obsidian-cli@latest
 ### Manual Installation
 
 Download the latest release for your platform from the [releases page](https://github.com/atomicobject/obsidian-cli/releases) and add the binary to your PATH.
+
+### Releasing (maintainers)
+
+```bash
+# ensure tokens set in your shell (e.g., BREW_GITHUB_TOKEN in ~/.bashrc)
+source ~/.bashrc
+goreleaser release --clean
+```
 
 ## Usage
 
