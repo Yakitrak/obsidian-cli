@@ -2,10 +2,13 @@ package obsidian
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+var inlineCodeRegex = regexp.MustCompile("`[^`]*`")
 
 // TagEditResult represents the result of a tag editing operation
 type TagEditResult struct {
@@ -302,7 +305,9 @@ func removeInlineHashtags(content string, tagsToDelete []string) (string, bool) 
 		}
 
 		// Process hashtags in this line
-		newLine, lineChanged := removeHashtagsFromLine(line, tagsToDelete)
+		newLine, lineChanged := processLineSkippingInlineCode(line, func(segment string) (string, bool) {
+			return removeHashtagsFromLine(segment, tagsToDelete)
+		})
 		if lineChanged {
 			lines[i] = newLine
 			changed = true
@@ -331,7 +336,9 @@ func replaceInlineHashtags(content string, fromTags []string, toTag string) (str
 		}
 
 		// Process hashtags in this line
-		newLine, lineChanged := replaceHashtagsInLine(line, fromTags, toTag)
+		newLine, lineChanged := processLineSkippingInlineCode(line, func(segment string) (string, bool) {
+			return replaceHashtagsInLine(segment, fromTags, toTag)
+		})
 		if lineChanged {
 			lines[i] = newLine
 			changed = true
@@ -421,6 +428,29 @@ func replaceHashtagsInLine(line string, fromTags []string, toTag string) (string
 	}
 
 	return result, changed
+}
+
+// processLineSkippingInlineCode applies the provided processor to a line while preserving inline code spans.
+func processLineSkippingInlineCode(line string, processor func(string) (string, bool)) (string, bool) {
+	if !strings.Contains(line, "`") {
+		return processor(line)
+	}
+
+	placeholders := make([]string, 0)
+	protected := inlineCodeRegex.ReplaceAllStringFunc(line, func(match string) string {
+		placeholder := "\x00INLINE" + strconv.Itoa(len(placeholders)) + "\x00"
+		placeholders = append(placeholders, match)
+		return placeholder
+	})
+
+	processed, changed := processor(protected)
+
+	for i, original := range placeholders {
+		placeholder := "\x00INLINE" + strconv.Itoa(i) + "\x00"
+		processed = strings.ReplaceAll(processed, placeholder, original)
+	}
+
+	return processed, changed
 }
 
 // rebuildContentWithFrontmatter rebuilds content with updated frontmatter
