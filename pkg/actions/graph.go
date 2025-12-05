@@ -1,8 +1,10 @@
 package actions
 
 import (
-	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"strings"
+
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
 // GraphStats returns link-graph degree counts and SCCs for the vault.
@@ -30,6 +32,7 @@ type GraphAnalysisParams struct {
 	ExcludePatterns []string
 	IncludePatterns []string
 	UseConfig       bool
+	AnalysisCache   *cache.AnalysisCache
 }
 
 // GraphAnalysis returns a richer graph representation (pagerank, communities, degrees, neighbors).
@@ -94,6 +97,9 @@ func GraphAnalysis(vault obsidian.VaultManager, note obsidian.NoteManager, param
 	options.ExcludedPaths = excludedSet
 	options.IncludedPaths = includedSet
 
+	if params.AnalysisCache != nil {
+		return params.AnalysisCache.GraphAnalysis(vaultPath, note, options)
+	}
 	return obsidian.ComputeGraphAnalysis(vaultPath, note, options)
 }
 

@@ -13,4 +13,5 @@ type Config struct {
 	SuppressedTags []string
 	ReadWrite      bool
 	Cache          *cache.Service
+	AnalysisCache  *cache.AnalysisCache
 }

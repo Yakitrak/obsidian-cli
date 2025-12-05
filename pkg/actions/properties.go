@@ -1,11 +1,13 @@
 package actions
 
 import (
+	"context"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
@@ -71,9 +73,26 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 	}
 
 	var scanNotes []string
+	var filter map[string]struct{}
+	var cachedEntries []cache.Entry
+
+	if provider, ok := note.(interface {
+		EntriesSnapshot(context.Context) ([]cache.Entry, error)
+	}); ok {
+		entries, err := provider.EntriesSnapshot(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		cachedEntries = entries
+	}
+
 	if len(opts.Notes) > 0 {
 		scanNotes = opts.Notes
-	} else {
+		filter = make(map[string]struct{})
+		for _, n := range scanNotes {
+			filter[obsidian.NormalizePath(obsidian.AddMdSuffix(n))] = struct{}{}
+		}
+	} else if cachedEntries == nil {
 		allNotes, err := note.GetNotesList(vaultPath)
 		if err != nil {
 			return nil, err
@@ -104,6 +123,10 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 		}
 		_, ok := filterProps[name]
 		return ok
+	}
+
+	if cachedEntries != nil {
+		return propertiesFromEntries(cachedEntries, opts, allowProperty, valueLimit, maxValues, filter), nil
 	}
 
 	batchSize := (len(scanNotes) + numWorkers - 1) / numWorkers
@@ -316,6 +339,160 @@ func Properties(vault obsidian.VaultManager, note obsidian.NoteManager, opts Pro
 	})
 
 	return summaries, nil
+}
+
+func propertiesFromEntries(entries []cache.Entry, opts PropertiesOptions, allowProperty func(string) bool, valueLimit int, maxValues int, filter map[string]struct{}) []PropertySummary {
+	merged := make(map[string]*propertyCounts)
+
+	for _, entry := range entries {
+		if filter != nil {
+			if _, ok := filter[obsidian.NormalizePath(entry.Path)]; !ok {
+				continue
+			}
+		}
+
+		perNote := make(map[string]*propertyCounts)
+
+		addPerNote := func(key string, info obsidian.PropertyValueInfo) {
+			if key == "tags" && opts.ExcludeTags {
+				return
+			}
+			if !allowProperty(key) {
+				return
+			}
+			np, ok := perNote[key]
+			if !ok {
+				np = &propertyCounts{
+					shapes:      make(map[string]int),
+					types:       make(map[string]int),
+					values:      make(map[string]struct{}),
+					valueCounts: make(map[string]int),
+				}
+				perNote[key] = np
+			}
+			np.shapes[info.Shape]++
+			np.types[info.ValueType]++
+			for _, v := range info.Values {
+				v = strings.TrimSpace(v)
+				if v == "" {
+					continue
+				}
+				if _, seen := np.values[v]; seen {
+					continue
+				}
+				np.values[v] = struct{}{}
+				np.valueCounts[v]++
+			}
+		}
+
+		if opts.Source != PropertySourceInline {
+			for key, raw := range entry.Frontmatter {
+				if !allowProperty(key) {
+					continue
+				}
+				info := obsidian.AnalyzePropertyValue(raw)
+				addPerNote(key, info)
+			}
+		}
+
+		if opts.Source != PropertySourceFrontmatter {
+			for key, values := range entry.InlineProps {
+				if !allowProperty(key) {
+					continue
+				}
+				info := obsidian.AnalyzePropertyValue(values)
+				info.Shape = "scalar"
+				addPerNote(key, info)
+			}
+		}
+
+		for key, noteCounts := range perNote {
+			target, ok := merged[key]
+			if !ok {
+				target = &propertyCounts{
+					shapes:      make(map[string]int),
+					types:       make(map[string]int),
+					values:      make(map[string]struct{}),
+					valueCounts: make(map[string]int),
+				}
+				merged[key] = target
+			}
+
+			target.noteCount++
+			for s, c := range noteCounts.shapes {
+				target.shapes[s] += c
+			}
+			for t, c := range noteCounts.types {
+				target.types[t] += c
+			}
+			for v := range noteCounts.values {
+				if key == "tags" {
+					target.values[v] = struct{}{}
+					continue
+				}
+				if len(target.values) < maxValues {
+					target.values[v] = struct{}{}
+				} else {
+					target.overflow = true
+					continue
+				}
+			}
+			if noteCounts.overflow && key != "tags" {
+				target.overflow = true
+			}
+			for v, c := range noteCounts.valueCounts {
+				target.valueCounts[v] += c
+			}
+		}
+	}
+
+	summaries := make([]PropertySummary, 0, len(merged))
+	for key, pc := range merged {
+		shape := pickOrMixed(pc.shapes)
+		valueType := pickOrMixed(pc.types)
+
+		var enumValues []string
+		shouldEnumerate := (isEnumCandidate(valueType) || (valueType == "mixed" && len(pc.values) <= valueLimit)) && len(pc.values) > 0 && len(pc.values) <= valueLimit && !pc.overflow
+		if key == "tags" && len(pc.values) > 0 {
+			shouldEnumerate = true
+		}
+
+		if shouldEnumerate {
+			enumValues = make([]string, 0, len(pc.values))
+			for v := range pc.values {
+				enumValues = append(enumValues, v)
+			}
+			sort.Strings(enumValues)
+		}
+
+		var enumValueCounts map[string]int
+		if shouldEnumerate && opts.IncludeValueCounts && len(pc.valueCounts) > 0 {
+			enumValueCounts = make(map[string]int, len(pc.valueCounts))
+			for v, c := range pc.valueCounts {
+				enumValueCounts[v] = c
+			}
+		}
+
+		summaries = append(summaries, PropertySummary{
+			Name:               key,
+			NoteCount:          pc.noteCount,
+			Shape:              shape,
+			ValueType:          valueType,
+			EnumValues:         enumValues,
+			EnumValueCounts:    enumValueCounts,
+			DistinctValueCount: len(pc.values),
+			TruncatedValueSet:  pc.overflow,
+		})
+	}
+
+	sort.SliceStable(summaries, func(i, j int) bool {
+		if summaries[i].NoteCount == summaries[j].NoteCount {
+			return summaries[i].Name < summaries[j].Name
+		}
+		return summaries[i].NoteCount > summaries[j].NoteCount
+	})
+
+	return summaries
 }
 
 func pickOrMixed(counts map[string]int) string {

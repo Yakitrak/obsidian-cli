@@ -229,6 +229,70 @@ func TestServiceStaleRevalidation(t *testing.T) {
 	assert.NotContains(t, entry.Tags, "original")
 }
 
+func TestServiceStaleResyncFindsNewFiles(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "Existing.md"), []byte("#old"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	// Add a new file after the watcher goes stale.
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "New.md"), []byte("#new"), 0o644))
+	svc.markStale()
+
+	require.NoError(t, svc.Refresh(context.Background()))
+
+	_, oldOk := svc.Entry("Existing.md")
+	assert.True(t, oldOk)
+	_, newOk := svc.Entry("New.md")
+	assert.True(t, newOk, "resync should discover newly created files")
+}
+
+func TestServiceRenameDirectoryRescansChildren(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "Folder", "Sub"), 0o755))
+	origFile := filepath.Join(tmp, "Folder", "Sub", "Note.md")
+	require.NoError(t, os.WriteFile(origFile, []byte("#tag"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	renamedDir := filepath.Join(tmp, "Renamed")
+	require.NoError(t, os.Rename(filepath.Join(tmp, "Folder"), renamedDir))
+
+	svc.markDirty(filepath.Join(tmp, "Folder"), DirtyRenamed)
+	require.NoError(t, svc.Refresh(context.Background()))
+
+	_, oldOk := svc.Entry("Folder/Sub/Note.md")
+	assert.False(t, oldOk, "old path should be removed after directory rename")
+
+	entry, newOk := svc.Entry("Renamed/Sub/Note.md")
+	assert.True(t, newOk, "renamed path should be indexed")
+	assert.Contains(t, entry.Tags, "tag")
+}
+
+func TestServiceStaleTickerMarksStale(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "Note.md"), []byte("#tag"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w, StaleInterval: 10 * time.Millisecond})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	initialVersion := svc.Version()
+	time.Sleep(25 * time.Millisecond)
+	require.NoError(t, svc.Refresh(context.Background()))
+	assert.GreaterOrEqual(t, svc.Version(), initialVersion+1, "stale ticker should trigger resync/version bump")
+}
+
 func TestServiceRespectsObsidianIgnore(t *testing.T) {
 	tmp := t.TempDir()
 

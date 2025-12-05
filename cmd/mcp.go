@@ -89,6 +89,8 @@ Example MCP client configuration (e.g., for Claude Desktop):
 		}
 		defer cacheService.Close()
 
+		analysisCache := cache.NewAnalysisCache(cacheService)
+
 		// Configure MCP tools
 		config := mcp.Config{
 			Vault:          &vault,
@@ -97,6 +99,7 @@ Example MCP client configuration (e.g., for Claude Desktop):
 			SuppressedTags: []string{"no-prompt"}, // Default suppression
 			ReadWrite:      mcpReadWrite,
 			Cache:          cacheService,
+			AnalysisCache:  analysisCache,
 		}
 
 		// Add any additional suppressed tags from global flags

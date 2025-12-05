@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/atomicobject/obsidian-cli/mocks"
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProperties(t *testing.T) {
@@ -394,4 +396,43 @@ office: AOG
 	if !found {
 		t.Fatalf("expected office property")
 	}
+}
+
+func TestPropertiesUsesCachedEntries(t *testing.T) {
+	vault := &mocks.VaultManager{}
+	vault.On("Path").Return("/mock/vault", nil)
+
+	note := &cachedNoteManager{
+		entries: []cache.Entry{
+			{
+				Path:        "Alpha.md",
+				Frontmatter: map[string]interface{}{"office": "AOGR"},
+				InlineProps: map[string][]string{"Status": {"Ready"}},
+			},
+			{
+				Path:        "Beta.md",
+				Frontmatter: map[string]interface{}{"office": "AORD"},
+				InlineProps: map[string][]string{"Status": {"Ready"}},
+			},
+		},
+	}
+
+	result, err := Properties(vault, note, PropertiesOptions{ExcludeTags: true, IncludeValueCounts: true})
+	require.NoError(t, err)
+
+	require.Len(t, result, 2)
+
+	props := make(map[string]PropertySummary)
+	for _, p := range result {
+		props[p.Name] = p
+	}
+
+	office := props["office"]
+	require.ElementsMatch(t, []string{"AOGR", "AORD"}, office.EnumValues)
+	require.Equal(t, map[string]int{"AOGR": 1, "AORD": 1}, office.EnumValueCounts)
+
+	status := props["Status"]
+	require.ElementsMatch(t, []string{"Ready"}, status.EnumValues)
+	require.Equal(t, 0, note.contentsCalls, "cache should avoid GetContents calls")
+	require.Equal(t, 0, note.notesListCalls, "cache should avoid GetNotesList calls")
 }

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/atomicobject/obsidian-cli/mocks"
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTags(t *testing.T) {
@@ -203,6 +205,27 @@ func TestGetAllPrefixes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTagsUsesCachedEntries(t *testing.T) {
+	vault := &mocks.VaultManager{}
+	vault.On("Path").Return("/mock/vault", nil)
+
+	note := &cachedNoteManager{
+		entries: []cache.Entry{
+			{Path: "Note.md", Tags: []string{"Project", "todo"}},
+			{Path: "Skip.md", Tags: []string{"skip"}},
+		},
+	}
+
+	result, err := Tags(vault, note, TagsOptions{Notes: []string{"Note.md"}})
+	require.NoError(t, err)
+
+	require.Len(t, result, 2)
+	require.Equal(t, "project", result[0].Name)
+	require.Equal(t, "todo", result[1].Name)
+	require.Equal(t, 0, note.contentsCalls, "cache should avoid GetContents calls")
+	require.Equal(t, 0, note.notesListCalls, "cache should avoid GetNotesList calls")
 }
 
 func TestNormalizeTag(t *testing.T) {

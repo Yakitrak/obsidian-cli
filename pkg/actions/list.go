@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
@@ -40,6 +41,7 @@ type ListParams struct {
 	IncludeBacklinks         bool                            // Whether to collect first-degree backlinks for matched files
 	Backlinks                *map[string][]obsidian.Backlink // Optional output map for backlinks keyed by normalized target path
 	PrimaryMatches           *[]string                       // Optional output slice capturing the matches before link following
+	AnalysisCache            *cache.AnalysisCache            // Optional cache for backlinks/graph-derived results
 	obsidian.WikilinkOptions                                 // options influencing backlink parsing
 }
 
@@ -179,7 +181,13 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 		debugf("After suppression filtering linked files: %d files\n", len(linkedFiles))
 
 		if params.IncludeBacklinks && params.Backlinks != nil {
-			backlinks, err := obsidian.CollectBacklinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+			var backlinks map[string][]obsidian.Backlink
+			var err error
+			if params.AnalysisCache != nil {
+				backlinks, err = params.AnalysisCache.Backlinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+			} else {
+				backlinks, err = obsidian.CollectBacklinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -193,7 +201,13 @@ func ListFiles(vault obsidian.VaultManager, note obsidian.NoteManager, params Li
 	}
 
 	if params.IncludeBacklinks && params.Backlinks != nil {
-		backlinks, err := obsidian.CollectBacklinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+		var backlinks map[string][]obsidian.Backlink
+		var err error
+		if params.AnalysisCache != nil {
+			backlinks, err = params.AnalysisCache.Backlinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+		} else {
+			backlinks, err = obsidian.CollectBacklinks(vaultPath, note, matches, params.WikilinkOptions, params.SuppressedTags)
+		}
 		if err != nil {
 			return nil, err
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,10 +41,13 @@ type Service struct {
 	dirty     map[string]DirtyKind
 	ignored   []string // loaded from .obsidianignore
 
-	watcher   Watcher
-	watchOnce sync.Once
-	ctx       context.Context
-	cancel    context.CancelFunc
+	watcher        Watcher
+	watcherFactory func() (Watcher, error)
+	watchOnce      sync.Once
+	ctx            context.Context
+	cancel         context.CancelFunc
+	version        uint64
+	staleInterval  time.Duration
 }
 
 // Entry represents cached metadata for a single file.
@@ -70,7 +74,9 @@ const (
 
 // Options controls cache behavior.
 type Options struct {
-	Watcher Watcher
+	Watcher        Watcher
+	WatcherFactory func() (Watcher, error)
+	StaleInterval  time.Duration
 }
 
 // Watcher abstracts filesystem notifications for modular backends.
@@ -98,27 +104,45 @@ func NewService(vaultPath string, opts Options) (*Service, error) {
 	}
 
 	var watcher Watcher
+	var watcherFactory func() (Watcher, error)
 	if opts.Watcher != nil {
 		watcher = opts.Watcher
+		watcherFactory = opts.WatcherFactory
 	} else {
-		w, err := fsnotify.NewWatcher()
-		if err != nil {
-			return nil, fmt.Errorf("create watcher: %w", err)
+		watcherFactory = func() (Watcher, error) {
+			w, err := fsnotify.NewWatcher()
+			if err != nil {
+				return nil, fmt.Errorf("create watcher: %w", err)
+			}
+			return &fsNotifyWatcher{Watcher: w}, nil
 		}
-		watcher = &fsNotifyWatcher{Watcher: w}
+		w, err := watcherFactory()
+		if err != nil {
+			// Fall back to polling-only mode when watcher setup fails.
+			watcherFactory = nil
+			watcher = nil
+			if opts.StaleInterval == 0 {
+				opts.StaleInterval = 30 * time.Second
+			}
+			log.Printf("cache: watcher unavailable (%v); falling back to polling with stale interval %s", err, opts.StaleInterval)
+		} else {
+			watcher = w
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Service{
-		vaultPath: vaultPath,
-		fileIndex: make(map[string]*Entry),
-		tagIndex:  make(map[string]map[string]struct{}),
-		dirIndex:  make(map[string]struct{}),
-		dirty:     make(map[string]DirtyKind),
-		watcher:   watcher,
-		ctx:       ctx,
-		cancel:    cancel,
+		vaultPath:      vaultPath,
+		fileIndex:      make(map[string]*Entry),
+		tagIndex:       make(map[string]map[string]struct{}),
+		dirIndex:       make(map[string]struct{}),
+		dirty:          make(map[string]DirtyKind),
+		watcher:        watcher,
+		watcherFactory: watcherFactory,
+		ctx:            ctx,
+		cancel:         cancel,
+		staleInterval:  opts.StaleInterval,
 	}, nil
 }
 
@@ -170,6 +194,7 @@ func (s *Service) EnsureReady(ctx context.Context) error {
 		return err
 	}
 	s.startWatcher()
+	s.startStaleTicker()
 	return s.Refresh(ctx)
 }
 
@@ -217,6 +242,30 @@ func (s *Service) Paths() []string {
 	return paths
 }
 
+// Version returns a monotonic counter that increments whenever the cache
+// processes dirty changes or is resynced. Callers can use it to invalidate
+// derived caches (e.g., backlinks, graph analysis).
+func (s *Service) Version() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.version
+}
+
+// EntriesSnapshot returns a shallow copy of all cached entries after ensuring freshness.
+func (s *Service) EntriesSnapshot(ctx context.Context) ([]Entry, error) {
+	if err := s.Refresh(ctx); err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	entries := make([]Entry, 0, len(s.fileIndex))
+	for _, e := range s.fileIndex {
+		copy := *e
+		entries = append(entries, copy)
+	}
+	return entries, nil
+}
+
 // Entry returns a copy of the cached entry for the given path.
 func (s *Service) Entry(path string) (Entry, bool) {
 	norm := obsidian.NormalizePath(obsidian.AddMdSuffix(path))
@@ -253,16 +302,16 @@ func (s *Service) Refresh(ctx context.Context) error {
 	s.dirty = make(map[string]DirtyKind)
 	s.mu.Unlock()
 
-	// If the watcher failed, revalidate all cached entries against disk.
+	// If the watcher failed, rescan everything to avoid missing new files or renames.
 	if stale {
-		if err := s.revalidateAll(ctx); err != nil {
-			return err
-		}
+		return s.resync(ctx)
 	}
 
 	if len(dirty) == 0 {
 		return nil
 	}
+
+	changed := false
 
 	// Consume dirty markers: remove, rescan parent (for renames), or refresh the file.
 	for path, kind := range dirty {
@@ -274,63 +323,54 @@ func (s *Service) Refresh(ctx context.Context) error {
 
 		switch kind {
 		case DirtyRemoved, DirtyRenamed:
-			s.removePath(path)
+			s.removeTree(path)
+			changed = true
 			if kind == DirtyRenamed {
 				parent := filepath.Dir(filepath.Join(s.vaultPath, path))
-				_ = s.rescanDir(parent)
+				_ = s.rescanDir(parent, true)
 			}
 		default:
 			if err := s.refreshPath(path); err != nil {
 				// Keep the entry dirty so we retry next time.
 				s.markDirty(path, DirtyModified)
+			} else {
+				changed = true
 			}
 		}
+	}
+
+	if changed {
+		s.bumpVersion()
 	}
 
 	return nil
 }
 
-// revalidateAll checks all cached paths against the filesystem and marks
-// any out-of-sync entries dirty. This is called when the watcher failed.
-func (s *Service) revalidateAll(ctx context.Context) error {
-	s.mu.RLock()
-	paths := make([]string, 0, len(s.fileIndex))
-	for p := range s.fileIndex {
-		paths = append(paths, p)
-	}
-	s.mu.RUnlock()
+// resync rebuilds watcher state (when possible) and performs a full crawl to ensure freshness.
+func (s *Service) resync(ctx context.Context) error {
+	// Stop the existing watch loop to avoid duplicate goroutines.
+	s.cancel()
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 
-	for _, rel := range paths {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		absPath := filepath.Join(s.vaultPath, rel)
-		info, err := os.Stat(absPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				s.removePath(rel)
-			}
-			continue
-		}
-
-		s.mu.RLock()
-		entry, ok := s.fileIndex[rel]
-		s.mu.RUnlock()
-		if !ok {
-			continue
-		}
-
-		// Cheap drift detection: if mtime or size differ, re-read the file.
-		if info.ModTime() != entry.ModTime || info.Size() != entry.Size {
-			if err := s.refreshPath(absPath); err != nil {
-				s.markDirty(absPath, DirtyModified)
-			}
-		}
+	_, err := s.rebuildWatcher()
+	if err != nil {
+		return err
 	}
 
+	s.mu.Lock()
+	s.ready = false
+	s.crawling = false
+	s.fileIndex = make(map[string]*Entry)
+	s.tagIndex = make(map[string]map[string]struct{})
+	s.dirIndex = make(map[string]struct{})
+	s.dirty = make(map[string]DirtyKind)
+	s.watchOnce = sync.Once{}
+	s.mu.Unlock()
+
+	if err := s.initialCrawl(ctx); err != nil {
+		return err
+	}
+	s.startWatcher()
 	return nil
 }
 
@@ -398,6 +438,7 @@ func (s *Service) initialCrawl(ctx context.Context) error {
 
 	s.mu.Lock()
 	s.ready = true
+	s.version++
 	s.mu.Unlock()
 	return nil
 }
@@ -473,6 +514,18 @@ func (s *Service) removePath(rel string) {
 	delete(s.fileIndex, rel)
 }
 
+func (s *Service) removeTree(rel string) {
+	rel = obsidian.NormalizePath(rel)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for path := range s.fileIndex {
+		if path == rel || strings.HasPrefix(path, rel+"/") {
+			s.removeTagsForPathLocked(path)
+			delete(s.fileIndex, path)
+		}
+	}
+}
+
 func (s *Service) removeTagsForPathLocked(rel string) {
 	for tag, paths := range s.tagIndex {
 		delete(paths, rel)
@@ -482,8 +535,8 @@ func (s *Service) removeTagsForPathLocked(rel string) {
 	}
 }
 
-// rescanDir refreshes all files in a directory (non-recursive).
-func (s *Service) rescanDir(absDir string) error {
+// rescanDir refreshes all files in a directory (optionally recursive).
+func (s *Service) rescanDir(absDir string, recursive bool) error {
 	entries, err := os.ReadDir(absDir)
 	if err != nil {
 		return err
@@ -492,6 +545,9 @@ func (s *Service) rescanDir(absDir string) error {
 	for _, entry := range entries {
 		if entry.IsDir() {
 			s.addWatch(filepath.Join(absDir, entry.Name()))
+			if recursive {
+				_ = s.rescanDir(filepath.Join(absDir, entry.Name()), true)
+			}
 			continue
 		}
 		if err := s.refreshPath(filepath.Join(absDir, entry.Name())); err != nil {
@@ -556,10 +612,31 @@ func (s *Service) markDirty(absPath string, kind DirtyKind) {
 }
 
 func (s *Service) startWatcher() {
+	if s.watcher == nil {
+		return
+	}
 	// watchLoop is intentionally fire-and-forget; errors bubble through markStale().
 	s.watchOnce.Do(func() {
 		go s.watchLoop()
 	})
+}
+
+func (s *Service) startStaleTicker() {
+	if s.staleInterval <= 0 {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(s.staleInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-ticker.C:
+				s.markStale()
+			}
+		}
+	}()
 }
 
 func (s *Service) addWatch(path string) {
@@ -602,14 +679,16 @@ func (s *Service) watchLoop() {
 					s.addWatch(evt.Name)
 					// Scan the new directory for any files it may already contain
 					// (e.g., created via git checkout or archive extraction).
-					_ = s.rescanDir(evt.Name)
+					_ = s.rescanDir(evt.Name, true)
 				}
 			case evt.Op&fsnotify.Write == fsnotify.Write:
 				s.markDirty(evt.Name, DirtyModified)
 			case evt.Op&fsnotify.Remove == fsnotify.Remove:
 				s.markDirty(evt.Name, DirtyRemoved)
+				s.dropDirIndex(evt.Name)
 			case evt.Op&fsnotify.Rename == fsnotify.Rename:
 				s.markDirty(evt.Name, DirtyRenamed)
+				s.dropDirIndex(evt.Name)
 			}
 		case err, ok := <-s.watcher.Errors():
 			if !ok {
@@ -630,6 +709,33 @@ func (s *Service) markStale() {
 	s.mu.Lock()
 	s.stale = true
 	s.mu.Unlock()
+}
+
+func (s *Service) bumpVersion() {
+	s.mu.Lock()
+	s.version++
+	s.mu.Unlock()
+}
+
+func (s *Service) dropDirIndex(path string) {
+	s.mu.Lock()
+	delete(s.dirIndex, path)
+	s.mu.Unlock()
+}
+
+func (s *Service) rebuildWatcher() (Watcher, error) {
+	if s.watcherFactory == nil {
+		return s.watcher, nil
+	}
+	if s.watcher != nil {
+		_ = s.watcher.Close()
+	}
+	w, err := s.watcherFactory()
+	if err != nil {
+		return nil, err
+	}
+	s.watcher = w
+	return w, nil
 }
 
 type fileInfo interface {

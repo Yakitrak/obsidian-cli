@@ -229,6 +229,7 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 		if includeBacklinks {
 			params.IncludeBacklinks = true
 			params.Backlinks = &backlinks
+			params.AnalysisCache = config.AnalysisCache
 		}
 
 		var primaryMatches []string
@@ -568,6 +569,7 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 			},
 			ExcludePatterns: exclude,
 			IncludePatterns: include,
+			AnalysisCache:   config.AnalysisCache,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing communities: %s", err)), nil
@@ -676,6 +678,7 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 			},
 			ExcludePatterns: exclude,
 			IncludePatterns: include,
+			AnalysisCache:   config.AnalysisCache,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil

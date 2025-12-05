@@ -13,6 +13,11 @@ type NoteAdapter struct {
 	base  obsidian.NoteManager
 }
 
+// cachedEntriesProvider exposes cached entries to callers that can take advantage of them.
+type cachedEntriesProvider interface {
+	EntriesSnapshot(context.Context) ([]Entry, error)
+}
+
 // NewNoteAdapter constructs a cached NoteManager.
 func NewNoteAdapter(cache *Service, base obsidian.NoteManager) *NoteAdapter {
 	return &NoteAdapter{
@@ -34,7 +39,9 @@ func (n *NoteAdapter) UpdateLinks(vaultPath string, oldNoteName string, newNoteN
 }
 
 func (n *NoteAdapter) GetContents(vaultPath string, noteName string) (string, error) {
-	_ = n.cache.Refresh(context.Background())
+	if err := n.cache.Refresh(context.Background()); err != nil {
+		return "", err
+	}
 	if entry, ok := n.cache.Entry(noteName); ok && entry.Content != "" {
 		return entry.Content, nil
 	}
@@ -42,8 +49,18 @@ func (n *NoteAdapter) GetContents(vaultPath string, noteName string) (string, er
 }
 
 func (n *NoteAdapter) GetNotesList(vaultPath string) ([]string, error) {
-	if err := n.cache.EnsureReady(context.Background()); err != nil {
+	if err := n.cache.Refresh(context.Background()); err != nil {
 		return nil, err
 	}
 	return n.cache.Paths(), nil
+}
+
+// EntriesSnapshot exposes cached entries when the consumer can take advantage of them.
+func (n *NoteAdapter) EntriesSnapshot(ctx context.Context) ([]Entry, error) {
+	return n.cache.EntriesSnapshot(ctx)
+}
+
+// Version exposes the cache version for downstream caches.
+func (n *NoteAdapter) Version() uint64 {
+	return n.cache.Version()
 }

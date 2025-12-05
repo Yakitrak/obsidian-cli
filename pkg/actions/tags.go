@@ -1,11 +1,13 @@
 package actions
 
 import (
+	"context"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
@@ -37,8 +39,13 @@ func Tags(vault obsidian.VaultManager, note obsidian.NoteManager, opts ...TagsOp
 	}
 
 	var scanNotes []string
+	var filter map[string]struct{}
 	if len(opts) > 0 && len(opts[0].Notes) > 0 {
 		scanNotes = opts[0].Notes
+		filter = make(map[string]struct{})
+		for _, n := range scanNotes {
+			filter[obsidian.NormalizePath(obsidian.AddMdSuffix(n))] = struct{}{}
+		}
 	} else {
 		// Get all notes in the vault
 		allNotes, err := note.GetNotesList(vaultPath)
@@ -46,6 +53,16 @@ func Tags(vault obsidian.VaultManager, note obsidian.NoteManager, opts ...TagsOp
 			return nil, err
 		}
 		scanNotes = allNotes
+	}
+
+	if provider, ok := note.(interface {
+		EntriesSnapshot(context.Context) ([]cache.Entry, error)
+	}); ok {
+		entries, err := provider.EntriesSnapshot(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		return tagsFromEntries(entries, filter), nil
 	}
 
 	// Step 1: Parallel extraction and counting with per-note dedup
@@ -150,6 +167,50 @@ func Tags(vault obsidian.VaultManager, note obsidian.NoteManager, opts ...TagsOp
 	// Step 4: Sort and flatten
 	sortTagTree(root)
 	return flattenTagTree(root), nil
+}
+
+func tagsFromEntries(entries []cache.Entry, filter map[string]struct{}) []TagSummary {
+	individualCount := make(map[string]int)
+	aggregateCount := make(map[string]int)
+
+	for _, entry := range entries {
+		if filter != nil {
+			if _, ok := filter[obsidian.NormalizePath(entry.Path)]; !ok {
+				continue
+			}
+		}
+
+		perNoteTags := make(map[string]struct{})
+		for _, tag := range entry.Tags {
+			normalized := normalizeTag(tag)
+			if normalized == "" || !isValidTag(normalized) {
+				continue
+			}
+			perNoteTags[normalized] = struct{}{}
+		}
+
+		if len(perNoteTags) == 0 {
+			continue
+		}
+
+		for t := range perNoteTags {
+			individualCount[t]++
+		}
+
+		perNotePrefixes := make(map[string]struct{})
+		for t := range perNoteTags {
+			for _, p := range getAllPrefixes(t) {
+				perNotePrefixes[p] = struct{}{}
+			}
+		}
+		for p := range perNotePrefixes {
+			aggregateCount[p]++
+		}
+	}
+
+	root := buildTagTree(individualCount, aggregateCount)
+	sortTagTree(root)
+	return flattenTagTree(root)
 }
 
 // extractAllTags extracts all tags from both frontmatter and hashtags
