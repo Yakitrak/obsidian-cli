@@ -24,7 +24,7 @@ brews:
   - name: obsidian-cli
     homepage: https://github.com/atomicobject/obsidian-cli
     repository:
-      owner: atomicobject
+      owner: dcolthorp
       name: homebrew-tap
       branch: main
       token: "{{ .Env.BREW_GITHUB_TOKEN }}"

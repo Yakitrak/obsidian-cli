@@ -37,3 +37,10 @@ endif
 ifdef TEMPLATE_VAULT_BIN_DIR
 	install -m 0755 bin/${BINARY_NAME} $(TEMPLATE_VAULT_BIN_DIR)/${BINARY_NAME}
 endif
+
+.PHONY: release release-dry
+release:
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} goreleaser release --clean
+
+release-dry:
+	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} goreleaser release --skip=publish --snapshot --clean

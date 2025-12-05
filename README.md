@@ -16,7 +16,7 @@ that works on top of your local folder of plain text notes. This CLI tool (writt
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap atomicobject/homebrew-tap
+brew tap dcolthorp/homebrew-tap
 brew install obsidian-cli
 ```
 
@@ -30,15 +30,14 @@ go install github.com/atomicobject/obsidian-cli@latest
 
 ### Manual Installation
 
-Download the latest release for your platform from the [releases page](https://github.com/atomicobject/obsidian-cli/releases) and add the binary to your PATH.
+ Download the latest release for your platform from the [releases page](https://github.com/atomicobject/obsidian-cli/releases) and add the binary to your PATH.
 
 ### Releasing (maintainers)
 
-```bash
-# ensure tokens set in your shell (e.g., BREW_GITHUB_TOKEN in ~/.bashrc)
-source ~/.bashrc
-goreleaser release --clean
-```
+1. Add tokens to `.env` (loaded by direnv): `GITHUB_TOKEN` (main repo release) and `BREW_GITHUB_TOKEN` (tap write). You can also keep the aliases `OBSIDIAN_CLI_RELEASE_GITHUB_TOKEN` and `OBSIDIAN_CLI_BREW_GITHUB_TOKEN`/`DCOLTHORP_BREW_GITHUB_TOKEN` if you prefer. Then run `direnv allow`.
+2. Verify tokens have `Contents: Read/Write` on `atomicobject/obsidian-cli` and `dcolthorp/homebrew-tap` (org SSO authorized if required).
+3. Dry-run (no publish): `make release-dry`
+4. Publish: `make release`
 
 ## Usage
 

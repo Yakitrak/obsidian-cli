@@ -17,9 +17,11 @@
 bin/
 .idea/
 obsidian-cli
+.gocache/
+.gomodcache/
+dist/
 
 # Local tooling/config (Codex, direnv, Claude Code)
 .codex/
 .env
-.envrc
 .claude/settings.local.json
