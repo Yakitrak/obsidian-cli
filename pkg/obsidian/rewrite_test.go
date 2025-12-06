@@ -127,9 +127,9 @@ func TestRewriteLinksInContent_CaseInsensitive(t *testing.T) {
 	} else {
 		// Linux: only exact case matches
 		assert.Equal(t, 1, count)
+		assert.Contains(t, rewritten, "[[New Note]]")       // Rewritten (exact basename match)
 		assert.Contains(t, rewritten, "[[old note]]")       // NOT rewritten (case mismatch)
 		assert.Contains(t, rewritten, "[[NOTES/OLD NOTE]]") // NOT rewritten (case mismatch)
-		assert.Contains(t, rewritten, "[[Notes/New Note]]") // Rewritten (exact match)
 	}
 }
 

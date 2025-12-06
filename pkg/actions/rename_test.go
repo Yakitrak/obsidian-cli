@@ -10,6 +10,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func initGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	commands := [][]string{
+		{"git", "-C", dir, "init"},
+		{"git", "-C", dir, "config", "user.email", "ci@example.com"},
+		{"git", "-C", dir, "config", "user.name", "CI Tester"},
+	}
+	for _, args := range commands {
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
+			t.Fatalf("git %s: %v", strings.Join(args[2:], " "), err)
+		}
+	}
+}
+
 type stubVault struct {
 	path string
 }
@@ -32,9 +46,7 @@ func TestRenameNote_GitRenameWithBacklinks(t *testing.T) {
 	}
 
 	// Init git and track files for history-preserving rename.
-	if err := exec.Command("git", "-C", vaultDir, "init").Run(); err != nil {
-		t.Fatalf("git init: %v", err)
-	}
+	initGitRepo(t, vaultDir)
 	if err := exec.Command("git", "-C", vaultDir, "add", ".").Run(); err != nil {
 		t.Fatalf("git add: %v", err)
 	}
@@ -96,9 +108,7 @@ func TestRenameNote_OverwriteExistingTargetGit(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vaultDir, "Existing.md"), []byte("existing"), 0o644); err != nil {
 		t.Fatalf("write existing: %v", err)
 	}
-	if err := exec.Command("git", "-C", vaultDir, "init").Run(); err != nil {
-		t.Fatalf("git init: %v", err)
-	}
+	initGitRepo(t, vaultDir)
 	if err := exec.Command("git", "-C", vaultDir, "add", ".").Run(); err != nil {
 		t.Fatalf("git add: %v", err)
 	}
@@ -129,9 +139,7 @@ func TestRenameNote_DirtyGitBlocks(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vaultDir, ".gitkeep"), []byte(""), 0o644); err != nil {
 		t.Fatalf("write gitkeep: %v", err)
 	}
-	if err := exec.Command("git", "-C", vaultDir, "init").Run(); err != nil {
-		t.Fatalf("git init: %v", err)
-	}
+	initGitRepo(t, vaultDir)
 	if err := exec.Command("git", "-C", vaultDir, "add", ".").Run(); err != nil {
 		t.Fatalf("git add: %v", err)
 	}

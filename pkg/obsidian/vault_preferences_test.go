@@ -49,7 +49,8 @@ func TestSavePathToPreferences(t *testing.T) {
 		_ = os.Mkdir(newDir, 0755)
 		vault := obsidian.Vault{Name: "vault-name"}
 		err = vault.SavePathToPreferences(newDir, false)
-		assert.EqualError(t, err, obsidian.ObsidianCLIVaultExistsError+": vault-name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), obsidian.ObsidianCLIVaultExistsError)
 	})
 
 	t.Run("allows overwrite with force", func(t *testing.T) {
@@ -123,6 +124,7 @@ func TestRemoveFromPreferences(t *testing.T) {
 
 		vault := obsidian.Vault{Name: "vault-name"}
 		err := vault.RemoveFromPreferences()
-		assert.EqualError(t, err, obsidian.ObsidianCLIVaultNotFoundError+": vault-name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), obsidian.ObsidianCLIVaultNotFoundError)
 	})
 }

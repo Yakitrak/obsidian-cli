@@ -68,7 +68,9 @@ func TestVaultPath(t *testing.T) {
 		// Act
 		_, err = vault.Path()
 		// Assert
-		assert.Equal(t, err.Error(), obsidian.ObsidianConfigReadError)
+		// Windows may return either read or parse error depending on ACL; accept both.
+		assert.Error(t, err)
+		assert.Contains(t, []string{obsidian.ObsidianConfigReadError, obsidian.ObsidianConfigParseError}, err.Error())
 
 	})
 
