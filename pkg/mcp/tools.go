@@ -15,6 +15,7 @@ import (
 	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
+	"gopkg.in/yaml.v3"
 )
 
 // FileEntry is the structured payload returned by the files tool
@@ -114,6 +115,14 @@ type TagMutationResult struct {
 	NotesTouched int            `json:"notesTouched"`
 	TagChanges   map[string]int `json:"tagChanges"`
 	FilesChanged []string       `json:"filesChanged,omitempty"`
+}
+
+// PropertyMutationResult describes the JSON shape returned by property mutators.
+type PropertyMutationResult struct {
+	DryRun          bool           `json:"dryRun,omitempty"`
+	NotesTouched    int            `json:"notesTouched"`
+	PropertyChanges map[string]int `json:"propertyChanges"`
+	FilesChanged    []string       `json:"filesChanged,omitempty"`
 }
 
 // RenameNoteResponse describes the JSON shape returned by the rename_note tool.
@@ -1103,6 +1112,254 @@ func RenameTagsTool(config Config) func(context.Context, mcp.CallToolRequest) (*
 		encoded, err := json.Marshal(result)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling rename_tag result: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+func SetPropertyTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		property, ok := args["property"].(string)
+		if !ok || strings.TrimSpace(property) == "" {
+			return mcp.NewToolResultError("property parameter is required and must be a non-empty string"), nil
+		}
+
+		valueRaw, ok := args["value"].(string)
+		if !ok {
+			return mcp.NewToolResultError("value parameter is required and must be a string (YAML accepted)"), nil
+		}
+
+		inputsRaw, ok := args["inputs"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("inputs parameter is required and must be an array"), nil
+		}
+
+		dryRun, _ := args["dryRun"].(bool)
+		overwrite, _ := args["overwrite"].(bool)
+
+		if !config.ReadWrite && !dryRun {
+			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
+		}
+
+		var value interface{}
+		if err := yaml.Unmarshal([]byte(valueRaw), &value); err != nil {
+			value = valueRaw
+		}
+
+		inputs := make([]string, len(inputsRaw))
+		for i, v := range inputsRaw {
+			s, ok := v.(string)
+			if !ok {
+				return mcp.NewToolResultError("all inputs must be strings"), nil
+			}
+			inputs[i] = s
+		}
+
+		parsedInputs, expr, err := actions.ParseInputsWithExpression(inputs)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error parsing input criteria: %s", err)), nil
+		}
+
+		note := resolveNoteManager(config)
+
+		matchingFiles, err := actions.ListFiles(config.Vault, note, actions.ListParams{
+			Inputs:        parsedInputs,
+			MaxDepth:      0,
+			SkipAnchors:   false,
+			SkipEmbeds:    false,
+			AbsolutePaths: false,
+			Expression:    expr,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error getting matching files: %s", err)), nil
+		}
+		if len(matchingFiles) == 0 {
+			return mcp.NewToolResultError("No files match the specified criteria"), nil
+		}
+
+		summary, err := actions.SetPropertyOnFiles(config.Vault, note, property, value, matchingFiles, overwrite, dryRun)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error setting property: %s", err)), nil
+		}
+
+		result := PropertyMutationResult{
+			DryRun:          dryRun,
+			NotesTouched:    summary.NotesTouched,
+			PropertyChanges: summary.PropertyChanges,
+			FilesChanged:    summary.FilesChanged,
+		}
+
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling set_property result: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+func DeletePropertiesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		propsRaw, ok := args["properties"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("properties parameter is required and must be an array"), nil
+		}
+		var properties []string
+		for _, v := range propsRaw {
+			s, ok := v.(string)
+			if !ok {
+				return mcp.NewToolResultError("all properties must be strings"), nil
+			}
+			properties = append(properties, s)
+		}
+
+		var files []string
+		if inputsRaw, ok := args["inputs"].([]interface{}); ok {
+			inputs := make([]string, len(inputsRaw))
+			for i, v := range inputsRaw {
+				s, ok := v.(string)
+				if !ok {
+					return mcp.NewToolResultError("all inputs must be strings"), nil
+				}
+				inputs[i] = s
+			}
+			parsedInputs, expr, err := actions.ParseInputsWithExpression(inputs)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error parsing input criteria: %s", err)), nil
+			}
+
+			note := resolveNoteManager(config)
+			files, err = actions.ListFiles(config.Vault, note, actions.ListParams{
+				Inputs:        parsedInputs,
+				MaxDepth:      0,
+				SkipAnchors:   false,
+				SkipEmbeds:    false,
+				AbsolutePaths: false,
+				Expression:    expr,
+			})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error getting matching files: %s", err)), nil
+			}
+			if len(files) == 0 {
+				return mcp.NewToolResultError("No files match the specified criteria"), nil
+			}
+		}
+
+		dryRun, _ := args["dryRun"].(bool)
+		if !config.ReadWrite && !dryRun {
+			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
+		}
+
+		note := resolveNoteManager(config)
+
+		summary, err := actions.DeleteProperties(config.Vault, note, properties, files, dryRun)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error deleting properties: %s", err)), nil
+		}
+
+		result := PropertyMutationResult{
+			DryRun:          dryRun,
+			NotesTouched:    summary.NotesTouched,
+			PropertyChanges: summary.PropertyChanges,
+			FilesChanged:    summary.FilesChanged,
+		}
+
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling delete_properties result: %s", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+func RenamePropertyTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+
+		fromRaw, ok := args["fromProperties"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("fromProperties parameter is required and must be an array"), nil
+		}
+		var from []string
+		for _, v := range fromRaw {
+			s, ok := v.(string)
+			if !ok {
+				return mcp.NewToolResultError("all fromProperties values must be strings"), nil
+			}
+			from = append(from, s)
+		}
+
+		to, ok := args["toProperty"].(string)
+		if !ok || strings.TrimSpace(to) == "" {
+			return mcp.NewToolResultError("toProperty parameter is required and must be a non-empty string"), nil
+		}
+
+		var files []string
+		if inputsRaw, ok := args["inputs"].([]interface{}); ok {
+			inputs := make([]string, len(inputsRaw))
+			for i, v := range inputsRaw {
+				s, ok := v.(string)
+				if !ok {
+					return mcp.NewToolResultError("all inputs must be strings"), nil
+				}
+				inputs[i] = s
+			}
+
+			parsedInputs, expr, err := actions.ParseInputsWithExpression(inputs)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error parsing input criteria: %s", err)), nil
+			}
+
+			note := resolveNoteManager(config)
+			files, err = actions.ListFiles(config.Vault, note, actions.ListParams{
+				Inputs:        parsedInputs,
+				MaxDepth:      0,
+				SkipAnchors:   false,
+				SkipEmbeds:    false,
+				AbsolutePaths: false,
+				Expression:    expr,
+			})
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Error getting matching files: %s", err)), nil
+			}
+			if len(files) == 0 {
+				return mcp.NewToolResultError("No files match the specified criteria"), nil
+			}
+		}
+
+		merge := true
+		if v, ok := args["merge"].(bool); ok {
+			merge = v
+		}
+		dryRun, _ := args["dryRun"].(bool)
+
+		if !config.ReadWrite && !dryRun {
+			return mcp.NewToolResultError("Server is in read-only mode; either enable --read-write or set dryRun=true"), nil
+		}
+
+		note := resolveNoteManager(config)
+
+		summary, err := actions.RenameProperties(config.Vault, note, from, to, merge, files, dryRun)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error renaming properties: %s", err)), nil
+		}
+
+		result := PropertyMutationResult{
+			DryRun:          dryRun,
+			NotesTouched:    summary.NotesTouched,
+			PropertyChanges: summary.PropertyChanges,
+			FilesChanged:    summary.FilesChanged,
+		}
+
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Error marshaling rename_property result: %s", err)), nil
 		}
 
 		return mcp.NewToolResultText(string(encoded)), nil

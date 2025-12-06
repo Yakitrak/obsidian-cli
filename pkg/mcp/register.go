@@ -223,6 +223,34 @@ Options:
 		)
 		s.AddTool(renameTagTool, RenameTagsTool(config))
 
+		setPropertyTool := mcp.NewTool("set_property",
+			mcp.WithDescription(`Set a frontmatter property on matching notes. Value is parsed as YAML (strings, numbers, lists, etc.). Requires inputs to scope the change.`),
+			mcp.WithString("property", mcp.Required(), mcp.Description("Property name to set")),
+			mcp.WithString("value", mcp.Required(), mcp.Description("Property value (YAML allowed, e.g., \"in-progress\", 3, [a,b])")),
+			mcp.WithArray("inputs", mcp.Required(), mcp.Description("Input patterns (find:, tag:, or paths) to select files"), mcp.WithStringItems()),
+			mcp.WithBoolean("overwrite", mcp.Description("Overwrite existing values (default false)")),
+			mcp.WithBoolean("dryRun", mcp.Description("Preview without writing changes")),
+		)
+		s.AddTool(setPropertyTool, SetPropertyTool(config))
+
+		deletePropertiesTool := mcp.NewTool("delete_properties",
+			mcp.WithDescription(`Delete one or more frontmatter properties across the vault or scoped inputs.`),
+			mcp.WithArray("properties", mcp.Required(), mcp.Description("Properties to delete (case-insensitive)"), mcp.WithStringItems()),
+			mcp.WithArray("inputs", mcp.Description("Optional: scope deletion to these inputs (find:, tag:, paths)"), mcp.WithStringItems()),
+			mcp.WithBoolean("dryRun", mcp.Description("Preview without writing changes")),
+		)
+		s.AddTool(deletePropertiesTool, DeletePropertiesTool(config))
+
+		renamePropertyTool := mcp.NewTool("rename_property",
+			mcp.WithDescription(`Rename one or more properties to a destination property. When merge=true (default), values are merged if the destination already exists.`),
+			mcp.WithArray("fromProperties", mcp.Required(), mcp.Description("Properties to rename (case-insensitive)"), mcp.WithStringItems()),
+			mcp.WithString("toProperty", mcp.Required(), mcp.Description("Destination property name")),
+			mcp.WithBoolean("merge", mcp.Description("Merge values when destination exists (default true)")),
+			mcp.WithArray("inputs", mcp.Description("Optional: scope rename to these inputs (find:, tag:, paths)"), mcp.WithStringItems()),
+			mcp.WithBoolean("dryRun", mcp.Description("Preview without writing changes")),
+		)
+		s.AddTool(renamePropertyTool, RenamePropertyTool(config))
+
 		// add_tags – add one or more tags to specific notes matching input criteria
 		addTagsTool := mcp.NewTool("add_tags",
 			mcp.WithDescription(`Add specified tags to notes matching input criteria.

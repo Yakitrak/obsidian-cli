@@ -291,6 +291,23 @@ Key flags:
 - `--verbose`: allow enums for mixed types and bump value limit to 50
 - `--value-counts`: include per-value note counts in output
 
+### Manage Properties (frontmatter)
+
+Add, rename/merge, or delete frontmatter properties across matching files.
+
+```bash
+# Set/overwrite a property on matching files (value accepts YAML)
+obsidian-cli properties set status --value '"in-progress"' --inputs tag:project find:*Q4*
+obsidian-cli properties set effort --value 3 --inputs Notes/Project.md --overwrite
+
+# Delete properties (optionally scoped to inputs)
+obsidian-cli properties delete status owner --inputs tag:archive
+
+# Rename and merge values when destination already exists (default --merge=true)
+obsidian-cli properties rename status --to state
+obsidian-cli properties rename status State --to state --merge=false  # keep existing dest value
+```
+
 ### Link Graph (wikilinks)
 
 Summarize connectedness; all commands are under `graph`:
@@ -421,9 +438,9 @@ obsidian-cli skips common tooling clutter even if you haven't created a `.obsidi
 obsidian-cli vault install-ignore --vault "MyVault"   # add --force to overwrite an existing file
 ```
 
-## YAML formatting changes when editing tags
+## YAML formatting changes when editing tags or properties
 
-When tag-editing operations (delete/rename) touch the YAML front-matter, the block is re-emitted using Go’s `yaml.v3` encoder. As a result:
+When tag or property editing operations touch the YAML front-matter, the block is re-emitted using Go’s `yaml.v3` encoder. As a result:
 
 - Keys may appear in a different order than before.
 - Nested items (like the `tags:` list) are indented with two spaces.

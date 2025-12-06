@@ -55,13 +55,16 @@ Rename a note and update backlinks. Requires ` + "`" + `source` + "`" + ` and ` 
 ### move_notes
 Move one or more notes. Pass ` + "`" + `moves` + "`" + ` array of ` + "`" + `{source, target}` + "`" + ` or single ` + "`" + `source` + "`" + `/` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + `, ` + "`" + `overwrite` + "`" + `, ` + "`" + `open` + "`" + `.
 
-### Tag Management (read-write mode only)
+### Tag & Property Management (read-write mode only)
 
 - **add_tags**: Add tags to notes matching input criteria. Requires ` + "`" + `tags` + "`" + ` and ` + "`" + `inputs` + "`" + ` arrays.
 - **delete_tags**: Remove tags vault-wide. Requires ` + "`" + `tags` + "`" + ` array.
 - **rename_tag**: Rename tags vault-wide. Requires ` + "`" + `fromTags` + "`" + ` array and ` + "`" + `toTag` + "`" + ` string.
+- **set_property**: Set a frontmatter property on matching notes. Requires ` + "`" + `property` + "`" + `, ` + "`" + `value` + "`" + ` (YAML string), and ` + "`" + `inputs` + "`" + `.
+- **delete_properties**: Delete one or more frontmatter properties. Accepts optional ` + "`" + `inputs` + "`" + ` to scope.
+- **rename_property**: Rename/merge properties to a destination. Requires ` + "`" + `fromProperties` + "`" + ` array and ` + "`" + `toProperty` + "`" + ` string; ` + "`" + `merge` + "`" + ` defaults to true.
 
-All tag tools support ` + "`" + `dryRun` + "`" + ` to preview changes.
+All mutation tools support ` + "`" + `dryRun` + "`" + ` to preview changes.
 
 ## Input Patterns
 
