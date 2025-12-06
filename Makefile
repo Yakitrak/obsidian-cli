@@ -44,3 +44,6 @@ release:
 
 release-dry:
 	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} goreleaser release --skip=publish --snapshot --clean
+
+cut-release:
+	./scripts/release/cut_release.sh

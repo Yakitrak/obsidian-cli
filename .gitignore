@@ -25,3 +25,6 @@ dist/
 .codex/
 .env
 .claude/settings.local.json
+
+# Release artifacts / generated notes
+notes/
