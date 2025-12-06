@@ -126,7 +126,7 @@ func MoveNotes(vault obsidian.VaultManager, uri obsidian.UriManager, params Move
 		summary.TotalLinkUpdates = total
 		summary.Skipped = skipped
 		for i, res := range summary.Results {
-			normalizedTarget := obsidian.NormalizePath(obsidian.AddMdSuffix(res.Target))
+			normalizedTarget := obsidian.NormalizePath(res.Target)
 			summary.Results[i].LinkUpdates = perTarget[normalizedTarget]
 		}
 	}

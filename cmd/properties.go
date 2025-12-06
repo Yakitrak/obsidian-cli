@@ -86,7 +86,7 @@ func propertyDetails(p actions.PropertySummary) string {
 }
 
 func init() {
-	listPropertiesCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	propertiesCmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	listPropertiesCmd.Flags().Bool("json", false, "Output properties as JSON")
 	listPropertiesCmd.Flags().Bool("markdown", false, "Output properties as markdown table")
 	listPropertiesCmd.Flags().Bool("exclude-tags", false, "Exclude the tags frontmatter field")

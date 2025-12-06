@@ -194,7 +194,15 @@ Examples:
 		}
 
 		for _, m := range matches {
-			fmt.Fprintf(&output, "<file path=\"%s\">\n%s\n</file>\n", m.path, m.content)
+			outPath := m.path
+			if absolutePaths {
+				if filepath.IsAbs(m.path) {
+					outPath = m.path
+				} else {
+					outPath = filepath.Join(vaultPath, m.path)
+				}
+			}
+			fmt.Fprintf(&output, "<file path=\"%s\">\n%s\n</file>\n", outPath, m.content)
 			fmt.Fprintf(&output, "\n")
 		}
 

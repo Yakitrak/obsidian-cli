@@ -133,7 +133,7 @@ func processSetProperty(property string, value interface{}, overwrite, dryRun bo
 		full := filepath.Join(vaultPath, notePath)
 		data, err := os.ReadFile(full)
 		if err != nil {
-			return propertyDelta{}
+			return propertyDelta{err: fmt.Errorf("failed to read file %s: %w", notePath, err)}
 		}
 
 		newContent, changed, err := obsidian.SetFrontmatterProperty(string(data), property, value, overwrite)
@@ -166,7 +166,7 @@ func processDeleteProperties(properties []string, dryRun bool) propertyProcessor
 		full := filepath.Join(vaultPath, notePath)
 		data, err := os.ReadFile(full)
 		if err != nil {
-			return propertyDelta{}
+			return propertyDelta{err: fmt.Errorf("failed to read file %s: %w", notePath, err)}
 		}
 
 		content := string(data)
@@ -215,7 +215,7 @@ func processRenameProperties(from []string, to string, merge, dryRun bool) prope
 		full := filepath.Join(vaultPath, notePath)
 		data, err := os.ReadFile(full)
 		if err != nil {
-			return propertyDelta{}
+			return propertyDelta{err: fmt.Errorf("failed to read file %s: %w", notePath, err)}
 		}
 
 		content := string(data)
