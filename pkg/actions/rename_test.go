@@ -150,6 +150,33 @@ func TestRenameNote_DirtyGitBlocks(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRenameAttachmentUpdatesLinks(t *testing.T) {
+	vaultDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vaultDir, "image.png"), []byte("data"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+	content := "Cover ![[image.png]] and [inline](image.png)"
+	if err := os.WriteFile(filepath.Join(vaultDir, "Ref.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write ref: %v", err)
+	}
+
+	params := RenameParams{
+		Source:          "image.png",
+		Target:          "assets/image.png",
+		UpdateBacklinks: true,
+	}
+	res, err := RenameNote(stubVault{path: vaultDir}, params)
+	assert.NoError(t, err)
+	assert.Equal(t, "assets/image.png", res.RenamedPath)
+
+	updated, readErr := os.ReadFile(filepath.Join(vaultDir, "Ref.md"))
+	assert.NoError(t, readErr)
+	assert.Contains(t, string(updated), "![[assets/image.png]]")
+	assert.Contains(t, string(updated), "(assets/image.png)")
+	_, statErr := os.Stat(filepath.Join(vaultDir, "assets/image.png"))
+	assert.NoError(t, statErr)
+}
+
 func TestRenameNote_DuplicateBasenameSkipsBareLinks(t *testing.T) {
 	vaultDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vaultDir, "Folder"), 0o755); err != nil {

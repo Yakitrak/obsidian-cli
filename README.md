@@ -167,31 +167,31 @@ obsidian-cli note create "{note-name}" --content "abcde" --open
 
 ```
 
-### Move / Rename Note
+### Move / Rename Files (notes or attachments)
 
-Moves or renames notes within the vault. By default, Obsidian links match note names, so backlinks are **not** rewritten unless you opt in with `--update-backlinks`. Supports bulk moves to a folder to avoid multiple vault scans.
+Moves or renames notes or attachments within the vault. By default, Obsidian links match note names, so backlinks are **not** rewritten unless you opt in with `--update-backlinks`. Supports bulk moves to a folder to avoid multiple vault scans. Non-markdown files keep their extensions; embeds/links to attachments are rewritten when backlink updates are enabled.
 
 ```bash
 # Rename or move a single note
-obsidian-cli note move "{current-note-path}" "{new-note-path}" [--vault "{vault-name}"] [--overwrite] [--update-backlinks] [--open]
+obsidian-cli file move "{current-path}" "{new-path}" [--vault "{vault-name}"] [--overwrite] [--update-backlinks] [--open]
 
-# Bulk move notes into a folder (preserves filenames)
-obsidian-cli note move --to-folder "Archive/2024" "NoteA.md" "NoteB.md" [--vault "{vault-name}"] [--overwrite] [--update-backlinks]
+# Bulk move files into a folder (preserves filenames)
+obsidian-cli file move --to-folder "Archive/2024" "NoteA.md" "image.png" [--vault "{vault-name}"] [--overwrite] [--update-backlinks]
 ```
 
 Flags:
 
 - `--to-folder`: move one or more sources into the given folder (filenames are preserved)
 - `--overwrite`: allow replacing an existing target
-- `--update-backlinks`: rewrite backlinks to the new path(s); defaults to false for moves
+- `--update-backlinks`: rewrite backlinks/embeds to the new path(s); defaults to true for moves (disable with `update-backlinks=false`)
 - `--open`: open the first moved note in Obsidian after moving
 
-### Rename Note (backlink-safe, git-aware)
+### Rename File (note or attachment, backlink-safe, git-aware)
 
-Renames a note and rewrites backlinks (aliases, headers, block refs, embeds) to the new path. Tries `git mv` when the vault is a git repo (to keep history); if git cannot complete the move (e.g., due to conflicts), falls back to a filesystem rename.
+Renames a note or attachment and rewrites backlinks (aliases, headers, block refs, embeds) to the new path. Tries `git mv` when the vault is a git repo (to keep history); if git cannot complete the move (e.g., due to conflicts), falls back to a filesystem rename. Non-markdown files keep their extensions and Obsidian links/embeds to them are updated when backlink rewrites are enabled.
 
 ```bash
-obsidian-cli note rename "{source-note}" "{target-note}" [--vault "{vault-name}"] [--overwrite] [--no-backlinks]
+obsidian-cli file rename "{source-path}" "{target-path}" [--vault "{vault-name}"] [--overwrite] [--no-backlinks]
 ```
 
 Flags:

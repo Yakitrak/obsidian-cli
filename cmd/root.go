@@ -20,3 +20,24 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
+func init() {
+	rootCmd.AddCommand(vaultCmd)
+	rootCmd.AddCommand(noteCmd)
+	rootCmd.AddCommand(fileCmd)
+	rootCmd.AddCommand(propertiesCmd)
+	rootCmd.AddCommand(tagsCmd)
+	rootCmd.AddCommand(graphCmd)
+	rootCmd.AddCommand(promptCmd)
+	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(OpenVaultCmd)
+	rootCmd.AddCommand(createNoteCmd)
+	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(infoCmd)
+	rootCmd.AddCommand(DailyCmd)
+	rootCmd.AddCommand(printCmd)
+	rootCmd.AddCommand(installIgnoreCmd)
+	rootCmd.AddCommand(printDefaultCmd)
+	rootCmd.AddCommand(mcpCmd)
+}

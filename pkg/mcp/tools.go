@@ -903,7 +903,10 @@ func MoveNotesTool(config Config) func(context.Context, mcp.CallToolRequest) (*m
 		}
 
 		overwrite, _ := args["overwrite"].(bool)
-		updateBacklinks, _ := args["updateBacklinks"].(bool)
+		updateBacklinks := true
+		if v, ok := args["updateBacklinks"].(bool); ok {
+			updateBacklinks = v
+		}
 		shouldOpen, _ := args["open"].(bool)
 
 		uri := obsidian.Uri{}

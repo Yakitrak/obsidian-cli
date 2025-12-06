@@ -14,7 +14,7 @@ var renameOverwrite bool
 
 var renameCmd = &cobra.Command{
 	Use:   "rename <source> <target>",
-	Short: "Rename a note and update backlinks, preserving history in git vaults",
+	Short: "Rename a file (note or attachment) and update backlinks, preserving history in git vaults",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vault := obsidian.Vault{Name: vaultName}
@@ -40,7 +40,8 @@ var renameCmd = &cobra.Command{
 
 func init() {
 	renameCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
-	renameCmd.Flags().BoolVar(&renameOverwrite, "overwrite", false, "overwrite target note if it exists")
-	renameCmd.Flags().BoolVar(&renameNoBacklinks, "no-backlinks", false, "skip rewriting backlinks to the renamed note")
+	renameCmd.Flags().BoolVar(&renameOverwrite, "overwrite", false, "overwrite target if it exists")
+	renameCmd.Flags().BoolVar(&renameNoBacklinks, "no-backlinks", false, "skip rewriting backlinks to the renamed file")
 	noteCmd.AddCommand(renameCmd)
+	fileCmd.AddCommand(renameCmd)
 }

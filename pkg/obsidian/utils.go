@@ -21,6 +21,19 @@ func RemoveMdSuffix(str string) string {
 	return str
 }
 
+// NormalizeWithDefaultExt normalizes path separators and appends defaultExt when no extension is present.
+// defaultExt should include the leading dot (e.g., ".md"); if empty, no extension is added.
+func NormalizeWithDefaultExt(path string, defaultExt string) string {
+	path = NormalizePath(path)
+	if filepath.Ext(path) == "" && defaultExt != "" {
+		if !strings.HasPrefix(defaultExt, ".") {
+			defaultExt = "." + defaultExt
+		}
+		path += defaultExt
+	}
+	return path
+}
+
 func GenerateNoteLinkTexts(noteName string) [3]string {
 	var noteLinkTexts [3]string
 	noteName = filepath.Base(noteName)

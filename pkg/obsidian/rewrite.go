@@ -2,6 +2,7 @@ package obsidian
 
 import (
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -120,12 +121,21 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 	// Protect code blocks and inline code from modification
 	protectedContent, regions := extractProtectedRegions(content)
 
-	oldNorm := NormalizePath(AddMdSuffix(oldPath))
-	oldBase := strings.TrimSuffix(oldNorm, ".md")
+	oldExt := strings.ToLower(filepath.Ext(oldPath))
+	if oldExt == "" {
+		oldExt = ".md"
+	}
+	newExt := strings.ToLower(filepath.Ext(newPath))
+	if newExt == "" {
+		newExt = oldExt
+	}
+
+	oldNorm := NormalizeWithDefaultExt(oldPath, oldExt)
+	oldBase := strings.TrimSuffix(oldNorm, oldExt)
 	// Also match against just the filename (no folder), since Obsidian wikilinks often omit the path
 	oldBasename := baseName(oldBase)
-	newNorm := NormalizePath(AddMdSuffix(newPath))
-	newBasename := baseName(strings.TrimSuffix(newNorm, ".md"))
+	newNorm := NormalizeWithDefaultExt(newPath, newExt)
+	newBasename := baseName(strings.TrimSuffix(newNorm, newExt))
 
 	// Wikilinks and embeds: ![[...]] or [[...]]
 	wikiPattern := regexp.MustCompile(`(!)?\[\[(.+?)\]\]`)
@@ -153,9 +163,13 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 			base = base[:hashIdx]
 		}
 
-		hadExt := strings.HasSuffix(base, ".md")
-		targetNorm := NormalizePath(AddMdSuffix(base))
-		targetBase := strings.TrimSuffix(targetNorm, ".md")
+		ext := filepath.Ext(base)
+		hadExt := ext != ""
+		if ext == "" {
+			ext = oldExt
+		}
+		targetNorm := NormalizeWithDefaultExt(base, ext)
+		targetBase := strings.TrimSuffix(targetNorm, ext)
 		// Match against full path OR just basename (Obsidian links often omit folder)
 		// Only match by basename if basenameUnique is true (no other notes share this basename)
 		// Use OS-appropriate case sensitivity (case-insensitive on macOS/Windows)
@@ -170,12 +184,12 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 		if matchedByBasename {
 			newBase = newBasename
 			if hadExt {
-				newBase += ".md"
+				newBase += ext
 			}
 		} else {
 			newBase = newNorm
 			if !hadExt {
-				newBase = strings.TrimSuffix(newBase, ".md")
+				newBase = strings.TrimSuffix(newBase, newExt)
 			}
 		}
 		newTarget := newBase + fragment
@@ -217,9 +231,13 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 		decodedBase := decodeURLPath(base)
 		wasEncoded := decodedBase != base
 
-		hadExt := strings.HasSuffix(decodedBase, ".md")
-		targetNorm := NormalizePath(AddMdSuffix(decodedBase))
-		targetBase := strings.TrimSuffix(targetNorm, ".md")
+		ext := filepath.Ext(decodedBase)
+		hadExt := ext != ""
+		if ext == "" {
+			ext = oldExt
+		}
+		targetNorm := NormalizeWithDefaultExt(decodedBase, ext)
+		targetBase := strings.TrimSuffix(targetNorm, ext)
 		// Match against full path OR just basename (Obsidian links often omit folder)
 		// Only match by basename if basenameUnique is true (no other notes share this basename)
 		// Use OS-appropriate case sensitivity (case-insensitive on macOS/Windows)
@@ -234,12 +252,12 @@ func RewriteLinksInContentWithOptions(content, oldPath, newPath string, basename
 		if matchedByBasename {
 			newBase = newBasename
 			if hadExt {
-				newBase += ".md"
+				newBase += ext
 			}
 		} else {
 			newBase = newNorm
 			if !hadExt {
-				newBase = strings.TrimSuffix(newBase, ".md")
+				newBase = strings.TrimSuffix(newBase, newExt)
 			}
 		}
 

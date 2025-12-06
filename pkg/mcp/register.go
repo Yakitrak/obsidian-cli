@@ -121,7 +121,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 
 	// Register rename_note tool
 	renameNoteTool := mcp.NewTool("rename_note",
-		mcp.WithDescription(`Rename a note and update backlinks, preserving history in git vaults.
+		mcp.WithDescription(`Rename a note or attachment and update backlinks, preserving history in git vaults. Non-markdown files keep their extensions; embeds/links are rewritten when enabled.
 
 Required: source (existing note), target (new note path/title)
 Optional: overwrite (default false), updateBacklinks (default true)`),
@@ -134,13 +134,13 @@ Optional: overwrite (default false), updateBacklinks (default true)`),
 
 	// Register move_notes tool
 	moveNotesTool := mcp.NewTool("move_notes",
-		mcp.WithDescription(`Move or rename one or more notes within the vault. Backlinks are NOT rewritten unless updateBacklinks=true.
+		mcp.WithDescription(`Move or rename one or more notes or attachments within the vault. Backlinks/embeds are rewritten by default (updateBacklinks=true).
 
 Preferred: pass an array of moves [{source,target}]. For simple single-note moves, source/target can be provided directly.
 
 Options:
 - overwrite: replace an existing target (default false)
-- updateBacklinks: rewrite backlinks to new path (default false)
+- updateBacklinks: rewrite backlinks to new path (default true)
 - open: open the first moved note in Obsidian (default false)`),
 		mcp.WithArray("moves",
 			mcp.Description("Array of move objects. Each move requires 'source' and 'target' values."),
@@ -156,7 +156,7 @@ Options:
 		mcp.WithString("source", mcp.Description("Single-move shorthand: existing note path/title")),
 		mcp.WithString("target", mcp.Description("Single-move shorthand: desired new path/title")),
 		mcp.WithBoolean("overwrite", mcp.Description("Allow replacing an existing target (default false)")),
-		mcp.WithBoolean("updateBacklinks", mcp.Description("Rewrite backlinks to the new note path (default false)")),
+		mcp.WithBoolean("updateBacklinks", mcp.Description("Rewrite backlinks to the new note path (default true)")),
 		mcp.WithBoolean("open", mcp.Description("Open the first moved note in Obsidian after moving (default false)")),
 	)
 	s.AddTool(moveNotesTool, MoveNotesTool(config))

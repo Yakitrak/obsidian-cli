@@ -50,10 +50,10 @@ Show full detail for a community by ` + "`" + `id` + "`" + ` (from community_lis
 Get or locate the daily note. Defaults to today; pass ` + "`" + `date` + "`" + ` as YYYY-MM-DD.
 
 ### rename_note
-Rename a note and update backlinks. Requires ` + "`" + `source` + "`" + ` and ` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + ` (default true), ` + "`" + `overwrite` + "`" + `.
+Rename a note or attachment and update backlinks. Requires ` + "`" + `source` + "`" + ` and ` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + ` (default true), ` + "`" + `overwrite` + "`" + `. Non-markdown files keep their extensions; embeds/links are rewritten when enabled.
 
 ### move_notes
-Move one or more notes. Pass ` + "`" + `moves` + "`" + ` array of ` + "`" + `{source, target}` + "`" + ` or single ` + "`" + `source` + "`" + `/` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + `, ` + "`" + `overwrite` + "`" + `, ` + "`" + `open` + "`" + `.
+Move one or more notes or attachments. Pass ` + "`" + `moves` + "`" + ` array of ` + "`" + `{source, target}` + "`" + ` or single ` + "`" + `source` + "`" + `/` + "`" + `target` + "`" + `. Options: ` + "`" + `updateBacklinks` + "`" + ` (default true), ` + "`" + `overwrite` + "`" + `, ` + "`" + `open` + "`" + `. Backlinks/embeds update by default.
 
 ### Tag & Property Management (read-write mode only)
 

@@ -37,8 +37,8 @@ func RenameNote(vault obsidian.VaultManager, params RenameParams) (RenameResult,
 		return result, err
 	}
 
-	sourceRel := obsidian.NormalizePath(obsidian.AddMdSuffix(params.Source))
-	targetRel := obsidian.NormalizePath(obsidian.AddMdSuffix(params.Target))
+	sourceRel := obsidian.NormalizeWithDefaultExt(params.Source, ".md")
+	targetRel := obsidian.NormalizeWithDefaultExt(params.Target, ".md")
 	sourceAbs := filepath.Join(vaultPath, sourceRel)
 	targetAbs := filepath.Join(vaultPath, targetRel)
 
@@ -133,9 +133,18 @@ func rewriteVaultLinks(vaultPath, oldRel, newRel string, ignored []string) (int,
 
 	// First pass: check if the basename is unique in the vault
 	// Use case-insensitive comparison on macOS/Windows to match filesystem behavior
-	oldBasename := filepath.Base(strings.TrimSuffix(oldRel, ".md"))
+	oldExt := strings.ToLower(filepath.Ext(oldRel))
+	if oldExt == "" {
+		oldExt = ".md"
+	}
+	newExt := strings.ToLower(filepath.Ext(newRel))
+	if newExt == "" {
+		newExt = oldExt
+	}
+
+	oldBasename := filepath.Base(strings.TrimSuffix(oldRel, oldExt))
 	oldBasenameNorm := obsidian.NormalizeForComparison(oldBasename)
-	newBasename := filepath.Base(strings.TrimSuffix(newRel, ".md"))
+	newBasename := filepath.Base(strings.TrimSuffix(newRel, newExt))
 	newBasenameNorm := obsidian.NormalizeForComparison(newBasename)
 	basenameCount := 0
 	_ = filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
@@ -152,10 +161,10 @@ func rewriteVaultLinks(vaultPath, oldRel, newRel string, ignored []string) (int,
 	})
 	// If the note was renamed to a different basename, add it back into the count so we
 	// consider the pre-rename state when deciding if bare wikilinks are ambiguous.
-	if oldBasenameNorm != newBasenameNorm && !obsidian.ShouldIgnorePath(vaultPath, filepath.Join(vaultPath, oldRel), ignored) {
+	if oldExt == ".md" && oldBasenameNorm != newBasenameNorm && !obsidian.ShouldIgnorePath(vaultPath, filepath.Join(vaultPath, oldRel), ignored) {
 		basenameCount++
 	}
-	basenameUnique := basenameCount <= 1
+	basenameUnique := oldExt != ".md" || basenameCount <= 1
 
 	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {

@@ -26,6 +26,15 @@ func TestRewriteLinksInContent_EmbedAndNoExt(t *testing.T) {
 	assert.Contains(t, rewritten, "[[Other Note]]")
 }
 
+func TestRewriteLinksInContent_AttachmentWithExtension(t *testing.T) {
+	content := "See ![[image.png]] and [[image.png|thumb]]"
+	rewritten, count := RewriteLinksInContent(content, "image.png", "assets/image.png")
+
+	assert.Equal(t, 2, count)
+	assert.Contains(t, rewritten, "![[assets/image.png]]")
+	assert.Contains(t, rewritten, "[[assets/image.png|thumb]]")
+}
+
 func TestRewriteLinksInContent_MarkdownLinks(t *testing.T) {
 	content := "See [text](Old Note.md) and [section](Old Note.md#heading) and [ext](https://example.com)."
 	rewritten, count := RewriteLinksInContent(content, "Old Note.md", "Folder/New Note.md")
@@ -86,9 +95,9 @@ func TestRewriteLinksInContentWithOptions_DuplicateBasename(t *testing.T) {
 	rewritten, count := RewriteLinksInContentWithOptions(content, "Notes/Old Note.md", "Notes/New Note.md", false)
 
 	assert.Equal(t, 1, count)
-	assert.Contains(t, rewritten, "[[Old Note]]")             // NOT rewritten (ambiguous)
-	assert.Contains(t, rewritten, "[[Notes/New Note]]")       // Rewritten (explicit match)
-	assert.Contains(t, rewritten, "[[Archive/Old Note]]")     // NOT rewritten (different folder)
+	assert.Contains(t, rewritten, "[[Old Note]]")         // NOT rewritten (ambiguous)
+	assert.Contains(t, rewritten, "[[Notes/New Note]]")   // Rewritten (explicit match)
+	assert.Contains(t, rewritten, "[[Archive/Old Note]]") // NOT rewritten (different folder)
 }
 
 func TestRewriteLinksInContentWithOptions_UniqueBasename(t *testing.T) {
@@ -99,9 +108,9 @@ func TestRewriteLinksInContentWithOptions_UniqueBasename(t *testing.T) {
 	rewritten, count := RewriteLinksInContentWithOptions(content, "Notes/Old Note.md", "Notes/New Note.md", true)
 
 	assert.Equal(t, 2, count)
-	assert.Contains(t, rewritten, "[[New Note]]")             // Rewritten (basename match, unique)
-	assert.Contains(t, rewritten, "[[Notes/New Note]]")       // Rewritten (explicit match)
-	assert.Contains(t, rewritten, "[[Archive/Old Note]]")     // NOT rewritten (different folder)
+	assert.Contains(t, rewritten, "[[New Note]]")         // Rewritten (basename match, unique)
+	assert.Contains(t, rewritten, "[[Notes/New Note]]")   // Rewritten (explicit match)
+	assert.Contains(t, rewritten, "[[Archive/Old Note]]") // NOT rewritten (different folder)
 }
 
 func TestRewriteLinksInContent_CaseInsensitive(t *testing.T) {
@@ -113,14 +122,14 @@ func TestRewriteLinksInContent_CaseInsensitive(t *testing.T) {
 	if IsCaseInsensitiveFS() {
 		// macOS/Windows: all three should match
 		assert.Equal(t, 3, count)
-		assert.Contains(t, rewritten, "[[New Note]]")         // Was [[old note]] - basename match
-		assert.Contains(t, rewritten, "[[Notes/New Note]]")   // Was [[NOTES/OLD NOTE]] - full path match
+		assert.Contains(t, rewritten, "[[New Note]]")       // Was [[old note]] - basename match
+		assert.Contains(t, rewritten, "[[Notes/New Note]]") // Was [[NOTES/OLD NOTE]] - full path match
 	} else {
 		// Linux: only exact case matches
 		assert.Equal(t, 1, count)
-		assert.Contains(t, rewritten, "[[old note]]")         // NOT rewritten (case mismatch)
-		assert.Contains(t, rewritten, "[[NOTES/OLD NOTE]]")   // NOT rewritten (case mismatch)
-		assert.Contains(t, rewritten, "[[Notes/New Note]]")   // Rewritten (exact match)
+		assert.Contains(t, rewritten, "[[old note]]")       // NOT rewritten (case mismatch)
+		assert.Contains(t, rewritten, "[[NOTES/OLD NOTE]]") // NOT rewritten (case mismatch)
+		assert.Contains(t, rewritten, "[[Notes/New Note]]") // Rewritten (exact match)
 	}
 }
 
@@ -265,6 +274,6 @@ And ` + "`[link](Old Note.md)`" + ` inline.`
 
 	assert.Equal(t, 1, count) // Only the regular link
 	assert.Contains(t, rewritten, "Regular [link](New Note.md)")
-	assert.Contains(t, rewritten, "[link](Old Note.md) in code")       // Preserved
-	assert.Contains(t, rewritten, "`[link](Old Note.md)`")             // Preserved
+	assert.Contains(t, rewritten, "[link](Old Note.md) in code") // Preserved
+	assert.Contains(t, rewritten, "`[link](Old Note.md)`")       // Preserved
 }

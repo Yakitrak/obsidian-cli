@@ -13,13 +13,13 @@ import (
 
 var shouldOpen bool
 var moveOverwrite bool
-var moveUpdateBacklinks bool
+var moveUpdateBacklinks bool = true
 var moveToFolder string
 
 var moveCmd = &cobra.Command{
 	Use:     "move <source> <target> | move --to-folder <folder> <sources...>",
 	Aliases: []string{"m"},
-	Short:   "Move or rename notes within the vault; backlinks are skipped by default",
+	Short:   "Move or rename files (notes/attachments) within the vault; backlinks updated by default",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if strings.TrimSpace(moveToFolder) != "" {
 			if len(args) < 1 {
@@ -75,8 +75,9 @@ var moveCmd = &cobra.Command{
 func init() {
 	moveCmd.Flags().BoolVarP(&shouldOpen, "open", "o", false, "open new note")
 	moveCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	moveCmd.Flags().BoolVar(&moveOverwrite, "overwrite", false, "overwrite target note if it exists")
-	moveCmd.Flags().BoolVar(&moveUpdateBacklinks, "update-backlinks", false, "rewrite backlinks to point to the moved note (default: false)")
-	moveCmd.Flags().StringVar(&moveToFolder, "to-folder", "", "move one or more notes into the specified folder (preserves filenames)")
+	moveCmd.Flags().BoolVar(&moveOverwrite, "overwrite", false, "overwrite target if it exists")
+	moveCmd.Flags().BoolVar(&moveUpdateBacklinks, "update-backlinks", true, "rewrite backlinks/embeds to point to the moved file (default: true; set --update-backlinks=false to skip)")
+	moveCmd.Flags().StringVar(&moveToFolder, "to-folder", "", "move one or more files into the specified folder (preserves filenames)")
 	noteCmd.AddCommand(moveCmd)
+	fileCmd.AddCommand(moveCmd)
 }

@@ -82,8 +82,8 @@ func MoveNotes(vault obsidian.VaultManager, uri obsidian.UriManager, params Move
 			return summary, fmt.Errorf("invalid move (source and target required): %+v", mv)
 		}
 
-		srcNorm := obsidian.NormalizePath(obsidian.AddMdSuffix(src))
-		dstNorm := obsidian.NormalizePath(obsidian.AddMdSuffix(dst))
+		srcNorm := obsidian.NormalizeWithDefaultExt(src, ".md")
+		dstNorm := obsidian.NormalizeWithDefaultExt(dst, ".md")
 
 		if srcNorm == dstNorm {
 			return summary, fmt.Errorf("source and target are the same: %s", srcNorm)
@@ -179,8 +179,12 @@ func rewriteVaultLinksBatch(vaultPath string, mappings []linkMapping, ignored []
 
 	// Mark which mappings have unique basenames
 	for _, m := range mappings {
-		oldBase := filepath.Base(strings.TrimSuffix(m.Old, ".md"))
-		newBase := filepath.Base(strings.TrimSuffix(m.New, ".md"))
+		oldExt := strings.ToLower(filepath.Ext(m.Old))
+		if oldExt != ".md" {
+			continue
+		}
+		oldBase := filepath.Base(strings.TrimSuffix(m.Old, oldExt))
+		newBase := filepath.Base(strings.TrimSuffix(m.New, strings.ToLower(filepath.Ext(m.New))))
 		if obsidian.NormalizeForComparison(oldBase) != obsidian.NormalizeForComparison(newBase) &&
 			!obsidian.ShouldIgnorePath(vaultPath, filepath.Join(vaultPath, m.Old), ignored) {
 			basenameCount[obsidian.NormalizeForComparison(oldBase)]++
@@ -188,7 +192,12 @@ func rewriteVaultLinksBatch(vaultPath string, mappings []linkMapping, ignored []
 	}
 
 	for i := range mappings {
-		oldBasename := filepath.Base(strings.TrimSuffix(mappings[i].Old, ".md"))
+		oldExt := strings.ToLower(filepath.Ext(mappings[i].Old))
+		if oldExt != ".md" {
+			mappings[i].BasenameUnique = true
+			continue
+		}
+		oldBasename := filepath.Base(strings.TrimSuffix(mappings[i].Old, oldExt))
 		mappings[i].BasenameUnique = basenameCount[obsidian.NormalizeForComparison(oldBasename)] <= 1
 	}
 
