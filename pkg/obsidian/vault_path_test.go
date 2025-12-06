@@ -1,11 +1,12 @@
 package obsidian_test
 
 import (
+	"os"
+	"testing"
+
 	"github.com/atomicobject/obsidian-cli/mocks"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func TestVaultPath(t *testing.T) {

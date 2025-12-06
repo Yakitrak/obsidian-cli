@@ -2,11 +2,12 @@ package obsidian_test
 
 import (
 	"fmt"
-	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDeleteNote(t *testing.T) {

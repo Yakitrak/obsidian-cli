@@ -32,8 +32,12 @@ func TestRenameNoteTool(t *testing.T) {
 
 	// Configure obsidian vault resolution
 	configFile := filepath.Join(root, "obsidian.json")
-	configJSON := `{"vaults":{"random":{"path":"` + vaultPath + `"}}}`
-	if err := os.WriteFile(configFile, []byte(configJSON), 0o644); err != nil {
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]any{"path": vaultPath},
+		},
+	})
+	if err := os.WriteFile(configFile, configBody, 0o644); err != nil {
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 	origConfig := obsidian.ObsidianConfigFile
@@ -100,8 +104,12 @@ func TestMoveNotesTool(t *testing.T) {
 
 	// Configure obsidian vault resolution
 	configFile := filepath.Join(root, "obsidian.json")
-	configJSON := `{"vaults":{"random":{"path":"` + vaultPath + `"}}}`
-	if err := os.WriteFile(configFile, []byte(configJSON), 0o644); err != nil {
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]any{"path": vaultPath},
+		},
+	})
+	if err := os.WriteFile(configFile, configBody, 0o644); err != nil {
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 	origConfig := obsidian.ObsidianConfigFile
@@ -169,8 +177,12 @@ count: 2
 	}
 
 	obsidianConfig := filepath.Join(tempDir, "obsidian.json")
-	configJSON := `{"vaults":{"vault":{"path":"` + vaultPath + `"}}}`
-	if err := os.WriteFile(obsidianConfig, []byte(configJSON), 0o644); err != nil {
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"vault": map[string]any{"path": vaultPath},
+		},
+	})
+	if err := os.WriteFile(obsidianConfig, configBody, 0o644); err != nil {
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 
@@ -240,8 +252,12 @@ func TestListPropertiesToolWithOnlyRaisesValueLimit(t *testing.T) {
 	}
 
 	obsidianConfig := filepath.Join(tempDir, "obsidian.json")
-	configJSON := `{"vaults":{"vault":{"path":"` + vaultPath + `"}}}`
-	if err := os.WriteFile(obsidianConfig, []byte(configJSON), 0o644); err != nil {
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"vault": map[string]any{"path": vaultPath},
+		},
+	})
+	if err := os.WriteFile(obsidianConfig, configBody, 0o644); err != nil {
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 
@@ -298,8 +314,12 @@ func TestGraphStatsTool(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "B.md"), []byte(""), 0o644))
 
 	configFile := filepath.Join(root, "obsidian.json")
-	configJSON := fmt.Sprintf(`{"vaults":{"random":{"path":"%s"}}}`, vaultPath)
-	require.NoError(t, os.WriteFile(configFile, []byte(configJSON), 0o644))
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]any{"path": vaultPath},
+		},
+	})
+	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
 	origConfig := obsidian.ObsidianConfigFile
 	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
 	defer func() { obsidian.ObsidianConfigFile = origConfig }()
@@ -342,8 +362,12 @@ func TestCommunityListAndDetailTools(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "B.md"), []byte("Link to [[A]]"), 0o644))
 
 	configFile := filepath.Join(root, "obsidian.json")
-	configJSON := fmt.Sprintf(`{"vaults":{"random":{"path":"%s"}}}`, vaultPath)
-	require.NoError(t, os.WriteFile(configFile, []byte(configJSON), 0o644))
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]any{"path": vaultPath},
+		},
+	})
+	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
 	origConfig := obsidian.ObsidianConfigFile
 	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
 	defer func() { obsidian.ObsidianConfigFile = origConfig }()
