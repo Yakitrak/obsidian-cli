@@ -15,6 +15,10 @@ type SnapshotProvider interface {
 	Version() uint64
 }
 
+type refreshableProvider interface {
+	Refresh(context.Context) error
+}
+
 // AnalysisCache memoizes backlink and graph computations keyed by cache version and options.
 type AnalysisCache struct {
 	provider SnapshotProvider
@@ -40,9 +44,21 @@ func NewAnalysisCache(provider SnapshotProvider) *AnalysisCache {
 	}
 }
 
+func (c *AnalysisCache) currentVersion(ctx context.Context) (uint64, error) {
+	if provider, ok := c.provider.(refreshableProvider); ok {
+		if err := provider.Refresh(ctx); err != nil {
+			return 0, err
+		}
+	}
+	return c.provider.Version(), nil
+}
+
 // Backlinks returns cached backlinks when the provider version matches; otherwise it recomputes.
 func (c *AnalysisCache) Backlinks(vaultPath string, note obsidian.NoteManager, targets []string, options obsidian.WikilinkOptions, suppressedTags []string) (map[string][]obsidian.Backlink, error) {
-	version := c.provider.Version()
+	version, err := c.currentVersion(context.Background())
+	if err != nil {
+		return nil, err
+	}
 
 	key := backlinkKey{
 		targets:       hashStrings(normalizeTargets(targets)),
@@ -89,7 +105,10 @@ func (c *AnalysisCache) Backlinks(vaultPath string, note obsidian.NoteManager, t
 
 // GraphAnalysis returns cached graph analysis keyed by options and provider version.
 func (c *AnalysisCache) GraphAnalysis(vaultPath string, note obsidian.NoteManager, options obsidian.GraphAnalysisOptions) (*obsidian.GraphAnalysis, error) {
-	version := c.provider.Version()
+	version, err := c.currentVersion(context.Background())
+	if err != nil {
+		return nil, err
+	}
 
 	key := graphKey{
 		skipAnchors: options.SkipAnchors,

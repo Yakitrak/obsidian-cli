@@ -177,3 +177,54 @@ func TestFilesToolBacklinks(t *testing.T) {
 		assert.Equal(t, "ref.md", parsed.Files[0].Backlinks[0].Referrer)
 	}
 }
+
+func TestFilesToolDoesNotMutateSuppressedTags(t *testing.T) {
+	tempDir := t.TempDir()
+	vaultPath := filepath.Join(tempDir, "vault")
+	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
+		t.Fatalf("failed to create vault dir: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vaultPath, "note.md"), []byte("content"), 0o644); err != nil {
+		t.Fatalf("failed to write note.md: %v", err)
+	}
+
+	obsidianConfig := filepath.Join(tempDir, "obsidian.json")
+	cfgBody, err := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"vault": map[string]string{"path": vaultPath},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal obsidian config: %v", err)
+	}
+	if err := os.WriteFile(obsidianConfig, cfgBody, 0o644); err != nil {
+		t.Fatalf("failed to write obsidian config: %v", err)
+	}
+
+	origConfig := obsidian.ObsidianConfigFile
+	obsidian.ObsidianConfigFile = func() (string, error) { return obsidianConfig, nil }
+	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+
+	cfg := Config{
+		Vault:          &obsidian.Vault{Name: "vault"},
+		VaultPath:      vaultPath,
+		Debug:          false,
+		SuppressedTags: []string{"base"},
+	}
+
+	tool := FilesTool(cfg)
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "files",
+			Arguments: map[string]interface{}{
+				"inputs":       []interface{}{"note.md"},
+				"suppressTags": []interface{}{"extra"},
+			},
+		},
+	}
+
+	_, err = tool(context.Background(), req)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"base"}, cfg.SuppressedTags, "tool should not mutate base suppressed tags on config")
+}

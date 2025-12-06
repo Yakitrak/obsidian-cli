@@ -55,6 +55,11 @@ func (n *NoteAdapter) GetNotesList(vaultPath string) ([]string, error) {
 	return n.cache.Paths(), nil
 }
 
+// Refresh forces the underlying cache to reconcile watcher events.
+func (n *NoteAdapter) Refresh(ctx context.Context) error {
+	return n.cache.Refresh(ctx)
+}
+
 // EntriesSnapshot exposes cached entries when the consumer can take advantage of them.
 func (n *NoteAdapter) EntriesSnapshot(ctx context.Context) ([]Entry, error) {
 	return n.cache.EntriesSnapshot(ctx)

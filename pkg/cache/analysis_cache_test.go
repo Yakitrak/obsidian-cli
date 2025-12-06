@@ -2,92 +2,91 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
-type stubSnapshotProvider struct {
-	version uint64
+type fakeProvider struct {
+	version       uint64
+	refreshCalls  int
+	refreshErr    error
+	snapshotCalls int
 }
 
-func (s *stubSnapshotProvider) EntriesSnapshot(context.Context) ([]Entry, error) { return nil, nil }
-func (s *stubSnapshotProvider) Version() uint64                                  { return s.version }
-
-type countingNote struct {
-	notes            map[string]string
-	contentsCalls    int
-	notesListCalls   int
-	forceNotesListOK bool
+func (p *fakeProvider) EntriesSnapshot(ctx context.Context) ([]Entry, error) {
+	p.snapshotCalls++
+	return nil, nil
 }
 
-func (s *countingNote) Move(string, string) error                { return nil }
-func (s *countingNote) Delete(string) error                      { return nil }
-func (s *countingNote) UpdateLinks(string, string, string) error { return nil }
-func (s *countingNote) GetContents(_ string, name string) (string, error) {
-	s.contentsCalls++
-	return s.notes[name], nil
+func (p *fakeProvider) Version() uint64 {
+	return p.version
 }
-func (s *countingNote) GetNotesList(string) ([]string, error) {
-	s.notesListCalls++
-	keys := make([]string, 0, len(s.notes))
-	for k := range s.notes {
-		keys = append(keys, k)
+
+func (p *fakeProvider) Refresh(ctx context.Context) error {
+	p.refreshCalls++
+	if p.refreshErr != nil {
+		return p.refreshErr
 	}
-	return keys, nil
+	p.version++
+	return nil
 }
 
-func TestAnalysisCacheBacklinksUsesVersion(t *testing.T) {
-	provider := &stubSnapshotProvider{version: 1}
+type fakeNoteManager struct {
+	notes map[string]string
+}
+
+func (n *fakeNoteManager) Move(originalPath string, newPath string) error { return nil }
+func (n *fakeNoteManager) Delete(path string) error                       { return nil }
+func (n *fakeNoteManager) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
+	return nil
+}
+
+func (n *fakeNoteManager) GetContents(vaultPath string, noteName string) (string, error) {
+	key := obsidian.NormalizePath(obsidian.AddMdSuffix(noteName))
+	content, ok := n.notes[key]
+	if !ok {
+		return "", errors.New(obsidian.NoteDoesNotExistError)
+	}
+	return content, nil
+}
+
+func (n *fakeNoteManager) GetNotesList(vaultPath string) ([]string, error) {
+	out := make([]string, 0, len(n.notes))
+	for k := range n.notes {
+		out = append(out, k)
+	}
+	return out, nil
+}
+
+func TestAnalysisCacheRefreshesProviderOnCacheHit(t *testing.T) {
+	provider := &fakeProvider{}
 	cache := NewAnalysisCache(provider)
 
-	note := &countingNote{
+	noteMgr := &fakeNoteManager{
 		notes: map[string]string{
-			"A.md": "[[Target]]",
+			"a.md": "Link to [[b]]",
+			"b.md": "# Target",
 		},
 	}
 
-	_, err := cache.Backlinks("", note, []string{"Target"}, obsidian.WikilinkOptions{}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, note.contentsCalls)
-
-	// Same version should hit cache.
-	_, err = cache.Backlinks("", note, []string{"Target"}, obsidian.WikilinkOptions{}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, note.contentsCalls, "second call should use cache")
-
-	// Version change should invalidate cache and recompute.
-	provider.version = 2
-	_, err = cache.Backlinks("", note, []string{"Target"}, obsidian.WikilinkOptions{}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 2, note.contentsCalls, "version change should force recompute")
-}
-
-func TestAnalysisCacheGraphVersionInvalidates(t *testing.T) {
-	provider := &stubSnapshotProvider{version: 1}
-	cache := NewAnalysisCache(provider)
-	note := &countingNote{
-		notes: map[string]string{
-			"A.md": "[[B]]",
-			"B.md": "#tag",
-		},
+	// First call populates cache and bumps provider version via Refresh.
+	backlinks1, err := cache.Backlinks("vault", noteMgr, []string{"b"}, obsidian.WikilinkOptions{}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, provider.refreshCalls)
+	if assert.Contains(t, backlinks1, "b.md") {
+		assert.Len(t, backlinks1["b.md"], 1)
 	}
 
-	opts := obsidian.GraphAnalysisOptions{}
+	// Change note content to remove the backlink.
+	noteMgr.notes["a.md"] = "No links here"
 
-	analysis1, err := cache.GraphAnalysis("", note, opts)
-	require.NoError(t, err)
-	require.NotNil(t, analysis1)
-	require.Equal(t, 2, note.contentsCalls)
-
-	// Repeat should not re-read.
-	_, err = cache.GraphAnalysis("", note, opts)
-	require.NoError(t, err)
-	require.Equal(t, 2, note.contentsCalls)
-
-	provider.version = 2
-	_, err = cache.GraphAnalysis("", note, opts)
-	require.NoError(t, err)
-	require.Greater(t, note.contentsCalls, 2, "version change should cause re-read")
+	backlinks2, err := cache.Backlinks("vault", noteMgr, []string{"b"}, obsidian.WikilinkOptions{}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, provider.refreshCalls, "Refresh should be invoked even on a cache hit to reconcile dirty state")
+	if assert.Contains(t, backlinks2, "b.md") {
+		assert.Len(t, backlinks2["b.md"], 0, "Backlinks should reflect updated note contents after refresh")
+	}
 }

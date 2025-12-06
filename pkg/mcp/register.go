@@ -95,7 +95,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 
 	// Register daily_note tool (returns content)
 	dailyNoteTool := mcp.NewTool("daily_note",
-		mcp.WithDescription(`Return JSON with path, existence, and content for the daily note. Creates an empty note if it doesn't exist. Response: {path,date,exists,content}
+		mcp.WithDescription(`Return JSON with path, existence, and content for the daily note. Does not create missing notes; returns empty content when absent. Response: {path,date,exists,content}
 
 **Usage:**
 - Defaults to today's date if no date specified

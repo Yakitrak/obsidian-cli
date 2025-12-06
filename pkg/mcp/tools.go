@@ -216,7 +216,9 @@ func FilesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.C
 			}
 		}
 
-		suppressedTags := config.SuppressedTags
+		baseSuppressed := config.SuppressedTags
+		suppressedTags := make([]string, len(baseSuppressed))
+		copy(suppressedTags, baseSuppressed)
 		if noSuppress {
 			suppressedTags = []string{}
 		} else if len(suppressTags) > 0 {
@@ -877,7 +879,7 @@ func RenameNoteTool(config Config) func(context.Context, mcp.CallToolRequest) (*
 	}
 }
 
-// MoveNotesTool implements the move_notes MCP tool for single or bulk moves (no backlinks rewritten by default).
+// MoveNotesTool implements the move_notes MCP tool for single or bulk moves (backlinks rewritten by default).
 func MoveNotesTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()

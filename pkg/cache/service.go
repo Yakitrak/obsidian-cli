@@ -641,15 +641,15 @@ func (s *Service) rescanDir(absDir string, recursive bool) error {
 			continue
 		}
 		if err := s.refreshPath(filepath.Join(absDir, entry.Name())); err != nil {
-			// Continue on individual file errors to avoid missing other files.
+			s.markDirty(filepath.Join(absDir, entry.Name()), DirtyModified)
 			continue
 		}
 	}
 	return nil
 }
 
-// loadIgnorePatterns reads .obsidianignore once at startup. Changes to the
-// ignore file require a restart; this keeps behavior predictable.
+// loadIgnorePatterns reads .obsidianignore during crawl/resync. Changes are
+// picked up on the next resync or refresh that triggers a rescan.
 func (s *Service) loadIgnorePatterns() {
 	ignorePath := filepath.Join(s.vaultPath, ".obsidianignore")
 	patterns := obsidian.DefaultIgnorePatterns()
