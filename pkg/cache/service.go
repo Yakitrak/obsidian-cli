@@ -71,6 +71,7 @@ type Service struct {
 
 	// Mutex guards all mutable state below. Use RLock for reads, Lock for writes.
 	mu        sync.RWMutex
+	watchMu   sync.Mutex                     // guards watcher lifecycle (ctx/cancel/watchers/once)
 	ready     bool                           // true after initial crawl completes
 	crawling  bool                           // guards against concurrent initial crawls
 	stale     bool                           // set when watcher fails; forces full revalidation
@@ -87,10 +88,10 @@ type Service struct {
 	tickerOnce     sync.Once // ensures stale ticker starts exactly once per lifecycle
 
 	// Lifecycle management
-	ctx           context.Context
-	cancel        context.CancelFunc
-	version       uint64        // monotonic counter, bumped on changes
-	staleInterval time.Duration // if >0, periodically mark stale for polling fallback
+	ctx           context.Context    // guarded by watchMu
+	cancel        context.CancelFunc // guarded by watchMu
+	version       uint64             // monotonic counter, bumped on changes
+	staleInterval time.Duration      // if >0, periodically mark stale for polling fallback
 }
 
 // Entry represents cached metadata for a single markdown file.
@@ -439,14 +440,22 @@ func (s *Service) Refresh(ctx context.Context) error {
 // cache becomes too stale to trust incremental updates.
 func (s *Service) resync(ctx context.Context) error {
 	// Stop the existing watch loop to avoid duplicate goroutines.
-	s.cancel()
+	s.watchMu.Lock()
+	if s.cancel != nil {
+		s.cancel()
+	}
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
+	// Reset lifecycle state for new goroutines.
+	s.watchOnce = sync.Once{}
+	s.tickerOnce = sync.Once{}
+
 	// Rebuild the watcher (if factory is available).
-	_, err := s.rebuildWatcher()
-	if err != nil {
+	if _, err := s.rebuildWatcherLocked(); err != nil {
+		s.watchMu.Unlock()
 		return err
 	}
+	s.watchMu.Unlock()
 
 	// Reset all state and re-crawl.
 	s.mu.Lock()
@@ -792,11 +801,16 @@ func (s *Service) bumpVersion() {
 
 // startWatcher launches the watch loop goroutine (once per lifecycle).
 func (s *Service) startWatcher() {
-	if s.watcher == nil {
+	s.watchMu.Lock()
+	watcher := s.watcher
+	ctx := s.ctx
+	s.watchMu.Unlock()
+	if watcher == nil {
 		return
 	}
+
 	s.watchOnce.Do(func() {
-		go s.watchLoop()
+		go s.watchLoop(ctx, watcher)
 	})
 }
 
@@ -806,13 +820,16 @@ func (s *Service) startStaleTicker() {
 	if s.staleInterval <= 0 {
 		return
 	}
+	s.watchMu.Lock()
+	ctx := s.ctx
+	s.watchMu.Unlock()
 	s.tickerOnce.Do(func() {
 		go func() {
 			ticker := time.NewTicker(s.staleInterval)
 			defer ticker.Stop()
 			for {
 				select {
-				case <-s.ctx.Done():
+				case <-ctx.Done():
 					return
 				case <-ticker.C:
 					s.markStale()
@@ -824,7 +841,13 @@ func (s *Service) startStaleTicker() {
 
 // addWatch registers a directory for filesystem notifications.
 func (s *Service) addWatch(path string) {
-	if s.watcher == nil || path == "" {
+	if path == "" {
+		return
+	}
+	s.watchMu.Lock()
+	watcher := s.watcher
+	s.watchMu.Unlock()
+	if watcher == nil {
 		return
 	}
 	s.mu.Lock()
@@ -834,19 +857,19 @@ func (s *Service) addWatch(path string) {
 	}
 	s.dirIndex[path] = struct{}{}
 	s.mu.Unlock()
-	_ = s.watcher.Add(path)
+	_ = watcher.Add(path)
 }
 
 // watchLoop is the main event loop for filesystem notifications. It translates
 // fsnotify events into dirty markers and handles watcher errors by setting the
 // stale flag.
-func (s *Service) watchLoop() {
+func (s *Service) watchLoop(ctx context.Context, watcher Watcher) {
 	for {
 		select {
-		case <-s.ctx.Done():
+		case <-ctx.Done():
 			return
 
-		case evt, ok := <-s.watcher.Events():
+		case evt, ok := <-watcher.Events():
 			if !ok {
 				// Channel closed unexpectedly; mark stale for safety.
 				s.markStale()
@@ -875,7 +898,7 @@ func (s *Service) watchLoop() {
 				s.dropDirIndex(evt.Name)
 			}
 
-		case err, ok := <-s.watcher.Errors():
+		case err, ok := <-watcher.Errors():
 			if !ok {
 				s.markStale()
 				return
@@ -904,7 +927,8 @@ func (s *Service) dropDirIndex(path string) {
 
 // rebuildWatcher closes the old watcher and creates a new one.
 // Used during resync to recover from watcher failures.
-func (s *Service) rebuildWatcher() (Watcher, error) {
+func (s *Service) rebuildWatcherLocked() (Watcher, error) {
+	// watchMu must be held by callers.
 	if s.watcherFactory == nil {
 		return s.watcher, nil
 	}
