@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,7 +21,15 @@ func TestRenameCommand(t *testing.T) {
 		t.Fatalf("mk vault dir: %v", err)
 	}
 	configFile := filepath.Join(rootDir, "obsidian.json")
-	if err := os.WriteFile(configFile, []byte(`{"vaults":{"random":{"path":"`+vaultDir+`"}}}`), 0o644); err != nil {
+	configBody, err := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]string{"path": vaultDir},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal config: %v", err)
+	}
+	if err := os.WriteFile(configFile, configBody, 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	obsidian.ObsidianConfigFile = func() (string, error) {
@@ -35,7 +44,7 @@ func TestRenameCommand(t *testing.T) {
 	}
 
 	rootCmd.SetArgs([]string{"note", "rename", "Old", "New", "--vault", "testvault"})
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	rootCmd.SetArgs([]string{})
 
 	assert.NoError(t, err)

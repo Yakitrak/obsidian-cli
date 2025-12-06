@@ -42,7 +42,13 @@ func TestSavePathToPreferences(t *testing.T) {
 		vaultDir := t.TempDir()
 		existingDir := filepath.Join(vaultDir, "existing")
 		_ = os.Mkdir(existingDir, 0755)
-		err := os.WriteFile(mockCliConfigFile, []byte(`{"vaults":{"vault-name":{"path":"`+existingDir+`"}}}`), 0644)
+		content, err := json.Marshal(obsidian.CliConfig{
+			Vaults: map[string]obsidian.VaultPathEntry{
+				"vault-name": {Path: existingDir},
+			},
+		})
+		assert.NoError(t, err)
+		err = os.WriteFile(mockCliConfigFile, content, 0644)
 		assert.NoError(t, err)
 
 		newDir := filepath.Join(vaultDir, "new")
@@ -62,7 +68,13 @@ func TestSavePathToPreferences(t *testing.T) {
 		vaultDir := t.TempDir()
 		existingDir := filepath.Join(vaultDir, "existing")
 		_ = os.Mkdir(existingDir, 0755)
-		err := os.WriteFile(mockCliConfigFile, []byte(`{"vaults":{"vault-name":{"path":"`+existingDir+`"}}}`), 0644)
+		content, err := json.Marshal(obsidian.CliConfig{
+			Vaults: map[string]obsidian.VaultPathEntry{
+				"vault-name": {Path: existingDir},
+			},
+		})
+		assert.NoError(t, err)
+		err = os.WriteFile(mockCliConfigFile, content, 0644)
 		assert.NoError(t, err)
 
 		newDir := filepath.Join(vaultDir, "new")
@@ -71,7 +83,7 @@ func TestSavePathToPreferences(t *testing.T) {
 		err = vault.SavePathToPreferences(newDir, true)
 		assert.NoError(t, err)
 
-		content, err := os.ReadFile(mockCliConfigFile)
+		content, err = os.ReadFile(mockCliConfigFile)
 		assert.NoError(t, err)
 		cfg := obsidian.CliConfig{}
 		assert.NoError(t, json.Unmarshal(content, &cfg))
@@ -101,14 +113,20 @@ func TestRemoveFromPreferences(t *testing.T) {
 		}
 
 		vaultDir := t.TempDir()
-		err := os.WriteFile(mockCliConfigFile, []byte(`{"vaults":{"vault-name":{"path":"`+vaultDir+`"}}}`), 0644)
+		content, err := json.Marshal(obsidian.CliConfig{
+			Vaults: map[string]obsidian.VaultPathEntry{
+				"vault-name": {Path: vaultDir},
+			},
+		})
+		assert.NoError(t, err)
+		err = os.WriteFile(mockCliConfigFile, content, 0644)
 		assert.NoError(t, err)
 
 		vault := obsidian.Vault{Name: "vault-name"}
 		err = vault.RemoveFromPreferences()
 		assert.NoError(t, err)
 
-		content, err := os.ReadFile(mockCliConfigFile)
+		content, err = os.ReadFile(mockCliConfigFile)
 		assert.NoError(t, err)
 		cfg := obsidian.CliConfig{}
 		assert.NoError(t, json.Unmarshal(content, &cfg))

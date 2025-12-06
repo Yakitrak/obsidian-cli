@@ -117,8 +117,15 @@ func TestFilesToolBacklinks(t *testing.T) {
 	}
 
 	obsidianConfig := filepath.Join(tempDir, "obsidian.json")
-	configJSON := `{"vaults":{"vault":{"path":"` + vaultPath + `"}}}`
-	if err := os.WriteFile(obsidianConfig, []byte(configJSON), 0o644); err != nil {
+	cfgBody, err := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"vault": map[string]string{"path": vaultPath},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal obsidian config: %v", err)
+	}
+	if err := os.WriteFile(obsidianConfig, cfgBody, 0o644); err != nil {
 		t.Fatalf("failed to write obsidian config: %v", err)
 	}
 
@@ -144,8 +151,12 @@ func TestFilesToolBacklinks(t *testing.T) {
 	}
 
 	resp, err := tool(context.Background(), req)
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.NotNil(t, resp) {
+		return
+	}
 
 	if !assert.Len(t, resp.Content, 1) {
 		return

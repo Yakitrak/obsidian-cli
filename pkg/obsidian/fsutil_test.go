@@ -3,6 +3,7 @@ package obsidian
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,14 @@ func TestWriteFileAtomic(t *testing.T) {
 	// Verify file permissions
 	info, err := os.Stat(testFile)
 	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+	got := info.Mode().Perm()
+	expected := os.FileMode(0644)
+	if runtime.GOOS == "windows" {
+		// Windows commonly reports 0666; ensure requested bits are present.
+		assert.Equal(t, expected, got&expected)
+	} else {
+		assert.Equal(t, expected, got)
+	}
 }
 
 func TestWriteFileAtomicOverwrite(t *testing.T) {
@@ -101,5 +109,11 @@ func TestWriteFileAtomicPermissions(t *testing.T) {
 	// Verify permissions
 	info, err := os.Stat(testFile)
 	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	got := info.Mode().Perm()
+	expected := os.FileMode(0600)
+	if runtime.GOOS == "windows" {
+		assert.Equal(t, expected, got&expected)
+	} else {
+		assert.Equal(t, expected, got)
+	}
 }
