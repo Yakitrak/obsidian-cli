@@ -253,6 +253,44 @@ func DeleteTagsWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManage
 	return runInParallelWithWorkers(ctx, cancel, vaultPath, allNotes, processDeleteFile(tagsToDelete, dryRun), workers)
 }
 
+// DeleteTagsFromFiles deletes tags from a provided list of files.
+func DeleteTagsFromFiles(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToDelete []string, files []string, dryRun bool) (TagMutationSummary, error) {
+	return DeleteTagsFromFilesWithWorkers(vault, note, tagsToDelete, files, dryRun, runtime.NumCPU())
+}
+
+// DeleteTagsFromFilesWithWorkers deletes tags from specific files using workerCount workers.
+func DeleteTagsFromFilesWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManager, tagsToDelete []string, files []string, dryRun bool, workers int) (TagMutationSummary, error) {
+	if len(tagsToDelete) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no tags specified for deletion")
+	}
+	if len(files) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no files specified")
+	}
+	for _, tag := range tagsToDelete {
+		if !isValidTagForOperation(tag) {
+			return TagMutationSummary{}, fmt.Errorf("invalid tag: %s", tag)
+		}
+	}
+
+	vaultPath, err := vault.Path()
+	if err != nil {
+		if v, ok := vault.(*obsidian.Vault); ok {
+			if stat, statErr := os.Stat(v.Name); statErr == nil && stat.IsDir() {
+				vaultPath = v.Name
+			} else {
+				return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+			}
+		} else {
+			return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, files, processDeleteFile(tagsToDelete, dryRun), workers)
+}
+
 // RenameTags replaces specified tags with a new tag in all notes in the vault
 func RenameTags(vault obsidian.VaultManager, note obsidian.NoteManager, fromTags []string, toTag string, dryRun bool) (TagMutationSummary, error) {
 	return RenameTagsWithWorkers(vault, note, fromTags, toTag, dryRun, runtime.NumCPU())
@@ -310,6 +348,56 @@ func RenameTagsWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManage
 	defer cancel()
 
 	return runInParallelWithWorkers(ctx, cancel, vaultPath, allNotes, processRenameFile(fromTags, toTag, dryRun), workers)
+}
+
+// RenameTagsInFiles renames tags in a specific set of files.
+func RenameTagsInFiles(vault obsidian.VaultManager, note obsidian.NoteManager, fromTags []string, toTag string, files []string, dryRun bool) (TagMutationSummary, error) {
+	return RenameTagsInFilesWithWorkers(vault, note, fromTags, toTag, files, dryRun, runtime.NumCPU())
+}
+
+// RenameTagsInFilesWithWorkers renames tags in a specific set of files using workerCount workers.
+func RenameTagsInFilesWithWorkers(vault obsidian.VaultManager, note obsidian.NoteManager, fromTags []string, toTag string, files []string, dryRun bool, workers int) (TagMutationSummary, error) {
+	if len(fromTags) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no source tags specified for rename")
+	}
+	if toTag == "" {
+		return TagMutationSummary{}, fmt.Errorf("destination tag cannot be empty")
+	}
+	if len(files) == 0 {
+		return TagMutationSummary{}, fmt.Errorf("no files specified")
+	}
+	for _, tag := range fromTags {
+		if !isValidTagForOperation(tag) {
+			return TagMutationSummary{}, fmt.Errorf("invalid source tag: %s", tag)
+		}
+	}
+	if !isValidTagForOperation(toTag) {
+		return TagMutationSummary{}, fmt.Errorf("invalid destination tag: %s", toTag)
+	}
+	normalizedTo := normalizeTagForComparison(toTag)
+	for _, fromTag := range fromTags {
+		if normalizeTagForComparison(fromTag) == normalizedTo {
+			return TagMutationSummary{}, fmt.Errorf("cannot rename tag %s to itself", fromTag)
+		}
+	}
+
+	vaultPath, err := vault.Path()
+	if err != nil {
+		if v, ok := vault.(*obsidian.Vault); ok {
+			if stat, statErr := os.Stat(v.Name); statErr == nil && stat.IsDir() {
+				vaultPath = v.Name
+			} else {
+				return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+			}
+		} else {
+			return TagMutationSummary{}, fmt.Errorf("failed to get vault path: %w", err)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	return runInParallelWithWorkers(ctx, cancel, vaultPath, files, processRenameFile(fromTags, toTag, dryRun), workers)
 }
 
 // isValidTagForOperation checks if a tag is valid for mutation operations

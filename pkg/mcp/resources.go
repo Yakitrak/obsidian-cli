@@ -57,14 +57,8 @@ Move one or more notes or attachments. Pass ` + "`" + `moves` + "`" + ` array of
 
 ### Tag & Property Management (read-write mode only)
 
-- **add_tags**: Add tags to notes matching input criteria. Requires ` + "`" + `tags` + "`" + ` and ` + "`" + `inputs` + "`" + ` arrays.
-- **delete_tags**: Remove tags vault-wide. Requires ` + "`" + `tags` + "`" + ` array.
-- **rename_tag**: Rename tags vault-wide. Requires ` + "`" + `fromTags` + "`" + ` array and ` + "`" + `toTag` + "`" + ` string.
-- **set_property**: Set a frontmatter property on matching notes. Requires ` + "`" + `property` + "`" + `, ` + "`" + `value` + "`" + ` (YAML string), and ` + "`" + `inputs` + "`" + `.
-- **delete_properties**: Delete one or more frontmatter properties. Accepts optional ` + "`" + `inputs` + "`" + ` to scope.
-- **rename_property**: Rename/merge properties to a destination. Requires ` + "`" + `fromProperties` + "`" + ` array and ` + "`" + `toProperty` + "`" + ` string; ` + "`" + `merge` + "`" + ` defaults to true.
-
-All mutation tools support ` + "`" + `dryRun` + "`" + ` to preview changes.
+- **mutate_tags**: ` + "`" + `op` + "`" + ` = add|delete|rename. add requires ` + "`" + `tags` + "`" + ` + ` + "`" + `inputs` + "`" + `; delete requires ` + "`" + `tags` + "`" + ` (optional ` + "`" + `inputs` + "`" + `); rename requires ` + "`" + `fromTags` + "`" + ` + ` + "`" + `toTag` + "`" + ` (optional ` + "`" + `inputs` + "`" + `). All support ` + "`" + `dryRun` + "`" + `.
+- **mutate_properties**: ` + "`" + `op` + "`" + ` = set|delete|rename. set requires ` + "`" + `property` + "`" + ` + ` + "`" + `value` + "`" + ` (YAML) + ` + "`" + `inputs` + "`" + `; delete requires ` + "`" + `properties` + "`" + ` (optional ` + "`" + `inputs` + "`" + `); rename requires ` + "`" + `fromProperties` + "`" + ` + ` + "`" + `toProperty` + "`" + ` (optional ` + "`" + `inputs` + "`" + `). ` + "`" + `dryRun` + "`" + ` supported.
 
 ## Input Patterns
 

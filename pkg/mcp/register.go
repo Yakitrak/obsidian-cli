@@ -162,129 +162,44 @@ Options:
 	s.AddTool(moveNotesTool, MoveNotesTool(config))
 
 	// --------------------------------------------------------------------
-	// Destructive tag-management tools (only when read-write enabled)
+	// Destructive tag/property tools (only when read-write enabled)
 	// --------------------------------------------------------------------
 	if config.ReadWrite {
-		// delete_tags – remove one or more tags across all notes
-		deleteTagsTool := mcp.NewTool("delete_tags",
-			mcp.WithDescription(`Delete specified tags from all notes in the vault. 
+		mutateTagsTool := mcp.NewTool("mutate_tags",
+			mcp.WithDescription(`Add, delete, or rename tags in one tool.
 
-**Efficient Usage:**
-- **ALWAYS pass multiple tags in a single call** rather than separate calls per tag
-- Use ["urgent", "old", "deprecated"] instead of three separate calls
-- This processes all files once and applies all deletions together
+op=add: requires tags + inputs (find:/tag:/paths).
+op=delete: requires tags (optional inputs to scope).
+op=rename: requires fromTags + toTag (optional inputs; hierarchical).
 
-**Tag Matching:**
-- Supports hierarchical tags: deleting "project" removes #project, #project/work, #project/personal
-- Exact matching: deleting "work" won't affect "rework" or "working"
-- Case-sensitive matching
-
-**Safety:**
-- **Always use dryRun=true first** to preview changes before applying
-- Shows exactly which files and tags will be affected
-- Non-destructive preview shows the same output format as actual operation
-
-**Examples:**
-- tags: ["completed", "old"] - Remove both tags from all notes in single operation
-- tags: ["project/legacy"], dryRun: true - Preview removal of legacy project tags`),
-			mcp.WithArray("tags", mcp.Required(), mcp.Description("List of tags to delete from all notes. Pass multiple tags for efficient batch processing."), mcp.WithStringItems()),
-			mcp.WithBoolean("dryRun", mcp.Description("If true, show what would be changed without making actual changes. RECOMMENDED to use first.")),
-		)
-		s.AddTool(deleteTagsTool, DeleteTagsTool(config))
-
-		// rename_tag – rename a tag (and its hierarchical children) across vault
-		renameTagTool := mcp.NewTool("rename_tag",
-			mcp.WithDescription(`Rename one or more tags to a single destination tag across the entire vault.
-
-**Efficient Usage:**
-- **ALWAYS pass multiple source tags in a single call** when consolidating tags
-- Use fromTags: ["old-urgent", "high-priority", "critical"] with toTag: "urgent"
-- This processes all files once and applies all renames together
-
-**Tag Renaming Rules:**
-- **Hierarchical handling**: Renaming "project" to "work" changes:
-  - #project → #work  
-  - #project/urgent → #work/urgent
-  - #project/meeting/daily → #work/meeting/daily
-- **Multiple sources to one destination**: All fromTags are renamed to the same toTag
-- **Exact matching**: Only exact tag matches are renamed
-
-**Safety:**
-- **Always use dryRun=true first** to preview changes before applying
-- Shows exactly which files and tag transformations will occur
-- Non-destructive preview shows the same output format as actual operation
-
-**Examples:**
-- fromTags: ["todo", "task"], toTag: "action" - Consolidate task-related tags
-- fromTags: ["project/old"], toTag: "project/archive", dryRun: true - Preview archiving old projects`),
-			mcp.WithArray("fromTags", mcp.Required(), mcp.Description("List of source tags to rename. Pass multiple tags to consolidate them into the destination tag."), mcp.WithStringItems()),
-			mcp.WithString("toTag", mcp.Required(), mcp.Description("Single destination tag name that all source tags will be renamed to")),
-			mcp.WithBoolean("dryRun", mcp.Description("If true, show what would be changed without making actual changes. RECOMMENDED to use first.")),
-		)
-		s.AddTool(renameTagTool, RenameTagsTool(config))
-
-		setPropertyTool := mcp.NewTool("set_property",
-			mcp.WithDescription(`Set a frontmatter property on matching notes. Value is parsed as YAML (strings, numbers, lists, etc.). Requires inputs to scope the change.`),
-			mcp.WithString("property", mcp.Required(), mcp.Description("Property name to set")),
-			mcp.WithString("value", mcp.Required(), mcp.Description("Property value (YAML allowed, e.g., \"in-progress\", 3, [a,b])")),
-			mcp.WithArray("inputs", mcp.Required(), mcp.Description("Input patterns (find:, tag:, or paths) to select files"), mcp.WithStringItems()),
-			mcp.WithBoolean("overwrite", mcp.Description("Overwrite existing values (default false)")),
+Always prefer dryRun=true first.`),
+			mcp.WithString("op", mcp.Required(), mcp.Description("add | delete | rename")),
+			mcp.WithArray("tags", mcp.Description("For op=add/delete: tags to add or delete"), mcp.WithStringItems()),
+			mcp.WithArray("fromTags", mcp.Description("For op=rename: source tags to rename"), mcp.WithStringItems()),
+			mcp.WithString("toTag", mcp.Description("For op=rename: destination tag name")),
+			mcp.WithArray("inputs", mcp.Description("For op=add: required scope (find:, tag:, paths); for delete/rename: optional scope"), mcp.WithStringItems()),
 			mcp.WithBoolean("dryRun", mcp.Description("Preview without writing changes")),
 		)
-		s.AddTool(setPropertyTool, SetPropertyTool(config))
+		s.AddTool(mutateTagsTool, MutateTagsTool(config))
 
-		deletePropertiesTool := mcp.NewTool("delete_properties",
-			mcp.WithDescription(`Delete one or more frontmatter properties across the vault or scoped inputs.`),
-			mcp.WithArray("properties", mcp.Required(), mcp.Description("Properties to delete (case-insensitive)"), mcp.WithStringItems()),
-			mcp.WithArray("inputs", mcp.Description("Optional: scope deletion to these inputs (find:, tag:, paths)"), mcp.WithStringItems()),
+		mutatePropertiesTool := mcp.NewTool("mutate_properties",
+			mcp.WithDescription(`Set, delete, or rename frontmatter properties.
+
+op=set: property + value (YAML) + inputs required; overwrite optional.
+op=delete: properties required; optional inputs to scope.
+op=rename: fromProperties + toProperty required; optional inputs; merge defaults to true.`),
+			mcp.WithString("op", mcp.Required(), mcp.Description("set | delete | rename")),
+			mcp.WithString("property", mcp.Description("For op=set: property name to set")),
+			mcp.WithString("value", mcp.Description("For op=set: property value (YAML string accepted)")),
+			mcp.WithArray("inputs", mcp.Description("For op=set (required) or op=delete/rename (optional): patterns (find:, tag:, or paths)"), mcp.WithStringItems()),
+			mcp.WithBoolean("overwrite", mcp.Description("For op=set: overwrite existing values (default false)")),
+			mcp.WithArray("properties", mcp.Description("For op=delete: properties to delete"), mcp.WithStringItems()),
+			mcp.WithArray("fromProperties", mcp.Description("For op=rename: properties to rename"), mcp.WithStringItems()),
+			mcp.WithString("toProperty", mcp.Description("For op=rename: destination property name")),
+			mcp.WithBoolean("merge", mcp.Description("For op=rename: merge values when destination exists (default true)")),
 			mcp.WithBoolean("dryRun", mcp.Description("Preview without writing changes")),
 		)
-		s.AddTool(deletePropertiesTool, DeletePropertiesTool(config))
-
-		renamePropertyTool := mcp.NewTool("rename_property",
-			mcp.WithDescription(`Rename one or more properties to a destination property. When merge=true (default), values are merged if the destination already exists.`),
-			mcp.WithArray("fromProperties", mcp.Required(), mcp.Description("Properties to rename (case-insensitive)"), mcp.WithStringItems()),
-			mcp.WithString("toProperty", mcp.Required(), mcp.Description("Destination property name")),
-			mcp.WithBoolean("merge", mcp.Description("Merge values when destination exists (default true)")),
-			mcp.WithArray("inputs", mcp.Description("Optional: scope rename to these inputs (find:, tag:, paths)"), mcp.WithStringItems()),
-			mcp.WithBoolean("dryRun", mcp.Description("Preview without writing changes")),
-		)
-		s.AddTool(renamePropertyTool, RenamePropertyTool(config))
-
-		// add_tags – add one or more tags to specific notes matching input criteria
-		addTagsTool := mcp.NewTool("add_tags",
-			mcp.WithDescription(`Add specified tags to notes matching input criteria.
-
-**Efficient Usage:**
-- **ALWAYS pass multiple tags in a single call** rather than separate calls per tag
-- Use tags: ["urgent", "review", "priority"] to add all tags to matching notes at once
-- **ALWAYS pass multiple input criteria** to target the right notes efficiently
-- Use inputs: ["tag:project", "find:meeting*"] to match notes with #project OR "meeting" in filename
-
-**Input Patterns Support:**
-- **find:pattern** - Files by filename pattern (supports wildcards * and ?)
-- **tag:tagname** - Files containing the specified tag (includes hierarchical children)  
-- **literal paths** - Direct file or folder paths relative to vault root
-
-**Tag Addition Rules:**
-- Tags are added to notes, not replaced
-- Duplicate tags are automatically handled (won't create duplicates)
-- Tags can be hierarchical (e.g., "project/urgent")
-
-**Safety:**
-- **Always use dryRun=true first** to preview which notes will be affected
-- Shows exactly which files will get which tags
-- Non-destructive preview shows the same output format as actual operation
-
-**Examples:**
-- tags: ["urgent", "review"], inputs: ["tag:project"], dryRun: true - Preview adding tags to project notes
-- tags: ["meeting"], inputs: ["find:2024-01-*", "tag:daily"] - Add meeting tag to January 2024 files OR daily notes
-- tags: ["archived"], inputs: ["folder/old-projects/"] - Add archived tag to all files in specific folder`),
-			mcp.WithArray("tags", mcp.Required(), mcp.Description("List of tags to add to matching notes. Pass multiple tags for efficient batch processing."), mcp.WithStringItems()),
-			mcp.WithArray("inputs", mcp.Required(), mcp.Description("List of input criteria (find:pattern, tag:tagname, or literal paths). Multiple criteria are OR'd together to find target notes."), mcp.WithStringItems()),
-			mcp.WithBoolean("dryRun", mcp.Description("If true, show what would be changed without making actual changes. RECOMMENDED to use first.")),
-		)
-		s.AddTool(addTagsTool, AddTagsTool(config))
+		s.AddTool(mutatePropertiesTool, MutatePropertiesTool(config))
 	}
 
 	return nil

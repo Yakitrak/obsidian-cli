@@ -155,7 +155,7 @@ Main tools:
 • daily_note – JSON for today’s (or specified) daily note (path, exists, content).
 • daily_note_path – JSON path/existence for a given date.
 • list_tags – list tags with individual/aggregate counts.
-• add_tags, delete_tags, rename_tag – destructive tag tools (only available when server is started with --read-write).
+• mutate_tags, mutate_properties – destructive tools (only available when server is started with --read-write). Each takes an op (add/delete/rename for tags; set/delete/rename for properties); delete/rename ops accept optional inputs to scope.
 
 Best practices:
 1. Prefer files when you need the actual text of notes; it supports recursion via links.
