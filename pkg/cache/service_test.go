@@ -293,6 +293,62 @@ func TestServiceStaleTickerMarksStale(t *testing.T) {
 	assert.GreaterOrEqual(t, svc.Version(), initialVersion+1, "stale ticker should trigger resync/version bump")
 }
 
+func TestServiceStaleTickerRestartsAfterResync(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "Note.md"), []byte("#tag"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{
+		Watcher:        w,
+		WatcherFactory: func() (Watcher, error) { return newStubWatcher(), nil },
+		StaleInterval:  15 * time.Millisecond,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	// Force a resync by marking stale
+	svc.markStale()
+	require.NoError(t, svc.Refresh(context.Background()))
+
+	// After resync, the stale ticker should still be running
+	versionAfterResync := svc.Version()
+	time.Sleep(40 * time.Millisecond)
+	require.NoError(t, svc.Refresh(context.Background()))
+	assert.Greater(t, svc.Version(), versionAfterResync, "stale ticker should continue working after resync")
+}
+
+func TestServiceEntryDeepCopy(t *testing.T) {
+	tmp := t.TempDir()
+	content := `---
+tags: ["original"]
+custom: value
+---
+#inline
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "Note.md"), []byte(content), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	// Get entry and mutate it
+	entry, ok := svc.Entry("Note.md")
+	require.True(t, ok)
+
+	// Mutate the returned entry
+	entry.Tags[0] = "MUTATED"
+	entry.Content = "MUTATED CONTENT"
+
+	// Get entry again and verify cache wasn't affected
+	entry2, ok := svc.Entry("Note.md")
+	require.True(t, ok)
+	assert.NotEqual(t, "MUTATED", entry2.Tags[0], "mutating returned entry should not affect cache")
+	assert.NotContains(t, entry2.Content, "MUTATED", "mutating returned entry should not affect cache")
+}
+
 func TestServiceRespectsObsidianIgnore(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -340,4 +396,73 @@ func TestServiceUsesDefaultIgnoreWhenMissing(t *testing.T) {
 	paths := svc.Paths()
 	assert.Len(t, paths, 1)
 	assert.Equal(t, "Included.md", paths[0])
+}
+
+func TestServiceHandlesRecreation(t *testing.T) {
+	tmp := t.TempDir()
+	filePath := filepath.Join(tmp, "Note.md")
+	require.NoError(t, os.WriteFile(filePath, []byte("#old"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	// Simulate rapid remove then create (recreation)
+	// 1. Remove
+	require.NoError(t, os.Remove(filePath))
+	svc.markDirty(filePath, DirtyRemoved)
+
+	// 2. Create (new content)
+	require.NoError(t, os.WriteFile(filePath, []byte("#new"), 0o644))
+	svc.markDirty(filePath, DirtyCreated)
+
+	// Refresh should handle the transition: remove old entry, read new entry
+	require.NoError(t, svc.Refresh(context.Background()))
+
+	entry, ok := svc.Entry("Note.md")
+	require.True(t, ok, "file should exist after recreation")
+	assert.Contains(t, entry.Content, "#new")
+	assert.Contains(t, entry.Tags, "new")
+	assert.NotContains(t, entry.Tags, "old")
+}
+
+func TestServiceHandlesDirectoryRecreation(t *testing.T) {
+	tmp := t.TempDir()
+	dirPath := filepath.Join(tmp, "Folder")
+	require.NoError(t, os.Mkdir(dirPath, 0o755))
+	filePath := filepath.Join(dirPath, "Note.md")
+	require.NoError(t, os.WriteFile(filePath, []byte("#old"), 0o644))
+
+	w := newStubWatcher()
+	svc, err := NewService(tmp, Options{Watcher: w})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = svc.Close() })
+	require.NoError(t, svc.EnsureReady(context.Background()))
+
+	// Verify initial state
+	_, ok := svc.Entry("Folder/Note.md")
+	require.True(t, ok)
+
+	// Simulate rapid remove dir then create dir
+	require.NoError(t, os.RemoveAll(dirPath))
+	svc.markDirty(filepath.Join(tmp, "Folder"), DirtyRemoved)
+
+	require.NoError(t, os.Mkdir(dirPath, 0o755))
+	// New file in new dir
+	newFilePath := filepath.Join(dirPath, "NewNote.md")
+	require.NoError(t, os.WriteFile(newFilePath, []byte("#new"), 0o644))
+
+	svc.markDirty(filepath.Join(tmp, "Folder"), DirtyCreated)
+
+	// Refresh should remove old tree and scan new dir
+	require.NoError(t, svc.Refresh(context.Background()))
+
+	_, oldOk := svc.Entry("Folder/Note.md")
+	assert.False(t, oldOk, "old file should be gone")
+
+	entry, newOk := svc.Entry("Folder/NewNote.md")
+	require.True(t, newOk, "new file should be found")
+	assert.Contains(t, entry.Content, "#new")
 }

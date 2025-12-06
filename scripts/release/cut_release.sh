@@ -119,8 +119,8 @@ else
 fi
 
 echo
-read -r -p "Commit, tag ($VERSION), and run goreleaser release --clean? [y/N]: " go
-if [[ "${go,,}" == "y" || "${go,,}" == "yes" ]]; then
+read -r -p "Commit, tag ($VERSION), and run goreleaser release --clean? [Y/n]: " go
+if [[ -z "$go" || "${go,,}" == "y" || "${go,,}" == "yes" ]]; then
   git -C "$ROOT_DIR" add "$CHANGELOG" "$release_out" "$changelog_snippet" 2>/dev/null || true
   git -C "$ROOT_DIR" commit -m "Release $VERSION"
   git -C "$ROOT_DIR" tag "$VERSION"

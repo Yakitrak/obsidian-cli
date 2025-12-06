@@ -55,6 +55,8 @@ func (c *AnalysisCache) Backlinks(vaultPath string, note obsidian.NoteManager, t
 	if version != c.version {
 		c.backlinks = make(map[backlinkKey]map[string][]obsidian.Backlink)
 		c.graphs = make(map[graphKey]*obsidian.GraphAnalysis)
+		c.backlinkKeys = nil
+		c.graphKeys = nil
 		c.version = version
 	}
 	if cached, ok := c.backlinks[key]; ok {
@@ -69,12 +71,16 @@ func (c *AnalysisCache) Backlinks(vaultPath string, note obsidian.NoteManager, t
 	}
 
 	c.mu.Lock()
-	c.backlinks[key] = result
-	c.backlinkKeys = append(c.backlinkKeys, key)
-	if c.maxBacklinks > 0 && len(c.backlinkKeys) > c.maxBacklinks {
-		oldest := c.backlinkKeys[0]
-		c.backlinkKeys = c.backlinkKeys[1:]
-		delete(c.backlinks, oldest)
+	// Re-check version: if it changed during computation, our result may be stale.
+	// Don't cache it; the caller will get fresh data, and the next call will recompute.
+	if version == c.version {
+		c.backlinks[key] = result
+		c.backlinkKeys = append(c.backlinkKeys, key)
+		if c.maxBacklinks > 0 && len(c.backlinkKeys) > c.maxBacklinks {
+			oldest := c.backlinkKeys[0]
+			c.backlinkKeys = c.backlinkKeys[1:]
+			delete(c.backlinks, oldest)
+		}
 	}
 	c.mu.Unlock()
 
@@ -99,6 +105,8 @@ func (c *AnalysisCache) GraphAnalysis(vaultPath string, note obsidian.NoteManage
 	if version != c.version {
 		c.backlinks = make(map[backlinkKey]map[string][]obsidian.Backlink)
 		c.graphs = make(map[graphKey]*obsidian.GraphAnalysis)
+		c.backlinkKeys = nil
+		c.graphKeys = nil
 		c.version = version
 	}
 	if cached, ok := c.graphs[key]; ok {
@@ -113,12 +121,16 @@ func (c *AnalysisCache) GraphAnalysis(vaultPath string, note obsidian.NoteManage
 	}
 
 	c.mu.Lock()
-	c.graphs[key] = result
-	c.graphKeys = append(c.graphKeys, key)
-	if c.maxGraphs > 0 && len(c.graphKeys) > c.maxGraphs {
-		oldest := c.graphKeys[0]
-		c.graphKeys = c.graphKeys[1:]
-		delete(c.graphs, oldest)
+	// Re-check version: if it changed during computation, our result may be stale.
+	// Don't cache it; the caller will get fresh data, and the next call will recompute.
+	if version == c.version {
+		c.graphs[key] = result
+		c.graphKeys = append(c.graphKeys, key)
+		if c.maxGraphs > 0 && len(c.graphKeys) > c.maxGraphs {
+			oldest := c.graphKeys[0]
+			c.graphKeys = c.graphKeys[1:]
+			delete(c.graphs, oldest)
+		}
 	}
 	c.mu.Unlock()
 
