@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.1] - 2025-12-06
+
+- Fix Windows-specific issues (path separators, JSON escaping, permission/error handling) for more reliable behavior on Windows
+- Harden file-watcher and cache behavior, including race-condition fixes and real fsnotify-based integration tests
+- Improve analysis cache correctness by avoiding caching results when the vault version changes during computation
+- Add GitHub Actions CI workflow for linting, unit/integration tests across Linux/macOS/Windows, and multi-OS builds
+- Enhance developer tooling with new Makefile targets (`lint`, `integration`, `test_all`) and a more capable release helper script
+- Rewrite README into a clearer project landing page with badges, feature overview, command reference, and MCP usage docs
+
+
 ## [v0.6.0] - 2025-12-06
 
 - Add `file` command group so move/rename operations work for both notes and attachments, updating backlinks/embeds by default.
