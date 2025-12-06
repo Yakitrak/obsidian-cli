@@ -12,15 +12,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 NOTES_DIR="$ROOT_DIR/notes"
 CHANGELOG="$ROOT_DIR/CHANGELOG.md"
-
-tmpfiles=()
-cleanup() {
-  for f in "${tmpfiles[@]}"; do
-    [[ -f "$f" ]] && rm -f "$f"
-  done
-}
-trap cleanup EXIT
-
 prev_tag="${PREV_TAG:-}"
 version_override="${VERSION:-}"
 extra_hint="${FEEDBACK:-}"
@@ -93,19 +84,6 @@ echo
 sed -n '1,120p' "$release_out" || true
 echo
 
-release_body_file="$(mktemp)"
-tmpfiles+=("$release_body_file")
-{
-  cat "$release_out"
-  echo
-  echo "## Changelog"
-  echo
-  cat "$changelog_snippet"
-} >"$release_body_file"
-echo "Release body (sent to GitHub Releases):"
-sed -n '1,160p' "$release_body_file" || true
-echo
-
 read -r -p "Insert changelog entry into CHANGELOG.md? [Y/n]: " ins
 if [[ -z "$ins" || "${ins,,}" == "y" || "${ins,,}" == "yes" ]]; then
   python - "$CHANGELOG" "$changelog_snippet" <<'PY'
@@ -145,7 +123,7 @@ if [[ -z "$go" || "${go,,}" == "y" || "${go,,}" == "yes" ]]; then
   git -C "$ROOT_DIR" add "$CHANGELOG" "$release_out" "$changelog_snippet" 2>/dev/null || true
   git -C "$ROOT_DIR" commit -m "Release $VERSION"
   git -C "$ROOT_DIR" tag "$VERSION"
-  (cd "$ROOT_DIR" && goreleaser release --clean --release-notes "$release_body_file")
+  (cd "$ROOT_DIR" && goreleaser release --clean --release-notes "$release_out")
   echo "Release process kicked off. Verify goreleaser output."
 else
   echo "Skipped commit/tag/release. Files remain for manual review."
