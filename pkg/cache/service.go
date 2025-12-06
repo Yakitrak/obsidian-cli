@@ -204,9 +204,14 @@ func NewService(vaultPath string, opts Options) (*Service, error) {
 
 // Close stops the watcher and releases resources. Safe to call multiple times.
 func (s *Service) Close() error {
-	s.cancel()
-	if s.watcher != nil {
-		return s.watcher.Close()
+	s.watchMu.Lock()
+	if s.cancel != nil {
+		s.cancel()
+	}
+	w := s.watcher
+	s.watchMu.Unlock()
+	if w != nil {
+		return w.Close()
 	}
 	return nil
 }
@@ -802,15 +807,12 @@ func (s *Service) bumpVersion() {
 // startWatcher launches the watch loop goroutine (once per lifecycle).
 func (s *Service) startWatcher() {
 	s.watchMu.Lock()
-	watcher := s.watcher
-	ctx := s.ctx
-	s.watchMu.Unlock()
-	if watcher == nil {
+	defer s.watchMu.Unlock()
+	if s.watcher == nil {
 		return
 	}
-
 	s.watchOnce.Do(func() {
-		go s.watchLoop(ctx, watcher)
+		go s.watchLoop(s.ctx, s.watcher)
 	})
 }
 
@@ -822,7 +824,6 @@ func (s *Service) startStaleTicker() {
 	}
 	s.watchMu.Lock()
 	ctx := s.ctx
-	s.watchMu.Unlock()
 	s.tickerOnce.Do(func() {
 		go func() {
 			ticker := time.NewTicker(s.staleInterval)
@@ -837,6 +838,7 @@ func (s *Service) startStaleTicker() {
 			}
 		}()
 	})
+	s.watchMu.Unlock()
 }
 
 // addWatch registers a directory for filesystem notifications.
