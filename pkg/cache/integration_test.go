@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package cache
@@ -389,4 +390,3 @@ func TestIntegration_RealWatcher_VersionBumps(t *testing.T) {
 
 	assert.Greater(t, svc.Version(), initialVersion)
 }
-

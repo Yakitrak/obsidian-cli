@@ -71,14 +71,14 @@ type Service struct {
 
 	// Mutex guards all mutable state below. Use RLock for reads, Lock for writes.
 	mu        sync.RWMutex
-	ready     bool                         // true after initial crawl completes
-	crawling  bool                         // guards against concurrent initial crawls
-	stale     bool                         // set when watcher fails; forces full revalidation
-	fileIndex map[string]*Entry            // path → cached entry
+	ready     bool                           // true after initial crawl completes
+	crawling  bool                           // guards against concurrent initial crawls
+	stale     bool                           // set when watcher fails; forces full revalidation
+	fileIndex map[string]*Entry              // path → cached entry
 	tagIndex  map[string]map[string]struct{} // tag → set of paths
-	dirIndex  map[string]struct{}          // directories currently watched
-	dirty     map[string]DirtyKind         // paths needing revalidation
-	ignored   []string                     // patterns from .obsidianignore
+	dirIndex  map[string]struct{}            // directories currently watched
+	dirty     map[string]DirtyKind           // paths needing revalidation
+	ignored   []string                       // patterns from .obsidianignore
 
 	// Watcher subsystem (may be nil if unavailable)
 	watcher        Watcher
@@ -120,9 +120,9 @@ const (
 
 // Options controls cache behavior.
 type Options struct {
-	Watcher        Watcher                // inject a custom watcher (for testing)
+	Watcher        Watcher                 // inject a custom watcher (for testing)
 	WatcherFactory func() (Watcher, error) // factory to rebuild watcher after failure
-	StaleInterval  time.Duration          // if >0, periodically force revalidation
+	StaleInterval  time.Duration           // if >0, periodically force revalidation
 }
 
 // Watcher abstracts filesystem notifications. The default implementation wraps
@@ -732,14 +732,14 @@ func (s *Service) indexTags(path string, tags []string) {
 //
 // State machine:
 //
-//	                 ┌─────────────┐
-//	   Created ──────│             │────── Modified
-//	                 │   (path)    │
-//	   Removed ◄─────│             │──────► Removed (sticky)
-//	       │         └─────────────┘
-//	       │              ▲
-//	       │    Created   │
-//	       └──────────────┴───► Recreated
+//	              ┌─────────────┐
+//	Created ──────│             │────── Modified
+//	              │   (path)    │
+//	Removed ◄─────│             │──────► Removed (sticky)
+//	    │         └─────────────┘
+//	    │              ▲
+//	    │    Created   │
+//	    └──────────────┴───► Recreated
 func (s *Service) markDirty(absPath string, kind DirtyKind) {
 	rel, err := filepath.Rel(s.vaultPath, absPath)
 	if err != nil {

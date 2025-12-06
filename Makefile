@@ -19,8 +19,21 @@ clean-all:
 	rm bin/linux/${BINARY_NAME}
 	rm bin/windows/${BINARY_NAME}.exe
 
+lint:
+	@if [ -n "$$(find . -name '*.go' -not -path './vendor/*' -exec gofmt -l {} +)" ]; then \
+		echo "Run 'go fmt ./...' to fix formatting"; \
+		find . -name '*.go' -not -path './vendor/*' -exec gofmt -l {} +; \
+		exit 1; \
+	fi
+	go vet ./...
+
 test:
 	go test ./...
+
+integration:
+	go test -tags=integration ./...
+
+test_all: test integration
 
 test_coverage:
 	go test ./... -coverprofile=coverage.out
@@ -38,7 +51,7 @@ ifdef TEMPLATE_VAULT_BIN_DIR
 	install -m 0755 bin/${BINARY_NAME} $(TEMPLATE_VAULT_BIN_DIR)/${BINARY_NAME}
 endif
 
-.PHONY: release release-dry
+.PHONY: lint test integration test_all test_coverage release release-dry
 release:
 	GOCACHE=$${GOCACHE:-$(PWD)/.gocache} GOMODCACHE=$${GOMODCACHE:-$(PWD)/.gomodcache} goreleaser release --clean
 
