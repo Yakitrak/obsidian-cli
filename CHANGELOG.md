@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.2] - 2025-12-06
+- Refresh analysis cache providers before using cached backlinks/graph data for more accurate results.
+- Prevent the files MCP tool from mutating base `SuppressedTags` when per-call overrides are supplied.
+- Reload `.obsidianignore` patterns on crawl/resync so ignore changes apply without restarting.
+- Clarify daily note MCP tool description (no longer claims to create missing notes).
+- Update `move_notes` MCP tool comment to reflect default backlink rewriting behavior.
+- Simplify release script to pass the generated release notes file directly to GoReleaser.
+
+
 ## [0.6.1] - 2025-12-06
 
 - Fix Windows-specific issues (path separators, JSON escaping, permission/error handling) for more reliable behavior on Windows
