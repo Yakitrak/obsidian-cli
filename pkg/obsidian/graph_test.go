@@ -3,6 +3,7 @@ package obsidian
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -111,4 +112,22 @@ func TestAuthorityBuckets(t *testing.T) {
 	// Examples come from within each bucket
 	assert.Contains(t, members, buckets[0].Example)
 	assert.Contains(t, members, buckets[1].Example)
+}
+
+func TestCommunityRecency(t *testing.T) {
+	now := time.Now()
+	modTimes := map[string]time.Time{
+		"a.md": now.Add(-48 * time.Hour),      // 2 days ago
+		"b.md": now.Add(-10 * 24 * time.Hour), // 10 days ago
+		"c.md": now.Add(-40 * 24 * time.Hour), // 40 days ago (outside 30d window)
+	}
+	members := []string{"a.md", "b.md", "c.md"}
+
+	recency := communityRecency(members, modTimes, 30)
+
+	require.NotNil(t, recency)
+	assert.Equal(t, "a.md", recency.LatestPath)
+	assert.InDelta(t, 2.0, recency.LatestAgeDays, 0.3)
+	assert.Equal(t, 2, recency.RecentCount) // a and b are within 30d
+	assert.Equal(t, 30, recency.WindowDays)
 }

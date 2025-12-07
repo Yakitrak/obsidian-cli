@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // AuthorityScore captures a note and its authority/hub scores.
@@ -24,6 +26,14 @@ type AuthorityBucket struct {
 	High    float64
 	Count   int
 	Example string
+}
+
+// GraphRecency summarizes modification recency for a group of notes.
+type GraphRecency struct {
+	LatestPath    string
+	LatestAgeDays float64
+	RecentCount   int
+	WindowDays    int
 }
 
 // NodeStats captures inbound/outbound link counts for a note.
@@ -52,6 +62,7 @@ type CommunitySummary struct {
 	TopTags          []TagCount
 	TopAuthority     []AuthorityScore
 	AuthorityBuckets []AuthorityBucket
+	Recency          *GraphRecency
 	Anchor           string
 	Density          float64
 	Bridges          []string
@@ -291,6 +302,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 
 	adjacency := make(map[string]map[string]struct{}, len(allNotes))
 	tagMap := make(map[string][]string)
+	modTimes := make(map[string]time.Time, len(allNotes))
 
 	for _, path := range allNotes {
 		normalized := NormalizePath(AddMdSuffix(path))
@@ -323,6 +335,10 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 
 		if options.IncludeTags {
 			tagMap[normalized] = extractTags(content)
+		}
+
+		if fi, statErr := os.Stat(filepath.Join(vaultPath, normalized)); statErr == nil {
+			modTimes[normalized] = fi.ModTime()
 		}
 
 		links := scanWikilinks(content, options.WikilinkOptions)
@@ -392,7 +408,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 		}
 	}
 
-	communities := summarizeCommunities(comms, graphNodes, tagMap)
+	communities := summarizeCommunities(comms, graphNodes, tagMap, modTimes)
 	bridges := computeBridges(adjacency, graphNodes, communities)
 	attachBridges(communities, bridges)
 
@@ -409,7 +425,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 	}, nil
 }
 
-func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, tags map[string][]string) []CommunitySummary {
+func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, tags map[string][]string, modTimes map[string]time.Time) []CommunitySummary {
 	grouped := make(map[string][]string)
 	for node, label := range labels {
 		grouped[label] = append(grouped[label], node)
@@ -422,11 +438,13 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 		topTags := topTagsForCommunity(members, tags, 5)
 		anchor := anchorForCommunity(members, nodes)
 		buckets := authorityBuckets(members, nodes, 5) // coarse distribution
+		recency := communityRecency(members, modTimes, 30)
 		summaries = append(summaries, CommunitySummary{
 			ID:               communityID(id, anchor, members),
 			Nodes:            members,
 			TopAuthority:     topAuth,
 			AuthorityBuckets: buckets,
+			Recency:          recency,
 			TopTags:          topTags,
 			Anchor:           anchor,
 			Density:          density(members, nodes),
@@ -507,6 +525,44 @@ func authorityBuckets(members []string, nodes map[string]GraphNode, bucketCount 
 		})
 	}
 	return buckets
+}
+
+func communityRecency(members []string, modTimes map[string]time.Time, windowDays int) *GraphRecency {
+	if len(members) == 0 || windowDays <= 0 {
+		return nil
+	}
+	latestPath := ""
+	var latestTime time.Time
+	recentCount := 0
+	window := time.Duration(windowDays) * 24 * time.Hour
+	now := time.Now()
+
+	for _, m := range members {
+		mt, ok := modTimes[m]
+		if !ok || mt.IsZero() {
+			continue
+		}
+		if latestTime.IsZero() || mt.After(latestTime) {
+			latestTime = mt
+			latestPath = m
+		}
+		if now.Sub(mt) <= window {
+			recentCount++
+		}
+	}
+	if latestTime.IsZero() && recentCount == 0 {
+		return nil
+	}
+	age := 0.0
+	if !latestTime.IsZero() {
+		age = now.Sub(latestTime).Hours() / 24.0
+	}
+	return &GraphRecency{
+		LatestPath:    latestPath,
+		LatestAgeDays: age,
+		RecentCount:   recentCount,
+		WindowDays:    windowDays,
+	}
 }
 
 func anchorForCommunity(members []string, nodes map[string]GraphNode) string {
