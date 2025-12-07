@@ -128,7 +128,7 @@ var graphCommunitiesCmd = &cobra.Command{
 			fmt.Fprintln(cmd.OutOrStdout())
 		}
 		if graphTimings {
-			printTimings(cmd, analysis.Timings)
+			printTimings(cmd, analysis.Timings.ToMillis())
 		}
 		return nil
 	},

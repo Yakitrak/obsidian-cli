@@ -89,7 +89,7 @@ var graphCommunityCmd = &cobra.Command{
 			return err
 		}
 		if graphTimings {
-			printTimings(cmd, analysis.Timings)
+			printTimings(cmd, analysis.Timings.ToMillis())
 		}
 		return nil
 	},

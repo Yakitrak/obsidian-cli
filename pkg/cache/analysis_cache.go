@@ -131,8 +131,16 @@ func (c *AnalysisCache) GraphAnalysis(vaultPath string, note obsidian.NoteManage
 		c.version = version
 	}
 	if cached, ok := c.graphs[key]; ok {
+		needsRefresh := cached.Timings.Total == 0 ||
+			cached.Timings.LoadEntries == 0 ||
+			cached.Timings.BuildGraph == 0 ||
+			cached.Timings.HITS == 0 ||
+			cached.Timings.LabelProp == 0 ||
+			cached.Timings.Recency == 0
 		c.mu.Unlock()
-		return cloneGraphAnalysis(cached), nil
+		if !needsRefresh {
+			return cloneGraphAnalysis(cached), nil
+		}
 	}
 	c.mu.Unlock()
 
@@ -247,6 +255,7 @@ func cloneGraphAnalysis(src *obsidian.GraphAnalysis) *obsidian.GraphAnalysis {
 			copyAnalysis.EffectiveTimes[k] = v
 		}
 	}
+	copyAnalysis.Timings = src.Timings
 	return &copyAnalysis
 }
 

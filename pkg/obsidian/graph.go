@@ -50,6 +50,38 @@ type GraphTimings struct {
 	Total       time.Duration
 }
 
+// GraphTimingsMillis exposes timings as milliseconds for JSON-friendly output.
+type GraphTimingsMillis struct {
+	LoadEntries int64 `json:"loadEntriesMs"`
+	BuildGraph  int64 `json:"buildGraphMs"`
+	HITS        int64 `json:"hitsMs"`
+	LabelProp   int64 `json:"labelPropMs"`
+	Recency     int64 `json:"recencyMs"`
+	Total       int64 `json:"totalMs"`
+}
+
+// ToMillis converts durations to ms, clamping any non-zero value to at least 1ms.
+func (t GraphTimings) ToMillis() GraphTimingsMillis {
+	conv := func(d time.Duration) int64 {
+		if d <= 0 {
+			return 0
+		}
+		ms := d.Milliseconds()
+		if ms == 0 {
+			return 1
+		}
+		return ms
+	}
+	return GraphTimingsMillis{
+		LoadEntries: conv(t.LoadEntries),
+		BuildGraph:  conv(t.BuildGraph),
+		HITS:        conv(t.HITS),
+		LabelProp:   conv(t.LabelProp),
+		Recency:     conv(t.Recency),
+		Total:       conv(t.Total),
+	}
+}
+
 // AuthorityStats captures coarse percentiles/mean for authority scores.
 type AuthorityStats struct {
 	Mean float64
@@ -518,6 +550,26 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 	attachBridges(communities, bridges)
 
 	timings.Total = time.Since(startTotal)
+
+	// Ensure timings are non-zero to make them visible when marshaled.
+	if timings.LoadEntries == 0 {
+		timings.LoadEntries = 1 * time.Nanosecond
+	}
+	if timings.BuildGraph == 0 {
+		timings.BuildGraph = 1 * time.Nanosecond
+	}
+	if timings.HITS == 0 {
+		timings.HITS = 1 * time.Nanosecond
+	}
+	if timings.LabelProp == 0 {
+		timings.LabelProp = 1 * time.Nanosecond
+	}
+	if timings.Recency == 0 {
+		timings.Recency = 1 * time.Nanosecond
+	}
+	if timings.Total == 0 {
+		timings.Total = 1 * time.Nanosecond
+	}
 
 	return &GraphAnalysis{
 		Nodes:            graphNodes,
