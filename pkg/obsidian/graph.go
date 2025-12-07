@@ -443,41 +443,89 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			ContentTime: entry.ContentTime,
 		})
 	}
+	// Parallel processing of content -> tags, times, and edges.
+	type entryResult struct {
+		path        string
+		tags        []string
+		contentTime time.Time
+		edges       []string
+	}
+	results := make([]entryResult, len(normalizedEntries))
+	workerCount := runtime.NumCPU()
+	if workerCount < 1 {
+		workerCount = 1
+	}
+	chunk := (len(normalizedEntries) + workerCount - 1) / workerCount
 
-	for _, entry := range normalizedEntries {
-		if options.IncludeTags {
-			if len(entry.Tags) > 0 {
-				tagMap[entry.Path] = entry.Tags
-			} else {
-				tagMap[entry.Path] = extractTags(entry.Content)
-			}
+	var wg sync.WaitGroup
+	for w := 0; w < workerCount; w++ {
+		start := w * chunk
+		end := start + chunk
+		if end > len(normalizedEntries) {
+			end = len(normalizedEntries)
 		}
-
-		if ct := entry.ContentTime; !ct.IsZero() {
-			contentTimes[entry.Path] = ct
-		} else if ct, ok := ResolveContentTime(entry.Path, entry.Content); ok {
-			contentTimes[entry.Path] = ct
+		if start >= end {
+			continue
 		}
+		wg.Add(1)
+		go func(idx int, slice []NoteEntry) {
+			defer wg.Done()
+			for i, entry := range slice {
+				res := entryResult{path: entry.Path}
 
-		links := scanWikilinks(entry.Content, options.WikilinkOptions)
-		src := entry.Path
-
-		for _, link := range links {
-			resolved, ok := cache.ResolveNote(link.Target)
-			if !ok {
-				continue
-			}
-
-			dst := NormalizePath(AddMdSuffix(resolved))
-			if src == dst {
-				continue
-			}
-			// Only retain edges to nodes that survived include/exclude filtering.
-			if _, ok := adjacency[src]; ok {
-				if _, ok := adjacency[dst]; ok {
-					adjacency[src][dst] = struct{}{}
+				if options.IncludeTags {
+					if len(entry.Tags) > 0 {
+						res.tags = entry.Tags
+					} else {
+						res.tags = extractTags(entry.Content)
+					}
 				}
+
+				if ct := entry.ContentTime; !ct.IsZero() {
+					res.contentTime = ct
+				} else if ct, ok := ResolveContentTime(entry.Path, entry.Content); ok {
+					res.contentTime = ct
+				}
+
+				links := scanWikilinks(entry.Content, options.WikilinkOptions)
+				var edges []string
+				for _, link := range links {
+					resolved, ok := cache.ResolveNote(link.Target)
+					if !ok {
+						continue
+					}
+					dst := NormalizePath(AddMdSuffix(resolved))
+					if entry.Path == dst {
+						continue
+					}
+					// Only retain edges to nodes that survived include/exclude filtering.
+					if _, ok := adjacency[dst]; ok {
+						edges = append(edges, dst)
+					}
+				}
+				res.edges = edges
+				results[start+i] = res
 			}
+		}(w, normalizedEntries[start:end])
+	}
+	wg.Wait()
+
+	for _, res := range results {
+		if options.IncludeTags && len(res.tags) > 0 {
+			tagMap[res.path] = res.tags
+		}
+		if !res.contentTime.IsZero() {
+			contentTimes[res.path] = res.contentTime
+		}
+		if len(res.edges) > 0 {
+			destSet := adjacency[res.path]
+			for _, dst := range res.edges {
+				if destSet == nil {
+					destSet = make(map[string]struct{})
+				}
+				destSet[dst] = struct{}{}
+			}
+			adjacency[res.path] = destSet
 		}
 	}
 
