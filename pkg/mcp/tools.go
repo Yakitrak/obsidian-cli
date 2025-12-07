@@ -1211,9 +1211,15 @@ func recencyToPayload(r *obsidian.GraphRecency) *GraphRecencyPayload {
 	if r == nil {
 		return nil
 	}
+	age := r.LatestAgeDays
+	if !r.LatestTimestamp.IsZero() {
+		if d := time.Since(r.LatestTimestamp).Hours() / 24.0; d >= 0 {
+			age = d
+		}
+	}
 	return &GraphRecencyPayload{
 		LatestPath:    r.LatestPath,
-		LatestAgeDays: r.LatestAgeDays,
+		LatestAgeDays: age,
 		RecentCount:   r.RecentCount,
 		WindowDays:    r.WindowDays,
 	}

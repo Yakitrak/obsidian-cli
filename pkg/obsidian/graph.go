@@ -31,10 +31,11 @@ type AuthorityBucket struct {
 
 // GraphRecency summarizes modification recency for a group of notes.
 type GraphRecency struct {
-	LatestPath    string
-	LatestAgeDays float64
-	RecentCount   int
-	WindowDays    int
+	LatestPath      string
+	LatestAgeDays   float64
+	LatestTimestamp time.Time `json:"-"`
+	RecentCount     int
+	WindowDays      int
 }
 
 // AuthorityStats captures coarse percentiles/mean for authority scores.
@@ -547,7 +548,7 @@ const (
 	neighborFreshWindow      = 180 * 24 * time.Hour
 	neighborStalenessOffset  = 7 * 24 * time.Hour
 	neighborSampleLimit      = 5
-	minSaneYear              = 2000
+	minSaneYear              = 1900
 	maxFutureTolerance       = 365 * 24 * time.Hour
 	topLinesForDateDetection = 20
 )
@@ -637,6 +638,9 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 		if ts.After(now) {
 			ts = now
 		}
+		if _, ok := adjacency[path]; !ok {
+			continue
+		}
 		if _, ok := effective[path]; !ok {
 			effective[path] = ts
 		}
@@ -656,10 +660,10 @@ func ResolveContentTime(path, content string) (time.Time, bool) {
 	if t, ok := parseDateFromFilename(path, now); ok {
 		return clampFuture(t, now), true
 	}
-	if t, ok := parseDateFromTopLines(content, now, topLinesForDateDetection); ok {
+	if t, ok := parseMostRecentHeadingDate(content, now); ok {
 		return clampFuture(t, now), true
 	}
-	if t, ok := parseMostRecentHeadingDate(content, now); ok {
+	if t, ok := parseDateFromTopLines(content, now, topLinesForDateDetection); ok {
 		return clampFuture(t, now), true
 	}
 	return time.Time{}, false
@@ -964,12 +968,16 @@ func communityRecency(members []string, modTimes map[string]time.Time, windowDay
 	age := 0.0
 	if !latestTime.IsZero() {
 		age = now.Sub(latestTime).Hours() / 24.0
+		if age < 0 {
+			age = 0
+		}
 	}
 	return &GraphRecency{
-		LatestPath:    latestPath,
-		LatestAgeDays: age,
-		RecentCount:   recentCount,
-		WindowDays:    windowDays,
+		LatestPath:      latestPath,
+		LatestAgeDays:   age,
+		LatestTimestamp: latestTime,
+		RecentCount:     recentCount,
+		WindowDays:      windowDays,
 	}
 }
 

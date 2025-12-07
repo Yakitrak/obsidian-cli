@@ -280,6 +280,7 @@ func cloneRecency(src *obsidian.GraphRecency) *obsidian.GraphRecency {
 		return nil
 	}
 	dst := *src
+	dst.LatestTimestamp = src.LatestTimestamp
 	return &dst
 }
 
