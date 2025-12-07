@@ -60,7 +60,8 @@ func TestGraphAnalysisRespectsExcludes(t *testing.T) {
 		ExcludedPaths: map[string]struct{}{
 			"gamma.md": {},
 		},
-		RecencyCascade: true,
+		RecencyCascade:    true,
+		RecencyCascadeSet: true,
 	})
 	require.NoError(t, err)
 

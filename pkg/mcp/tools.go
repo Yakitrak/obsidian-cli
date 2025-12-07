@@ -1153,14 +1153,15 @@ func recencyToPayload(r *obsidian.GraphRecency) *GraphRecencyPayload {
 
 // graphOptions captures common graph analysis parameters parsed from MCP tool args.
 type graphOptions struct {
-	SkipAnchors    bool
-	SkipEmbeds     bool
-	IncludeTags    bool
-	MinDegree      int
-	MutualOnly     bool
-	Exclude        []string
-	Include        []string
-	RecencyCascade bool
+	SkipAnchors       bool
+	SkipEmbeds        bool
+	IncludeTags       bool
+	MinDegree         int
+	MutualOnly        bool
+	Exclude           []string
+	Include           []string
+	RecencyCascade    bool
+	RecencyCascadeSet bool
 }
 
 // parseGraphOptions extracts common graph analysis options from MCP tool arguments.
@@ -1206,6 +1207,9 @@ func parseGraphOptions(args map[string]interface{}, tagsDefaultTrue bool) graphO
 	opts.RecencyCascade = true
 	if v, ok := args["recencyCascade"].(bool); ok {
 		opts.RecencyCascade = v
+		opts.RecencyCascadeSet = true
+	} else {
+		opts.RecencyCascadeSet = false
 	}
 	return opts
 }
@@ -1217,10 +1221,11 @@ func (g graphOptions) toAnalysisOptions() obsidian.GraphAnalysisOptions {
 			SkipAnchors: g.SkipAnchors,
 			SkipEmbeds:  g.SkipEmbeds,
 		},
-		IncludeTags:    g.IncludeTags,
-		MinDegree:      g.MinDegree,
-		MutualOnly:     g.MutualOnly,
-		RecencyCascade: g.RecencyCascade,
+		IncludeTags:       g.IncludeTags,
+		MinDegree:         g.MinDegree,
+		MutualOnly:        g.MutualOnly,
+		RecencyCascade:    g.RecencyCascade,
+		RecencyCascadeSet: g.RecencyCascadeSet,
 	}
 }
 

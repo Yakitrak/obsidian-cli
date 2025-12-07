@@ -112,13 +112,13 @@ func (c *AnalysisCache) GraphAnalysis(vaultPath string, note obsidian.NoteManage
 	}
 
 	key := graphKey{
-		skipAnchors: options.SkipAnchors,
-		skipEmbeds:  options.SkipEmbeds,
-		includeTags: options.IncludeTags,
-		minDegree:   options.MinDegree,
-		mutualOnly:  options.MutualOnly,
-		excludedKey: hashStrings(mapKeys(options.ExcludedPaths)),
-		includedKey: hashStrings(mapKeys(options.IncludedPaths)),
+		skipAnchors:    options.SkipAnchors,
+		skipEmbeds:     options.SkipEmbeds,
+		includeTags:    options.IncludeTags,
+		minDegree:      options.MinDegree,
+		mutualOnly:     options.MutualOnly,
+		excludedKey:    hashStrings(mapKeys(options.ExcludedPaths)),
+		includedKey:    hashStrings(mapKeys(options.IncludedPaths)),
 		recencyCascade: options.RecencyCascade,
 	}
 

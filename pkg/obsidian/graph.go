@@ -132,6 +132,8 @@ type GraphAnalysisOptions struct {
 	// When true (default), a bounded multi-pass propagation will cascade freshness.
 	// When false, only direct neighbors can boost an undated note.
 	RecencyCascade bool
+	// RecencyCascadeSet distinguishes explicit caller choice from defaulting behavior.
+	RecencyCascadeSet bool
 }
 
 // NoteEntry captures cached note data that callers can reuse to avoid
@@ -478,7 +480,12 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 		}
 	}
 
-	effectiveTimes := applyNeighborRecency(adjacency, contentTimes, time.Now(), options.RecencyCascade)
+	cascade := options.RecencyCascade
+	if !options.RecencyCascadeSet {
+		cascade = true
+	}
+
+	effectiveTimes := applyNeighborRecency(adjacency, contentTimes, time.Now(), cascade)
 	communities := summarizeCommunities(comms, graphNodes, tagMap, effectiveTimes)
 	bridges := computeBridges(adjacency, graphNodes, communities)
 	attachBridges(communities, bridges)

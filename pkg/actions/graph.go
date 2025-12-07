@@ -94,6 +94,10 @@ func GraphAnalysis(vault obsidian.VaultManager, note obsidian.NoteManager, param
 	}
 
 	options := params.Options
+	if !options.RecencyCascadeSet {
+		options.RecencyCascade = true
+		options.RecencyCascadeSet = true
+	}
 	options.ExcludedPaths = excludedSet
 	options.IncludedPaths = includedSet
 
