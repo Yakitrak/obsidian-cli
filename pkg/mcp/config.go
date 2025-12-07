@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/atomicobject/obsidian-cli/pkg/cache"
+	"github.com/atomicobject/obsidian-cli/pkg/embeddings"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
 
@@ -14,4 +15,8 @@ type Config struct {
 	ReadWrite      bool
 	Cache          *cache.Service
 	AnalysisCache  *cache.AnalysisCache
+	Embeddings     embeddings.Index
+	EmbedProvider  embeddings.Provider
+	EmbeddingsPath string
+	EmbeddingsOn   bool
 }

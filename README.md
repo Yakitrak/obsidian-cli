@@ -11,6 +11,7 @@ A fast, feature-rich command-line interface for [Obsidian](https://obsidian.md) 
 
 - **Query & Filter** — Find notes by tag, filename pattern, folder, or frontmatter property with boolean logic
 - **Graph Analysis** — Explore link structures, communities, orphans, and HITS-based importance (hub/authority scores)
+- **Semantic Search (opt-in)** — Build an embeddings index once, then query similar notes or return related notes in MCP tools
 - **Bulk Operations** — Add, rename, or delete tags and properties across matching notes
 - **Move & Rename** — Relocate files with automatic backlink updates (git-aware)
 - **MCP Server** — Expose vault operations to Claude, Cursor, VS Code, and other AI assistants
@@ -193,6 +194,16 @@ obsidian-cli graph ignore tag:periodic find:*Archive*
 
 ---
 
+## Semantic Search (opt-in)
+
+1. Build or refresh the index: `obsidian-cli semantic index --provider openai --model text-embedding-3-large` (requires `OPENAI_API_KEY` or `OBSIDIAN_CLI_OPENAI_API_KEY`). The SQLite index lives at `.obsidian-cli/semantic-index.sqlite` inside the vault and is gitignored automatically.
+2. Query: `obsidian-cli semantic search "project kickoff"` (`--limit` to change the number of matches).
+3. Local providers: `--provider ollama --endpoint http://localhost:11434/api/embeddings --model <model>` for local embeddings.
+
+MCP reuses the same index: `note_context` includes `related` semantic notes, and `vault_context` accepts `semanticQuery` to return `semanticMatches`.
+
+---
+
 ## MCP Server
 
 Run `obsidian-cli` as a [Model Context Protocol](https://modelcontextprotocol.io) server to expose your vault to AI assistants.
@@ -221,19 +232,19 @@ obsidian-cli mcp --vault "MyVault" --debug
 
 ### Available Tools
 
-| Tool               | Description                                                        |
-| ------------------ | ------------------------------------------------------------------ |
-| `files`            | List/fetch files with optional content, frontmatter, and backlinks |
-| `list_tags`        | List tags with individual and aggregate counts                     |
-| `list_properties`  | Inspect property usage across the vault                            |
-| `community_list`   | List graph communities with anchors, sizes, and top notes          |
-| `community_detail` | Full detail for a specific community                               |
-| `vault_context`    | Compact overview of vault communities and key notes                |
-| `note_context`     | Graph + community context for one or more notes                    |
-| `daily_note`       | Get today's daily note path and content                            |
-| `daily_note_path`  | Get daily note path for a given date                               |
-| `rename_note`      | Rename a note with backlink updates                                |
-| `move_notes`       | Move one or more notes                                             |
+| Tool               | Description                                                                      |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `files`            | List/fetch files with optional content, frontmatter, and backlinks               |
+| `list_tags`        | List tags with individual and aggregate counts                                   |
+| `list_properties`  | Inspect property usage across the vault                                          |
+| `community_list`   | List graph communities with anchors, sizes, and top notes                        |
+| `community_detail` | Full detail for a specific community                                             |
+| `vault_context`    | Compact overview of vault communities and key notes (supports `semanticQuery`)   |
+| `note_context`     | Graph + community context for one or more notes (returns `related` when indexed) |
+| `daily_note`       | Get today's daily note path and content                                          |
+| `daily_note_path`  | Get daily note path for a given date                                             |
+| `rename_note`      | Rename a note with backlink updates                                              |
+| `move_notes`       | Move one or more notes                                                           |
 
 **Write Tools** (requires `--read-write` flag):
 

@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"log"
 	"os"
 
 	"github.com/atomicobject/obsidian-cli/pkg/cache"
+	"github.com/atomicobject/obsidian-cli/pkg/embeddings"
+	"github.com/atomicobject/obsidian-cli/pkg/embeddings/sqlite"
 	"github.com/atomicobject/obsidian-cli/pkg/mcp"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/server"
@@ -100,6 +103,39 @@ Example MCP client configuration (e.g., for Claude Desktop):
 			ReadWrite:      mcpReadWrite,
 			Cache:          cacheService,
 			AnalysisCache:  analysisCache,
+		}
+
+		embCfg, err := obsidian.LoadEmbeddingsConfig(vaultPath)
+		if err != nil {
+			log.Printf("Failed to load embeddings config: %v", err)
+		} else if embCfg.Enabled {
+			apiKey := embeddings.ResolveAPIKey("")
+			provider, err := embeddings.NewProvider(embCfg.ProviderCfg(apiKey))
+			if err != nil {
+				log.Printf("Embeddings provider unavailable; semantic features disabled: %v", err)
+			} else {
+				store, err := sqlite.Open(embCfg.IndexPath, provider.Dimensions())
+				if err != nil {
+					log.Printf("Embeddings index unavailable at %s: %v", embCfg.IndexPath, err)
+				} else {
+					indexer := embeddings.NewIndexer(store, provider, vaultPath)
+					if embCfg.BatchSize > 0 {
+						indexer.BatchSize = embCfg.BatchSize
+					}
+					if embCfg.MaxConcurrency > 0 {
+						indexer.MaxConcurrent = embCfg.MaxConcurrency
+					}
+					if err := indexer.SyncVault(context.Background()); err != nil {
+						log.Printf("Embedding index refresh failed (semantic disabled): %v", err)
+						_ = store.Close()
+					} else {
+						config.Embeddings = store
+						config.EmbedProvider = provider
+						config.EmbeddingsPath = embCfg.IndexPath
+						config.EmbeddingsOn = true
+					}
+				}
+			}
 		}
 
 		// Add any additional suppressed tags from global flags

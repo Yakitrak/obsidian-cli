@@ -13,6 +13,11 @@ var (
 	hashtagRegex     = regexp.MustCompile(`(?:^|\s)#[\p{L}\p{N}_/\-]+`)            // Matches hashtags, including hierarchical tags
 )
 
+// FrontmatterRegex exposes the compiled regex for callers needing to strip frontmatter.
+func FrontmatterRegex() *regexp.Regexp {
+	return frontmatterRegex
+}
+
 // ExtractFrontmatter extracts YAML frontmatter from a markdown file
 func ExtractFrontmatter(content string) (map[string]interface{}, error) {
 	// Frontmatter must start on the first line

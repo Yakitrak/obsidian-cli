@@ -88,7 +88,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(communityDetailTool, CommunityDetailTool(config))
 
 	noteContextTool := mcp.NewTool("note_context",
-		mcp.WithDescription(`Return graph + community context for one or more notes (contexts returned in input order). Response: {contexts:[...],count}. Each context includes degrees, hub/authority scores (+percentiles), components, orphan/bridge status, neighbors (linksOut/linksIn, same vs cross community), optional backlinks/frontmatter, and community summary (size/fractionOfVault/anchor/top tags/authority/bridges). Hub measures curation quality (high for MOCs); authority measures reference frequency (high for cornerstone concepts).`),
+		mcp.WithDescription(`Return graph + community context for one or more notes (contexts returned in input order). Response: {contexts:[...],count}. Each context includes degrees, hub/authority scores (+percentiles), components, orphan/bridge status, neighbors (linksOut/linksIn, same vs cross community), optional backlinks/frontmatter, community summary (size/fractionOfVault/anchor/top tags/authority/bridges), and semantic related notes when embeddings are enabled. Hub measures curation quality (high for MOCs); authority measures reference frequency (high for cornerstone concepts).`),
 		mcp.WithArray("files", mcp.Required(), mcp.Description("Array of vault-relative (or absolute) paths to the notes"), mcp.WithStringItems()),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
@@ -103,7 +103,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(noteContextTool, NoteContextTool(config))
 
 	vaultContextTool := mcp.NewTool("vault_context",
-		mcp.WithDescription(`Compact vault summary: graph stats, orphan counts, weak components, top communities (size/fraction/density/anchor/top tags and notes/bridges with hub/authority scores + authorityBuckets shown as coarse quantile-style buckets with examples + recency: latest note and recent count in last 30d), key notes (anchors/bridges/top authority), optional MOC/key-note list sourced from patterns (config or keyPatterns), and optional embedded note_context payloads. Response: {stats, orphanCount, topOrphans?, components?, communities:[{id,size,fractionOfVault,anchor,density,topTags,topAuthority,bridgesDetailed,authorityBuckets,recency}], keyNotes?, mocs?, keyPatterns?, noteContexts?}.`),
+		mcp.WithDescription(`Compact vault summary: graph stats, orphan counts, weak components, top communities (size/fraction/density/anchor/top tags and notes/bridges with hub/authority scores + authorityBuckets shown as coarse quantile-style buckets with examples + recency: latest note and recent count in last 30d), key notes (anchors/bridges/top authority), optional MOC/key-note list sourced from patterns (config or keyPatterns), optional embedded note_context payloads, and optional semanticMatches when semanticQuery is provided and embeddings are enabled. Response: {stats, orphanCount, topOrphans?, components?, communities:[{id,size,fractionOfVault,anchor,density,topTags,topAuthority,bridgesDetailed,authorityBuckets,recency}], keyNotes?, mocs?, keyPatterns?, noteContexts?, semanticQuery?, semanticMatches?}.`),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
@@ -123,6 +123,8 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("contextIncludeTags", mcp.Description("Include tags in noteContexts (default true)")),
 		mcp.WithNumber("contextNeighborLimit", mcp.Description("Max neighbors to return per direction in embedded contexts (default 50)"), mcp.Min(1)),
 		mcp.WithNumber("contextBacklinksLimit", mcp.Description("Max backlinks to return per note in embedded contexts (default 50)"), mcp.Min(1)),
+		mcp.WithString("semanticQuery", mcp.Description("Optional semantic query to return embedding-based matches (requires embeddings index)")),
+		mcp.WithNumber("semanticLimit", mcp.Description("Number of semantic matches to return (default 10)"), mcp.Min(1)),
 	)
 	s.AddTool(vaultContextTool, VaultContextTool(config))
 

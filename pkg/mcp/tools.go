@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/atomicobject/obsidian-cli/pkg/actions"
 	"github.com/atomicobject/obsidian-cli/pkg/cache"
+	"github.com/atomicobject/obsidian-cli/pkg/embeddings"
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 	"github.com/mark3labs/mcp-go/mcp"
 	"gopkg.in/yaml.v3"
@@ -220,6 +222,15 @@ type NoteNeighbors struct {
 	CrossCommunity []NeighborRef `json:"crossCommunity,omitempty"`
 }
 
+// RelatedNotePayload captures semantic neighbors for note/vault context.
+type RelatedNotePayload struct {
+	Path       string  `json:"path"`
+	Title      string  `json:"title,omitempty"`
+	Score      float64 `json:"score,omitempty"`
+	GraphScore float64 `json:"graphScore,omitempty"`
+	FinalScore float64 `json:"finalScore,omitempty"`
+}
+
 // NoteContextResponse is returned by the note_context tool.
 type NoteContextResponse struct {
 	Path               string                 `json:"path"`
@@ -235,19 +246,22 @@ type NoteContextResponse struct {
 	NeighborsLimit     int                    `json:"neighborsLimit,omitempty"`
 	BacklinksTruncated bool                   `json:"backlinksTruncated,omitempty"`
 	BacklinksLimit     int                    `json:"backlinksLimit,omitempty"`
+	Related            []RelatedNotePayload   `json:"related,omitempty"`
 }
 
 // VaultContextResponse summarizes the vault for agents.
 type VaultContextResponse struct {
-	Stats        obsidian.GraphStatsSummary `json:"stats"`
-	OrphanCount  int                        `json:"orphanCount"`
-	TopOrphans   []string                   `json:"topOrphans,omitempty"`
-	Components   []ComponentSummary         `json:"components,omitempty"`
-	Communities  []CommunityOverview        `json:"communities"`
-	KeyNotes     []string                   `json:"keyNotes,omitempty"`
-	MOCs         []KeyNoteMatch             `json:"mocs,omitempty"`
-	KeyPatterns  []string                   `json:"keyPatterns,omitempty"`
-	NoteContexts []NoteContextResponse      `json:"noteContexts,omitempty"`
+	Stats           obsidian.GraphStatsSummary `json:"stats"`
+	OrphanCount     int                        `json:"orphanCount"`
+	TopOrphans      []string                   `json:"topOrphans,omitempty"`
+	Components      []ComponentSummary         `json:"components,omitempty"`
+	Communities     []CommunityOverview        `json:"communities"`
+	KeyNotes        []string                   `json:"keyNotes,omitempty"`
+	MOCs            []KeyNoteMatch             `json:"mocs,omitempty"`
+	KeyPatterns     []string                   `json:"keyPatterns,omitempty"`
+	NoteContexts    []NoteContextResponse      `json:"noteContexts,omitempty"`
+	SemanticQuery   string                     `json:"semanticQuery,omitempty"`
+	SemanticMatches []RelatedNotePayload       `json:"semanticMatches,omitempty"`
 }
 
 // CommunityOverview is a lightweight community summary for vault_context.
@@ -1357,7 +1371,7 @@ func findKeyNotes(config Config, patterns []string) ([]KeyNoteMatch, error) {
 	return matches, nil
 }
 
-func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, pct *percentilesCache, reverseNeighbors map[string][]string, membership map[string]*obsidian.CommunitySummary, bridgeCounts map[string]int, note obsidian.NoteManager, config Config, includeTags bool, includeNeighbors bool, includeFrontmatter bool, includeBacklinks bool, backlinks map[string][]obsidian.Backlink, neighborLimit int, backlinksLimit int) (NoteContextResponse, error) {
+func buildNoteContext(ctx context.Context, path string, analysis *obsidian.GraphAnalysis, pct *percentilesCache, reverseNeighbors map[string][]string, membership map[string]*obsidian.CommunitySummary, bridgeCounts map[string]int, note obsidian.NoteManager, config Config, includeTags bool, includeNeighbors bool, includeFrontmatter bool, includeBacklinks bool, backlinks map[string][]obsidian.Backlink, neighborLimit int, backlinksLimit int) (NoteContextResponse, error) {
 	node, ok := analysis.Nodes[path]
 	if !ok {
 		return NoteContextResponse{}, fmt.Errorf("graph filter: file %s not found in graph (use vault-relative path and check include/exclude filters)", path)
@@ -1463,6 +1477,11 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, pct *percen
 		backlinksLimitField = backlinksLimit
 	}
 
+	related, err := relatedNotesForPath(ctx, path, analysis, reverseNeighbors, config, 10)
+	if err != nil {
+		return NoteContextResponse{}, err
+	}
+
 	return NoteContextResponse{
 		Path:               path,
 		Title:              node.Title,
@@ -1476,7 +1495,135 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, pct *percen
 		NeighborsLimit:     neighborsLimitField,
 		BacklinksTruncated: backlinksTruncated,
 		BacklinksLimit:     backlinksLimitField,
+		Related:            related,
 	}, nil
+}
+
+func relatedNotesForPath(ctx context.Context, path string, analysis *obsidian.GraphAnalysis, reverseNeighbors map[string][]string, config Config, limit int) ([]RelatedNotePayload, error) {
+	if !config.EmbeddingsOn || config.Embeddings == nil || config.EmbedProvider == nil {
+		return nil, nil
+	}
+	if analysis == nil {
+		return nil, nil
+	}
+
+	emb, _, ok, err := config.Embeddings.GetNoteEmbedding(ctx, embeddings.NoteID(path))
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+
+	searchK := limit * 3
+	if searchK < 30 {
+		searchK = 30
+	}
+	cands, err := config.Embeddings.SearchNotesByVector(ctx, emb, searchK)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]embeddings.SimilarNote, 0, len(cands))
+	for _, c := range cands {
+		if string(c.ID) == path {
+			continue
+		}
+		filtered = append(filtered, c)
+	}
+
+	graph := analysisGraph{
+		nodes:   analysis.Nodes,
+		reverse: reverseNeighbors,
+	}
+	ranked := embeddings.RankRelated(
+		embeddings.NoteID(path),
+		filtered,
+		graph,
+		embeddings.RankConfig{
+			DirectLinkBonus: 0.10,
+			TwoHopBonus:     0.05,
+			SharedTagBonus:  0.05,
+			Alpha:           1.0,
+			Beta:            0.3,
+		},
+	)
+
+	return toRelatedPayloads(ranked, limit), nil
+}
+
+type analysisGraph struct {
+	nodes   map[string]obsidian.GraphNode
+	reverse map[string][]string
+}
+
+func (g analysisGraph) Outgoing(id embeddings.NoteID) []embeddings.NoteID {
+	node, ok := g.nodes[string(id)]
+	if !ok {
+		return nil
+	}
+	out := make([]embeddings.NoteID, len(node.Neighbors))
+	for i, n := range node.Neighbors {
+		out[i] = embeddings.NoteID(n)
+	}
+	return out
+}
+
+func (g analysisGraph) Incoming(id embeddings.NoteID) []embeddings.NoteID {
+	neighbors := g.reverse[string(id)]
+	in := make([]embeddings.NoteID, len(neighbors))
+	for i, n := range neighbors {
+		in[i] = embeddings.NoteID(n)
+	}
+	return in
+}
+
+func (g analysisGraph) Tags(id embeddings.NoteID) []string {
+	if node, ok := g.nodes[string(id)]; ok {
+		return node.Tags
+	}
+	return nil
+}
+
+func toRelatedPayloads(notes []embeddings.SimilarNote, limit int) []RelatedNotePayload {
+	if limit > 0 && len(notes) > limit {
+		notes = notes[:limit]
+	}
+	payloads := make([]RelatedNotePayload, len(notes))
+	for i, n := range notes {
+		payloads[i] = RelatedNotePayload{
+			Path:       string(n.ID),
+			Title:      n.Title,
+			Score:      n.Score,
+			GraphScore: n.GraphScore,
+			FinalScore: n.FinalScore,
+		}
+	}
+	return payloads
+}
+
+func semanticQueryMatches(ctx context.Context, query string, config Config, limit int) ([]RelatedNotePayload, error) {
+	if query == "" {
+		return nil, nil
+	}
+	vecs, err := config.EmbedProvider.EmbedTexts(ctx, []string{query})
+	if err != nil {
+		return nil, err
+	}
+	if len(vecs) == 0 {
+		return nil, errors.New("embedding provider returned no vector")
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	cands, err := config.Embeddings.SearchNotesByVector(ctx, vecs[0], limit*3)
+	if err != nil {
+		return nil, err
+	}
+	for i := range cands {
+		cands[i].FinalScore = cands[i].Score
+	}
+	return toRelatedPayloads(cands, limit), nil
 }
 
 func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, includeTags bool, includeNeighbors bool, limit int, reverse map[string][]string, bridgeCounts map[string]int) CommunityDetailResponse {
@@ -1610,7 +1757,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 				defer func() { <-sem }()
 				defer wg.Done()
 
-				ctxResp, err := buildNoteContext(path, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, opts.IncludeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
+				ctxResp, err := buildNoteContext(ctx, path, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, opts.IncludeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
 				if err != nil {
 					contexts[i] = NoteContextResponse{
 						Path:  path,
@@ -1690,6 +1837,12 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 		contextBacklinksLimit := 50
 		if v, ok := args["contextBacklinksLimit"].(float64); ok && int(v) > 0 {
 			contextBacklinksLimit = int(v)
+		}
+		semanticQuery, _ := args["semanticQuery"].(string)
+		semanticQuery = strings.TrimSpace(semanticQuery)
+		semanticLimit := 10
+		if v, ok := args["semanticLimit"].(float64); ok && int(v) > 0 {
+			semanticLimit = int(v)
 		}
 
 		keyPatterns := extractStringArray(args["keyPatterns"])
@@ -1822,7 +1975,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 					defer func() { <-sem }()
 					defer wg.Done()
 
-					ctxResp, err := buildNoteContext(path, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
+					ctxResp, err := buildNoteContext(ctx, path, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
 					if err != nil {
 						noteContexts[i] = NoteContextResponse{
 							Path:  path,
@@ -1846,6 +1999,18 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			MOCs:         mocs,
 			KeyPatterns:  keyPatterns,
 			NoteContexts: noteContexts,
+		}
+
+		if semanticQuery != "" {
+			if !config.EmbeddingsOn || config.Embeddings == nil || config.EmbedProvider == nil {
+				return mcp.NewToolResultError("semanticQuery provided but semantic index is disabled; run semantic index"), nil
+			}
+			matches, err := semanticQueryMatches(ctx, semanticQuery, config, semanticLimit)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("semantic search failed: %s", err)), nil
+			}
+			resp.SemanticQuery = semanticQuery
+			resp.SemanticMatches = matches
 		}
 
 		encoded, err := json.Marshal(resp)
