@@ -92,6 +92,12 @@ type Service struct {
 	cancel        context.CancelFunc // guarded by watchMu
 	version       uint64             // monotonic counter, bumped on changes
 	staleInterval time.Duration      // if >0, periodically mark stale for polling fallback
+
+	// Channel for queueing watches from watchLoop to avoid deadlock on Windows.
+	// On Windows, watcher.Add() communicates with the internal read goroutine.
+	// If watchLoop calls Add() and blocks, it can't drain Events, which causes
+	// the internal goroutine to block, which causes Add() to never complete.
+	pendingWatches chan string
 }
 
 // Entry represents cached metadata for a single markdown file.
@@ -199,6 +205,7 @@ func NewService(vaultPath string, opts Options) (*Service, error) {
 		ctx:            ctx,
 		cancel:         cancel,
 		staleInterval:  opts.StaleInterval,
+		pendingWatches: make(chan string, 100),
 	}, nil
 }
 
@@ -454,6 +461,16 @@ func (s *Service) resync(ctx context.Context) error {
 	// Reset lifecycle state for new goroutines.
 	s.watchOnce = sync.Once{}
 	s.tickerOnce = sync.Once{}
+
+	// Drain any stale pending watches from the previous lifecycle.
+drainLoop:
+	for {
+		select {
+		case <-s.pendingWatches:
+		default:
+			break drainLoop
+		}
+	}
 
 	// Rebuild the watcher (if factory is available).
 	if _, err := s.rebuildWatcherLocked(); err != nil {
@@ -813,7 +830,25 @@ func (s *Service) startWatcher() {
 	}
 	s.watchOnce.Do(func() {
 		go s.watchLoop(s.ctx, s.watcher)
+		go s.pendingWatchLoop(s.ctx)
 	})
+}
+
+// pendingWatchLoop processes directories queued by watchLoop.
+// This runs in a separate goroutine so that watchLoop can continue draining
+// events while watcher.Add() blocks (which it does on Windows).
+func (s *Service) pendingWatchLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case path, ok := <-s.pendingWatches:
+			if !ok {
+				return
+			}
+			s.addWatch(path)
+		}
+	}
 }
 
 // startStaleTicker launches a periodic stale trigger for polling fallback.
@@ -881,11 +916,19 @@ func (s *Service) watchLoop(ctx context.Context, watcher Watcher) {
 			switch {
 			case evt.Op&fsnotify.Create == fsnotify.Create:
 				s.markDirty(evt.Name, DirtyCreated)
-				// Start watching new directories immediately.
-				// File scanning is deferred to Refresh() to avoid races.
+				// Queue new directories for watching via pendingWatchLoop.
+				// We must not call addWatch directly from watchLoop because on Windows,
+				// watcher.Add() blocks waiting for the internal read goroutine, but that
+				// goroutine may be blocked trying to send events that we're not reading
+				// (because we're blocked on Add). Using a channel lets watchLoop continue
+				// draining events while pendingWatchLoop handles the Add calls.
 				info, err := os.Stat(evt.Name)
 				if err == nil && info.IsDir() {
-					s.addWatch(evt.Name)
+					select {
+					case s.pendingWatches <- evt.Name:
+					default:
+						// Buffer full; directory will be picked up on next Refresh.
+					}
 				}
 
 			case evt.Op&fsnotify.Write == fsnotify.Write:
