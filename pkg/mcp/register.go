@@ -64,7 +64,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(listPropertiesTool, ListPropertiesTool(config))
 
 	communityListTool := mcp.NewTool("community_list",
-		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, and top pagerank notes. Respects include/exclude/minDegree/mutualOnly filters. Response: {communities:[{id,size,nodes,anchor,topTags,topPagerank,density,bridges}], stats}.`),
+		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, and top pagerank notes. Includes size/fractionOfVault, bridge hints, orphan counts, and weak component sizes. Respects include/exclude/minDegree/mutualOnly filters. Response: {communities:[{id,size,fractionOfVault,anchor,topTags,topPagerank,density,bridges,bridgesDetailed}], stats, orphanCount, orphans?, components:[{id,size}]}.`),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (may be heavier on large vaults)")),
@@ -78,7 +78,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(communityListTool, CommunityListTool(config))
 
 	communityDetailTool := mcp.NewTool("community_detail",
-		mcp.WithDescription(`Show full detail for a community by ID or file: anchor, density, bridges, top tags/pagerank, members with pagerank/in/out (optional tags/neighbors). Provide either id (from community_list) or file (vault-relative/absolute).`),
+		mcp.WithDescription(`Show full detail for a community by ID or file: anchor, density, bridges (with counts), fractionOfVault, top tags/pagerank, members with pagerank/in/out (optional tags/neighbors with linksIn/linksOut). Provide either id (from community_list) or file (vault-relative/absolute).`),
 		mcp.WithString("id", mcp.Description("Community ID from community_list/graph_stats (e.g., c1234abcd)")),
 		mcp.WithString("file", mcp.Description("Vault-relative (or absolute) path to a file contained in the desired community")),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
@@ -92,6 +92,51 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithNumber("limit", mcp.Description("Limit members returned (default all)"), mcp.Min(1)),
 	)
 	s.AddTool(communityDetailTool, CommunityDetailTool(config))
+
+	noteContextTool := mcp.NewTool("note_context",
+		mcp.WithDescription(`Return graph + community context for one or more notes (contexts returned in input order). Response: {contexts:[...],count}. Each context includes degrees, pagerank (+percentile), components, orphan/bridge status, neighbors (linksOut/linksIn, same vs cross community), optional backlinks/frontmatter, and community summary (size/fractionOfVault/anchor/top tags/pagerank/bridges).`),
+		mcp.WithArray("files", mcp.Required(), mcp.Description("Array of vault-relative (or absolute) paths to the notes"), mcp.WithStringItems()),
+		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
+		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+		mcp.WithBoolean("includeFrontmatter", mcp.Description("Include parsed frontmatter (default false)")),
+		mcp.WithBoolean("includeBacklinks", mcp.Description("Include backlinks targeting these notes (default true)")),
+		mcp.WithBoolean("includeNeighbors", mcp.Description("Include neighbors and community classifications (default true)")),
+		mcp.WithBoolean("includeTags", mcp.Description("Include top tags in community summary (default true)")),
+		mcp.WithNumber("neighborLimit", mcp.Description("Maximum neighbors to return per direction (default 50)"), mcp.Min(1)),
+		mcp.WithNumber("backlinksLimit", mcp.Description("Maximum backlinks to return per note (default 50)"), mcp.Min(1)),
+		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
+		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
+	)
+	s.AddTool(noteContextTool, NoteContextTool(config))
+
+	vaultContextTool := mcp.NewTool("vault_context",
+		mcp.WithDescription(`Compact vault summary: graph stats, orphan counts, weak components, top communities (size/fraction/density/anchor/top tags and notes/bridges), key notes (anchors/bridges/top PageRank), optional MOC/key-note list sourced from patterns (config or keyPatterns), and optional embedded note_context payloads. Response: {stats, orphanCount, topOrphans?, components?, communities:[{id,size,fractionOfVault,anchor,density,topTags,topPagerank,bridgesDetailed}], keyNotes?, mocs?, keyPatterns?, noteContexts?}.`),
+		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
+		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
+		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
+		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
+		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
+		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 10)"), mcp.Min(1)),
+		mcp.WithNumber("communityTopNotes", mcp.Description("Top PageRank notes per community (default 5)"), mcp.Min(1)),
+		mcp.WithNumber("communityTopTags", mcp.Description("Top tags per community (default 5)"), mcp.Min(1)),
+		mcp.WithNumber("bridgeLimit", mcp.Description("Bridges to include per community (default 3)"), mcp.Min(1)),
+		mcp.WithNumber("topOrphans", mcp.Description("Top orphan notes to list (default 10)"), mcp.Min(1)),
+		mcp.WithNumber("topComponents", mcp.Description("Top weak components to summarize (default 5)"), mcp.Min(1)),
+		mcp.WithNumber("topNotes", mcp.Description("Top global PageRank notes to include (default 10)"), mcp.Min(1)),
+		mcp.WithArray("keyPatterns", mcp.Description("Optional patterns (find:/tag:/paths) to surface as key/MOC notes; defaults to vault config keyNotePatterns"), mcp.WithStringItems()),
+		mcp.WithArray("contextFiles", mcp.Description("Optional files to include embedded note_context payloads for (vault-relative or absolute, returned in input order)"), mcp.WithStringItems()),
+		mcp.WithBoolean("contextIncludeBacklinks", mcp.Description("Include backlinks in noteContexts (default true)")),
+		mcp.WithBoolean("contextIncludeFrontmatter", mcp.Description("Include frontmatter in noteContexts (default false)")),
+		mcp.WithBoolean("contextIncludeNeighbors", mcp.Description("Include neighbors in noteContexts (default true)")),
+		mcp.WithBoolean("contextIncludeTags", mcp.Description("Include tags in noteContexts (default true)")),
+		mcp.WithNumber("contextNeighborLimit", mcp.Description("Max neighbors to return per direction in embedded contexts (default 50)"), mcp.Min(1)),
+		mcp.WithNumber("contextBacklinksLimit", mcp.Description("Max backlinks to return per note in embedded contexts (default 50)"), mcp.Min(1)),
+	)
+	s.AddTool(vaultContextTool, VaultContextTool(config))
 
 	// Register daily_note tool (returns content)
 	dailyNoteTool := mcp.NewTool("daily_note",

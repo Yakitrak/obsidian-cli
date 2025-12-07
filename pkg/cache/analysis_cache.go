@@ -234,11 +234,27 @@ func cloneGraphAnalysis(src *obsidian.GraphAnalysis) *obsidian.GraphAnalysis {
 		copyAnalysis.Nodes[k] = node
 	}
 
-	copyAnalysis.Communities = append([]obsidian.CommunitySummary(nil), src.Communities...)
+	copyAnalysis.Communities = cloneCommunities(src.Communities)
 	copyAnalysis.StrongComponents = clone2D(src.StrongComponents)
 	copyAnalysis.WeakComponents = clone2D(src.WeakComponents)
 	copyAnalysis.Orphans = append([]string(nil), src.Orphans...)
 	return &copyAnalysis
+}
+
+func cloneCommunities(src []obsidian.CommunitySummary) []obsidian.CommunitySummary {
+	out := make([]obsidian.CommunitySummary, len(src))
+	for i, c := range src {
+		out[i] = obsidian.CommunitySummary{
+			ID:          c.ID,
+			Nodes:       append([]string(nil), c.Nodes...),
+			TopTags:     append([]obsidian.TagCount(nil), c.TopTags...),
+			TopPagerank: append([]string(nil), c.TopPagerank...),
+			Anchor:      c.Anchor,
+			Density:     c.Density,
+			Bridges:     append([]string(nil), c.Bridges...),
+		}
+	}
+	return out
 }
 
 func clone2D(src [][]string) [][]string {

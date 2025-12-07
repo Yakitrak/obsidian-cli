@@ -61,53 +61,164 @@ type PropertyListResponse struct {
 	Properties []actions.PropertySummary `json:"properties"`
 }
 
+// BridgePayload captures cross-community bridge strength for a node.
+type BridgePayload struct {
+	Path                string `json:"path"`
+	CrossCommunityEdges int    `json:"crossCommunityEdges,omitempty"`
+}
+
 // GraphNodePayload captures node-level metrics for MCP clients.
 type GraphNodePayload struct {
-	Path      string   `json:"path"`
-	Title     string   `json:"title"`
-	Inbound   int      `json:"inbound"`
-	Outbound  int      `json:"outbound"`
-	Pagerank  float64  `json:"pagerank"`
-	Community string   `json:"community"`
-	SCC       string   `json:"scc"`
-	Neighbors []string `json:"neighbors,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	WeakComp  string   `json:"weakComponent,omitempty"`
+	Path        string   `json:"path"`
+	Title       string   `json:"title"`
+	Inbound     int      `json:"inbound"`
+	Outbound    int      `json:"outbound"`
+	Pagerank    float64  `json:"pagerank"`
+	Community   string   `json:"community"`
+	SCC         string   `json:"scc"`
+	Neighbors   []string `json:"neighbors,omitempty"`
+	LinksOut    []string `json:"linksOut,omitempty"`
+	LinksIn     []string `json:"linksIn,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	WeakComp    string   `json:"weakComponent,omitempty"`
+	IsBridge    bool     `json:"isBridge,omitempty"`
+	BridgeEdges int      `json:"bridgeEdges,omitempty"`
 }
 
 // GraphCommunityPayload summarizes a community.
 type GraphCommunityPayload struct {
-	ID          string              `json:"id"`
-	Nodes       []string            `json:"nodes"`
-	TopTags     []obsidian.TagCount `json:"topTags,omitempty"`
-	TopPagerank []string            `json:"topPagerank,omitempty"`
-	Anchor      string              `json:"anchor,omitempty"`
-	Density     float64             `json:"density,omitempty"`
-	Bridges     []string            `json:"bridges,omitempty"`
+	ID              string              `json:"id"`
+	Size            int                 `json:"size"`
+	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
+	Nodes           []string            `json:"nodes,omitempty"`
+	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
+	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	Anchor          string              `json:"anchor,omitempty"`
+	Density         float64             `json:"density,omitempty"`
+	Bridges         []string            `json:"bridges,omitempty"`
+	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
 }
 
 // CommunityListResponse summarizes communities.
 type CommunityListResponse struct {
 	Communities []GraphCommunityPayload    `json:"communities"`
 	Stats       obsidian.GraphStatsSummary `json:"stats"`
+	OrphanCount int                        `json:"orphanCount,omitempty"`
+	Orphans     []string                   `json:"orphans,omitempty"`
+	Components  []ComponentSummary         `json:"components,omitempty"`
+}
+
+// ComponentSummary captures weak component sizes for global structure awareness.
+type ComponentSummary struct {
+	ID              string  `json:"id"`
+	Size            int     `json:"size"`
+	FractionOfVault float64 `json:"fractionOfVault,omitempty"`
 }
 
 // CommunityDetailResponse provides full detail for a single community.
 type CommunityDetailResponse struct {
-	ID            string              `json:"id"`
-	Anchor        string              `json:"anchor,omitempty"`
-	Size          int                 `json:"size"`
-	Density       float64             `json:"density,omitempty"`
-	Bridges       []string            `json:"bridges,omitempty"`
-	TopTags       []obsidian.TagCount `json:"topTags,omitempty"`
-	TopPagerank   []string            `json:"topPagerank,omitempty"`
-	Members       []GraphNodePayload  `json:"members"`
-	InternalEdges int                 `json:"internalEdges,omitempty"`
+	ID              string              `json:"id"`
+	Anchor          string              `json:"anchor,omitempty"`
+	Size            int                 `json:"size"`
+	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
+	Density         float64             `json:"density,omitempty"`
+	Bridges         []string            `json:"bridges,omitempty"`
+	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
+	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
+	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	Members         []GraphNodePayload  `json:"members"`
+	InternalEdges   int                 `json:"internalEdges,omitempty"`
 }
 
 // OrphansResponse describes orphaned note paths.
 type OrphansResponse struct {
 	Orphans []string `json:"orphans"`
+}
+
+// NeighborRef captures a neighbor path with its community for richer context.
+type NeighborRef struct {
+	Path      string `json:"path"`
+	Community string `json:"community,omitempty"`
+}
+
+// NoteGraphContext summarizes graph metrics for a single note.
+type NoteGraphContext struct {
+	Inbound            int     `json:"inbound"`
+	Outbound           int     `json:"outbound"`
+	Pagerank           float64 `json:"pagerank"`
+	PagerankPercentile float64 `json:"pagerankPercentile,omitempty"`
+	IsOrphan           bool    `json:"isOrphan"`
+	WeakComponent      string  `json:"weakComponent,omitempty"`
+	StrongComponent    string  `json:"strongComponent,omitempty"`
+}
+
+// NoteCommunityContext captures the community around a note.
+type NoteCommunityContext struct {
+	ID              string              `json:"id"`
+	Size            int                 `json:"size"`
+	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
+	Density         float64             `json:"density,omitempty"`
+	Anchor          string              `json:"anchor,omitempty"`
+	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
+	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	Bridges         []BridgePayload     `json:"bridges,omitempty"`
+	IsBridge        bool                `json:"isBridge,omitempty"`
+}
+
+// NoteNeighbors distinguishes inbound/outbound and community boundaries.
+type NoteNeighbors struct {
+	LinksOut       []NeighborRef `json:"linksOut,omitempty"`
+	LinksIn        []NeighborRef `json:"linksIn,omitempty"`
+	SameCommunity  []string      `json:"sameCommunity,omitempty"`
+	CrossCommunity []NeighborRef `json:"crossCommunity,omitempty"`
+}
+
+// NoteContextResponse is returned by the note_context tool.
+type NoteContextResponse struct {
+	Path               string                 `json:"path"`
+	Title              string                 `json:"title,omitempty"`
+	Error              string                 `json:"error,omitempty"`
+	Tags               []string               `json:"tags,omitempty"`
+	Frontmatter        map[string]interface{} `json:"frontmatter,omitempty"`
+	Graph              NoteGraphContext       `json:"graph,omitempty"`
+	Community          NoteCommunityContext   `json:"community,omitempty"`
+	Neighbors          NoteNeighbors          `json:"neighbors,omitempty"`
+	Backlinks          []obsidian.Backlink    `json:"backlinks,omitempty"`
+	NeighborsTruncated bool                   `json:"neighborsTruncated,omitempty"`
+	NeighborsLimit     int                    `json:"neighborsLimit,omitempty"`
+	BacklinksTruncated bool                   `json:"backlinksTruncated,omitempty"`
+	BacklinksLimit     int                    `json:"backlinksLimit,omitempty"`
+}
+
+// VaultContextResponse summarizes the vault for agents.
+type VaultContextResponse struct {
+	Stats        obsidian.GraphStatsSummary `json:"stats"`
+	OrphanCount  int                        `json:"orphanCount"`
+	TopOrphans   []string                   `json:"topOrphans,omitempty"`
+	Components   []ComponentSummary         `json:"components,omitempty"`
+	Communities  []CommunityOverview        `json:"communities"`
+	KeyNotes     []string                   `json:"keyNotes,omitempty"`
+	MOCs         []KeyNoteMatch             `json:"mocs,omitempty"`
+	KeyPatterns  []string                   `json:"keyPatterns,omitempty"`
+	NoteContexts []NoteContextResponse      `json:"noteContexts,omitempty"`
+}
+
+// CommunityOverview is a lightweight community summary for vault_context.
+type CommunityOverview struct {
+	ID              string              `json:"id"`
+	Size            int                 `json:"size"`
+	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
+	Anchor          string              `json:"anchor,omitempty"`
+	Density         float64             `json:"density,omitempty"`
+	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
+	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
+}
+
+// KeyNoteMatch captures a key/MOC note and which pattern matched.
+type KeyNoteMatch struct {
+	Path    string `json:"path"`
+	Pattern string `json:"pattern,omitempty"`
 }
 
 // TagMutationResult describes the JSON shape returned by tag mutators
@@ -605,6 +716,10 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 			return mcp.NewToolResultError(fmt.Sprintf("error computing communities: %s", err)), nil
 		}
 
+		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
+		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
+
 		maxCommunities := 25
 		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
 			maxCommunities = int(v)
@@ -619,24 +734,31 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 			if idx >= maxCommunities {
 				break
 			}
+			size := len(comm.Nodes)
 			topPagerank := comm.TopPagerank
 			if len(topPagerank) > maxTopNotes {
 				topPagerank = topPagerank[:maxTopNotes]
 			}
 			comms = append(comms, GraphCommunityPayload{
-				ID:          comm.ID,
-				Nodes:       nil, // omit members from list response
-				TopTags:     comm.TopTags,
-				TopPagerank: topPagerank,
-				Anchor:      comm.Anchor,
-				Density:     comm.Density,
-				Bridges:     comm.Bridges,
+				ID:              comm.ID,
+				Size:            size,
+				FractionOfVault: fractionOfVault(size, analysis.Stats.NodeCount),
+				Nodes:           nil, // omit members from list response
+				TopTags:         comm.TopTags,
+				TopPagerank:     topPagerank,
+				Anchor:          comm.Anchor,
+				Density:         comm.Density,
+				Bridges:         comm.Bridges,
+				BridgesDetailed: bridgePayloads(comm.Bridges, bridgeCounts),
 			})
 		}
 
 		resp := CommunityListResponse{
 			Communities: comms,
 			Stats:       analysis.Stats,
+			OrphanCount: len(analysis.Orphans),
+			Orphans:     analysis.Orphans,
+			Components:  componentSummariesFromWeak(analysis.WeakComponents, analysis.Nodes, analysis.Stats.NodeCount),
 		}
 		encoded, err := json.Marshal(resp)
 		if err != nil {
@@ -714,6 +836,10 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
 		}
 
+		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
+		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
+
 		var target *obsidian.CommunitySummary
 		if strings.TrimSpace(id) != "" {
 			for i := range analysis.Communities {
@@ -735,14 +861,13 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 			if _, ok := analysis.Nodes[normalized]; !ok {
 				return mcp.NewToolResultError(fmt.Sprintf("file %s not found in graph (use vault-relative path and check include/exclude filters)", file)), nil
 			}
-			lookup := obsidian.CommunityMembershipLookup(analysis.Communities)
-			target = lookup[normalized]
+			target = communityLookup[normalized]
 			if target == nil {
 				return mcp.NewToolResultError(fmt.Sprintf("file %s is not assigned to a community under current filters", file)), nil
 			}
 		}
 
-		resp := communityDetailPayload(target, analysis, includeTags, includeNeighbors, limit)
+		resp := communityDetailPayload(target, analysis, includeTags, includeNeighbors, limit, reverseNeighbors, bridgeCounts)
 
 		encoded, err := json.Marshal(resp)
 		if err != nil {
@@ -783,7 +908,450 @@ func rankMembers(members []string, nodes map[string]obsidian.GraphNode) []ranked
 	return list
 }
 
-func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, includeTags bool, includeNeighbors bool, limit int) CommunityDetailResponse {
+func buildReverseNeighbors(nodes map[string]obsidian.GraphNode) map[string][]string {
+	reverse := make(map[string][]string, len(nodes))
+	for path := range nodes {
+		reverse[path] = nil
+	}
+	for src, node := range nodes {
+		for _, dst := range node.Neighbors {
+			reverse[dst] = append(reverse[dst], src)
+		}
+	}
+	for path := range reverse {
+		sort.Strings(reverse[path])
+	}
+	return reverse
+}
+
+func crossCommunityEdgeCounts(nodes map[string]obsidian.GraphNode, reverse map[string][]string, membership map[string]*obsidian.CommunitySummary) map[string]int {
+	counts := make(map[string]int, len(nodes))
+
+	for src, node := range nodes {
+		var srcComm string
+		if comm := membership[src]; comm != nil {
+			srcComm = comm.ID
+		}
+		for _, dst := range node.Neighbors {
+			var dstComm string
+			if comm := membership[dst]; comm != nil {
+				dstComm = comm.ID
+			}
+			if srcComm != "" && dstComm != "" && srcComm != dstComm {
+				counts[src]++
+			}
+		}
+	}
+
+	for dst, sources := range reverse {
+		var dstComm string
+		if comm := membership[dst]; comm != nil {
+			dstComm = comm.ID
+		}
+		for _, src := range sources {
+			var srcComm string
+			if comm := membership[src]; comm != nil {
+				srcComm = comm.ID
+			}
+			if srcComm != "" && dstComm != "" && srcComm != dstComm {
+				counts[dst]++
+			}
+		}
+	}
+
+	return counts
+}
+
+func bridgePayloads(paths []string, counts map[string]int) []BridgePayload {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := make([]BridgePayload, 0, len(paths))
+	for _, p := range paths {
+		out = append(out, BridgePayload{
+			Path:                p,
+			CrossCommunityEdges: counts[p],
+		})
+	}
+	return out
+}
+
+func componentSummariesFromWeak(components [][]string, nodes map[string]obsidian.GraphNode, total int) []ComponentSummary {
+	if len(components) == 0 {
+		return nil
+	}
+	summaries := make([]ComponentSummary, 0, len(components))
+	for idx, comp := range components {
+		if len(comp) == 0 {
+			summaries = append(summaries, ComponentSummary{
+				ID:   fmt.Sprintf("comp%d", idx),
+				Size: 0,
+			})
+			continue
+		}
+		id := nodes[comp[0]].WeakCompID
+		if id == "" {
+			id = fmt.Sprintf("comp%d", idx)
+		}
+		size := len(comp)
+		summaries = append(summaries, ComponentSummary{
+			ID:              id,
+			Size:            size,
+			FractionOfVault: fractionOfVault(size, total),
+		})
+	}
+	return summaries
+}
+
+func fractionOfVault(size int, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(size) / float64(total)
+}
+
+func isBridgeNode(path string, bridgeSet map[string]struct{}, counts map[string]int) bool {
+	if _, ok := bridgeSet[path]; ok {
+		return true
+	}
+	return counts[path] > 0
+}
+
+func neighborRefs(paths []string, membership map[string]*obsidian.CommunitySummary) []NeighborRef {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := make([]NeighborRef, 0, len(paths))
+	for _, p := range paths {
+		ref := NeighborRef{
+			Path:      p,
+			Community: "",
+		}
+		if comm := membership[p]; comm != nil {
+			ref.Community = comm.ID
+		}
+		out = append(out, ref)
+	}
+	return out
+}
+
+func sortedStringsFromSet(set map[string]struct{}) []string {
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sortedNeighborRefsFromMap(m map[string]NeighborRef) []NeighborRef {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]NeighborRef, 0, len(m))
+	for _, ref := range m {
+		out = append(out, ref)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Path < out[j].Path
+	})
+	return out
+}
+
+func pagerankPercentile(nodes map[string]obsidian.GraphNode, target string) float64 {
+	if len(nodes) == 0 {
+		return 0
+	}
+	targetPR := nodes[target].Pagerank
+	total := len(nodes)
+	if total == 0 {
+		return 0
+	}
+	count := 0
+	for _, n := range nodes {
+		if n.Pagerank <= targetPR {
+			count++
+		}
+	}
+	return float64(count) / float64(total)
+}
+
+func normalizeInputFile(file string, config Config) string {
+	normalized := obsidian.NormalizePath(obsidian.AddMdSuffix(file))
+	if filepath.IsAbs(file) && config.VaultPath != "" {
+		if rel, err := filepath.Rel(config.VaultPath, file); err == nil {
+			normalized = obsidian.NormalizePath(obsidian.AddMdSuffix(rel))
+		}
+	}
+	return normalized
+}
+
+func extractStringArray(raw interface{}) []string {
+	switch v := raw.(type) {
+	case []string:
+		return v
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		return []string{v}
+	default:
+		return nil
+	}
+}
+
+func topPagerankAcrossGraph(nodes map[string]obsidian.GraphNode, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	type pr struct {
+		path string
+		val  float64
+	}
+	list := make([]pr, 0, len(nodes))
+	for path, n := range nodes {
+		list = append(list, pr{path: path, val: n.Pagerank})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].val == list[j].val {
+			return list[i].path < list[j].path
+		}
+		return list[i].val > list[j].val
+	})
+	if len(list) > limit {
+		list = list[:limit]
+	}
+	out := make([]string, len(list))
+	for i, item := range list {
+		out[i] = item.path
+	}
+	return out
+}
+
+// truncateNeighborRefs sorts neighbors by PageRank (descending) before truncating,
+// so the most important neighbors are kept when the limit is applied.
+func truncateNeighborRefs(refs []NeighborRef, limit int, nodes map[string]obsidian.GraphNode) ([]NeighborRef, bool) {
+	if len(refs) == 0 {
+		return refs, false
+	}
+	// Sort by PageRank descending (highest first), then by path for stability
+	sorted := make([]NeighborRef, len(refs))
+	copy(sorted, refs)
+	sort.Slice(sorted, func(i, j int) bool {
+		prI, prJ := 0.0, 0.0
+		if n, ok := nodes[sorted[i].Path]; ok {
+			prI = n.Pagerank
+		}
+		if n, ok := nodes[sorted[j].Path]; ok {
+			prJ = n.Pagerank
+		}
+		if prI != prJ {
+			return prI > prJ
+		}
+		return sorted[i].Path < sorted[j].Path
+	})
+	if limit <= 0 || len(sorted) <= limit {
+		return sorted, false
+	}
+	return sorted[:limit], true
+}
+
+// truncateBacklinks sorts backlinks by PageRank (descending) before truncating,
+// so the most important referrers are kept when the limit is applied.
+func truncateBacklinks(backs []obsidian.Backlink, limit int, nodes map[string]obsidian.GraphNode) ([]obsidian.Backlink, bool) {
+	if len(backs) == 0 {
+		return backs, false
+	}
+	// Sort by PageRank descending (highest first), then by path for stability
+	sorted := make([]obsidian.Backlink, len(backs))
+	copy(sorted, backs)
+	sort.Slice(sorted, func(i, j int) bool {
+		prI, prJ := 0.0, 0.0
+		if n, ok := nodes[sorted[i].Referrer]; ok {
+			prI = n.Pagerank
+		}
+		if n, ok := nodes[sorted[j].Referrer]; ok {
+			prJ = n.Pagerank
+		}
+		if prI != prJ {
+			return prI > prJ
+		}
+		return sorted[i].Referrer < sorted[j].Referrer
+	})
+	if limit <= 0 || len(sorted) <= limit {
+		return sorted, false
+	}
+	return sorted[:limit], true
+}
+
+func findKeyNotes(config Config, patterns []string) ([]KeyNoteMatch, error) {
+	if len(patterns) == 0 {
+		return nil, nil
+	}
+	note := resolveNoteManager(config)
+	parsed, expr, err := actions.ParseInputsWithExpression(patterns)
+	if err != nil {
+		return nil, err
+	}
+
+	unique := make(map[string]struct{})
+	order := make([]string, 0)
+	_, err = actions.ListFiles(config.Vault, note, actions.ListParams{
+		Inputs:        parsed,
+		Expression:    expr,
+		MaxDepth:      0,
+		SkipAnchors:   false,
+		SkipEmbeds:    false,
+		AbsolutePaths: false,
+		OnMatch: func(file string) {
+			if _, ok := unique[file]; !ok {
+				unique[file] = struct{}{}
+				order = append(order, file)
+			}
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Normalize to vault-relative with .md suffix to stay consistent with graph payloads.
+	matches := make([]KeyNoteMatch, 0, len(order))
+	for _, p := range order {
+		norm := obsidian.NormalizePath(obsidian.AddMdSuffix(p))
+		matches = append(matches, KeyNoteMatch{Path: norm})
+	}
+	// Attach the first pattern as a hint when single-pattern search; when multiple, leave pattern empty (multiple possible).
+	if len(patterns) == 1 {
+		for i := range matches {
+			matches[i].Pattern = patterns[0]
+		}
+	}
+	return matches, nil
+}
+
+func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeighbors map[string][]string, membership map[string]*obsidian.CommunitySummary, bridgeCounts map[string]int, note obsidian.NoteManager, config Config, includeTags bool, includeNeighbors bool, includeFrontmatter bool, includeBacklinks bool, backlinks map[string][]obsidian.Backlink, neighborLimit int, backlinksLimit int) (NoteContextResponse, error) {
+	node, ok := analysis.Nodes[path]
+	if !ok {
+		return NoteContextResponse{}, fmt.Errorf("file %s not found in graph (use vault-relative path and check include/exclude filters)", path)
+	}
+
+	comm := membership[path]
+	if comm == nil {
+		return NoteContextResponse{}, fmt.Errorf("file %s is not assigned to a community under current filters", path)
+	}
+
+	bridgeSet := make(map[string]struct{}, len(comm.Bridges))
+	for _, b := range comm.Bridges {
+		bridgeSet[b] = struct{}{}
+	}
+
+	info, err := actions.GetFileInfo(config.Vault, note, path)
+	if err != nil {
+		return NoteContextResponse{}, fmt.Errorf("error reading file info: %s", err)
+	}
+
+	var backs []obsidian.Backlink
+	backlinksTruncated := false
+	if includeBacklinks {
+		if backlinks != nil {
+			if list, ok := backlinks[path]; ok {
+				backs, backlinksTruncated = truncateBacklinks(list, backlinksLimit, analysis.Nodes)
+			} else {
+				backs = []obsidian.Backlink{}
+			}
+		} else {
+			blOptions := obsidian.WikilinkOptions{}
+			var data map[string][]obsidian.Backlink
+			if config.AnalysisCache != nil {
+				if data, err = config.AnalysisCache.Backlinks(config.VaultPath, note, []string{path}, blOptions, config.SuppressedTags); err != nil {
+					return NoteContextResponse{}, fmt.Errorf("error collecting backlinks: %s", err)
+				}
+			}
+			if list, ok := data[path]; ok {
+				backs, backlinksTruncated = truncateBacklinks(list, backlinksLimit, analysis.Nodes)
+			}
+		}
+	}
+
+	neighborContext := NoteNeighbors{}
+	neighborsTruncated := false
+	if includeNeighbors {
+		linksOutRefs := neighborRefs(node.Neighbors, membership)
+		linksInRefs := neighborRefs(reverseNeighbors[path], membership)
+		linksOutRefs, outTrunc := truncateNeighborRefs(linksOutRefs, neighborLimit, analysis.Nodes)
+		linksInRefs, inTrunc := truncateNeighborRefs(linksInRefs, neighborLimit, analysis.Nodes)
+		sameSet := make(map[string]struct{})
+		crossMap := make(map[string]NeighborRef)
+		for _, ref := range append(linksOutRefs, linksInRefs...) {
+			if ref.Community == "" {
+				continue
+			}
+			if ref.Community == comm.ID {
+				sameSet[ref.Path] = struct{}{}
+			} else {
+				if _, ok := crossMap[ref.Path]; !ok {
+					crossMap[ref.Path] = ref
+				}
+			}
+		}
+		neighborContext.LinksOut = linksOutRefs
+		neighborContext.LinksIn = linksInRefs
+		neighborContext.SameCommunity = sortedStringsFromSet(sameSet)
+		neighborContext.CrossCommunity = sortedNeighborRefsFromMap(crossMap)
+		neighborsTruncated = outTrunc || inTrunc
+	}
+
+	graphContext := NoteGraphContext{
+		Inbound:            node.Inbound,
+		Outbound:           node.Outbound,
+		Pagerank:           node.Pagerank,
+		PagerankPercentile: pagerankPercentile(analysis.Nodes, path),
+		IsOrphan:           node.Inbound == 0 && node.Outbound == 0,
+		WeakComponent:      node.WeakCompID,
+		StrongComponent:    node.SCC,
+	}
+
+	communityContext := NoteCommunityContext{
+		ID:              comm.ID,
+		Size:            len(comm.Nodes),
+		FractionOfVault: fractionOfVault(len(comm.Nodes), analysis.Stats.NodeCount),
+		Density:         comm.Density,
+		Anchor:          comm.Anchor,
+		TopTags:         comm.TopTags,
+		TopPagerank:     comm.TopPagerank,
+		Bridges:         bridgePayloads(comm.Bridges, bridgeCounts),
+		IsBridge:        isBridgeNode(path, bridgeSet, bridgeCounts),
+	}
+
+	var frontmatter map[string]interface{}
+	if includeFrontmatter && info.Frontmatter != nil {
+		frontmatter = info.Frontmatter
+	}
+
+	return NoteContextResponse{
+		Path:               path,
+		Title:              node.Title,
+		Tags:               info.Tags,
+		Frontmatter:        frontmatter,
+		Graph:              graphContext,
+		Community:          communityContext,
+		Neighbors:          neighborContext,
+		Backlinks:          backs,
+		NeighborsTruncated: neighborsTruncated,
+		NeighborsLimit:     neighborLimit,
+		BacklinksTruncated: backlinksTruncated,
+		BacklinksLimit:     backlinksLimit,
+	}, nil
+}
+
+func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, includeTags bool, includeNeighbors bool, limit int, reverse map[string][]string, bridgeCounts map[string]int) CommunityDetailResponse {
 	edgeCount := obsidian.CommunityInternalEdges(target, analysis.Nodes)
 
 	members := rankMembers(target.Nodes, analysis.Nodes)
@@ -792,20 +1360,31 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 	}
 
 	payloadMembers := make([]GraphNodePayload, 0, len(members))
+	bridgeSet := make(map[string]struct{}, len(target.Bridges))
+	for _, b := range target.Bridges {
+		bridgeSet[b] = struct{}{}
+	}
+
 	for _, m := range members {
+		linksOut := analysis.Nodes[m.path].Neighbors
+		linksIn := reverse[m.path]
 		payload := GraphNodePayload{
-			Path:      m.path,
-			Title:     m.title,
-			Inbound:   m.in,
-			Outbound:  m.out,
-			Pagerank:  m.pr,
-			Community: target.ID,
-			Tags:      m.tags,
-			WeakComp:  analysis.Nodes[m.path].WeakCompID,
-			SCC:       analysis.Nodes[m.path].SCC,
+			Path:        m.path,
+			Title:       m.title,
+			Inbound:     m.in,
+			Outbound:    m.out,
+			Pagerank:    m.pr,
+			Community:   target.ID,
+			Tags:        m.tags,
+			WeakComp:    analysis.Nodes[m.path].WeakCompID,
+			SCC:         analysis.Nodes[m.path].SCC,
+			IsBridge:    isBridgeNode(m.path, bridgeSet, bridgeCounts),
+			BridgeEdges: bridgeCounts[m.path],
 		}
 		if includeNeighbors {
-			payload.Neighbors = analysis.Nodes[m.path].Neighbors
+			payload.Neighbors = linksOut
+			payload.LinksOut = linksOut
+			payload.LinksIn = linksIn
 		}
 		if !includeTags {
 			payload.Tags = nil
@@ -814,15 +1393,382 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 	}
 
 	return CommunityDetailResponse{
-		ID:            target.ID,
-		Anchor:        target.Anchor,
-		Size:          len(target.Nodes),
-		Density:       target.Density,
-		Bridges:       target.Bridges,
-		TopTags:       target.TopTags,
-		TopPagerank:   target.TopPagerank,
-		Members:       payloadMembers,
-		InternalEdges: edgeCount,
+		ID:              target.ID,
+		Anchor:          target.Anchor,
+		Size:            len(target.Nodes),
+		FractionOfVault: fractionOfVault(len(target.Nodes), analysis.Stats.NodeCount),
+		Density:         target.Density,
+		Bridges:         target.Bridges,
+		BridgesDetailed: bridgePayloads(target.Bridges, bridgeCounts),
+		TopTags:         target.TopTags,
+		TopPagerank:     target.TopPagerank,
+		Members:         payloadMembers,
+		InternalEdges:   edgeCount,
+	}
+}
+
+// NoteContextTool returns a single-note context (graph + community + backlinks).
+// NoteContextTool returns graph + community context for one or more notes.
+func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+		files := extractStringArray(args["files"])
+		if len(files) == 0 {
+			return mcp.NewToolResultError("files is required (array of paths)"), nil
+		}
+
+		skipAnchors, _ := args["skipAnchors"].(bool)
+		skipEmbeds, _ := args["skipEmbeds"].(bool)
+		includeFrontmatter, _ := args["includeFrontmatter"].(bool)
+		includeBacklinks := true
+		if v, ok := args["includeBacklinks"].(bool); ok {
+			includeBacklinks = v
+		}
+		includeNeighbors := true
+		if v, ok := args["includeNeighbors"].(bool); ok {
+			includeNeighbors = v
+		}
+		includeTags := true
+		if v, ok := args["includeTags"].(bool); ok {
+			includeTags = v
+		}
+		neighborLimit := 50
+		if v, ok := args["neighborLimit"].(float64); ok && int(v) > 0 {
+			neighborLimit = int(v)
+		}
+		backlinksLimit := 50
+		if v, ok := args["backlinksLimit"].(float64); ok && int(v) > 0 {
+			backlinksLimit = int(v)
+		}
+		minDegree := 0
+		if v, ok := args["minDegree"].(float64); ok {
+			minDegree = int(v)
+		}
+		mutualOnly, _ := args["mutualOnly"].(bool)
+
+		var exclude []string
+		var include []string
+		if raw, ok := args["exclude"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					exclude = append(exclude, s)
+				}
+			}
+		} else if raw, ok := args["exclude"].([]string); ok {
+			exclude = raw
+		}
+		if raw, ok := args["include"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					include = append(include, s)
+				}
+			}
+		} else if raw, ok := args["include"].([]string); ok {
+			include = raw
+		}
+		exclude = actions.ExpandPatterns(exclude)
+		include = actions.ExpandPatterns(include)
+
+		note := resolveNoteManager(config)
+		analysis, err := actions.GraphAnalysis(config.Vault, note, actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: skipAnchors,
+					SkipEmbeds:  skipEmbeds,
+				},
+				IncludeTags: includeTags,
+				MinDegree:   minDegree,
+				MutualOnly:  mutualOnly,
+			},
+			ExcludePatterns: exclude,
+			IncludePatterns: include,
+			AnalysisCache:   config.AnalysisCache,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
+		}
+
+		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
+		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
+
+		normalizedTargets := make([]string, 0, len(files))
+		for _, f := range files {
+			normalizedTargets = append(normalizedTargets, normalizeInputFile(f, config))
+		}
+
+		var backlinks map[string][]obsidian.Backlink
+		if includeBacklinks {
+			blOptions := obsidian.WikilinkOptions{SkipAnchors: skipAnchors, SkipEmbeds: skipEmbeds}
+			if config.AnalysisCache != nil {
+				backlinks, err = config.AnalysisCache.Backlinks(config.VaultPath, note, normalizedTargets, blOptions, config.SuppressedTags)
+			} else {
+				backlinks, err = obsidian.CollectBacklinks(config.VaultPath, note, normalizedTargets, blOptions, config.SuppressedTags)
+			}
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("error collecting backlinks: %s", err)), nil
+			}
+		}
+
+		contexts := make([]NoteContextResponse, 0, len(normalizedTargets))
+		for _, norm := range normalizedTargets {
+			ctxResp, err := buildNoteContext(norm, analysis, reverseNeighbors, communityLookup, bridgeCounts, note, config, includeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
+			if err != nil {
+				// Return partial result with error instead of failing the whole batch
+				contexts = append(contexts, NoteContextResponse{
+					Path:  norm,
+					Error: err.Error(),
+				})
+			} else {
+				contexts = append(contexts, ctxResp)
+			}
+		}
+
+		payload := map[string]interface{}{
+			"contexts": contexts,
+			"count":    len(contexts),
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling note contexts: %s", err)), nil
+		}
+		return mcp.NewToolResultText(string(encoded)), nil
+	}
+}
+
+// VaultContextTool provides a compact, high-signal snapshot of the vault.
+func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := request.GetArguments()
+		skipAnchors, _ := args["skipAnchors"].(bool)
+		skipEmbeds, _ := args["skipEmbeds"].(bool)
+		includeTags := true
+		if v, ok := args["includeTags"].(bool); ok {
+			includeTags = v
+		}
+		minDegree := 0
+		if v, ok := args["minDegree"].(float64); ok {
+			minDegree = int(v)
+		}
+		mutualOnly, _ := args["mutualOnly"].(bool)
+		var exclude []string
+		var include []string
+		if raw, ok := args["exclude"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					exclude = append(exclude, s)
+				}
+			}
+		} else if raw, ok := args["exclude"].([]string); ok {
+			exclude = raw
+		}
+		if raw, ok := args["include"].([]interface{}); ok {
+			for _, v := range raw {
+				if s, ok := v.(string); ok {
+					include = append(include, s)
+				}
+			}
+		} else if raw, ok := args["include"].([]string); ok {
+			include = raw
+		}
+		exclude = actions.ExpandPatterns(exclude)
+		include = actions.ExpandPatterns(include)
+
+		maxCommunities := 10
+		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
+			maxCommunities = int(v)
+		}
+		communityMemberLimit := 5
+		if v, ok := args["communityTopNotes"].(float64); ok && int(v) > 0 {
+			communityMemberLimit = int(v)
+		}
+		communityTagsLimit := 5
+		if v, ok := args["communityTopTags"].(float64); ok && int(v) > 0 {
+			communityTagsLimit = int(v)
+		}
+		bridgeLimit := 3
+		if v, ok := args["bridgeLimit"].(float64); ok && int(v) > 0 {
+			bridgeLimit = int(v)
+		}
+		topOrphansLimit := 10
+		if v, ok := args["topOrphans"].(float64); ok && int(v) > 0 {
+			topOrphansLimit = int(v)
+		}
+		topComponentsLimit := 5
+		if v, ok := args["topComponents"].(float64); ok && int(v) > 0 {
+			topComponentsLimit = int(v)
+		}
+		topGlobalPRLimit := 10
+		if v, ok := args["topNotes"].(float64); ok && int(v) > 0 {
+			topGlobalPRLimit = int(v)
+		}
+		contextFiles := extractStringArray(args["contextFiles"])
+		contextIncludeBacklinks := true
+		if v, ok := args["contextIncludeBacklinks"].(bool); ok {
+			contextIncludeBacklinks = v
+		}
+		contextIncludeFrontmatter, _ := args["contextIncludeFrontmatter"].(bool)
+		contextIncludeNeighbors := true
+		if v, ok := args["contextIncludeNeighbors"].(bool); ok {
+			contextIncludeNeighbors = v
+		}
+		contextIncludeTags := true
+		if v, ok := args["contextIncludeTags"].(bool); ok {
+			contextIncludeTags = v
+		}
+		contextNeighborLimit := 50
+		if v, ok := args["contextNeighborLimit"].(float64); ok && int(v) > 0 {
+			contextNeighborLimit = int(v)
+		}
+		contextBacklinksLimit := 50
+		if v, ok := args["contextBacklinksLimit"].(float64); ok && int(v) > 0 {
+			contextBacklinksLimit = int(v)
+		}
+
+		keyPatterns := extractStringArray(args["keyPatterns"])
+		if len(keyPatterns) == 0 && config.VaultPath != "" {
+			if cfg, err := obsidian.LoadVaultGraphConfig(config.VaultPath); err == nil {
+				keyPatterns = append(keyPatterns, cfg.KeyNotePatterns...)
+			}
+		}
+
+		note := resolveNoteManager(config)
+		analysis, err := actions.GraphAnalysis(config.Vault, note, actions.GraphAnalysisParams{
+			UseConfig: true,
+			Options: obsidian.GraphAnalysisOptions{
+				WikilinkOptions: obsidian.WikilinkOptions{
+					SkipAnchors: skipAnchors,
+					SkipEmbeds:  skipEmbeds,
+				},
+				IncludeTags: includeTags,
+				MinDegree:   minDegree,
+				MutualOnly:  mutualOnly,
+			},
+			ExcludePatterns: exclude,
+			IncludePatterns: include,
+			AnalysisCache:   config.AnalysisCache,
+		})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
+		}
+
+		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
+		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
+		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
+
+		communities := make([]CommunityOverview, 0, len(analysis.Communities))
+		for idx, comm := range analysis.Communities {
+			if idx >= maxCommunities {
+				break
+			}
+			topTags := comm.TopTags
+			if len(topTags) > communityTagsLimit {
+				topTags = topTags[:communityTagsLimit]
+			}
+			topPR := comm.TopPagerank
+			if len(topPR) > communityMemberLimit {
+				topPR = topPR[:communityMemberLimit]
+			}
+			bridges := bridgePayloads(comm.Bridges, bridgeCounts)
+			if len(bridges) > bridgeLimit {
+				bridges = bridges[:bridgeLimit]
+			}
+			communities = append(communities, CommunityOverview{
+				ID:              comm.ID,
+				Size:            len(comm.Nodes),
+				FractionOfVault: fractionOfVault(len(comm.Nodes), analysis.Stats.NodeCount),
+				Anchor:          comm.Anchor,
+				Density:         comm.Density,
+				TopTags:         topTags,
+				TopPagerank:     topPR,
+				BridgesDetailed: bridges,
+			})
+		}
+
+		orphans := analysis.Orphans
+		if len(orphans) > topOrphansLimit {
+			orphans = orphans[:topOrphansLimit]
+		}
+
+		components := componentSummariesFromWeak(analysis.WeakComponents, analysis.Nodes, analysis.Stats.NodeCount)
+		if len(components) > topComponentsLimit {
+			components = components[:topComponentsLimit]
+		}
+
+		keySet := make(map[string]struct{})
+		for _, c := range communities {
+			if c.Anchor != "" {
+				keySet[c.Anchor] = struct{}{}
+			}
+			for _, b := range c.BridgesDetailed {
+				if b.Path != "" {
+					keySet[b.Path] = struct{}{}
+				}
+			}
+			for _, p := range c.TopPagerank {
+				keySet[p] = struct{}{}
+			}
+		}
+		for _, p := range topPagerankAcrossGraph(analysis.Nodes, topGlobalPRLimit) {
+			keySet[p] = struct{}{}
+		}
+		keyNotes := sortedStringsFromSet(keySet)
+
+		mocs, err := findKeyNotes(config, keyPatterns)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error finding key notes: %s", err)), nil
+		}
+
+		var noteContexts []NoteContextResponse
+		if len(contextFiles) > 0 {
+			normalizedTargets := make([]string, 0, len(contextFiles))
+			for _, f := range contextFiles {
+				normalizedTargets = append(normalizedTargets, normalizeInputFile(f, config))
+			}
+			var backlinks map[string][]obsidian.Backlink
+			if contextIncludeBacklinks {
+				blOptions := obsidian.WikilinkOptions{SkipAnchors: skipAnchors, SkipEmbeds: skipEmbeds}
+				if config.AnalysisCache != nil {
+					backlinks, err = config.AnalysisCache.Backlinks(config.VaultPath, note, normalizedTargets, blOptions, config.SuppressedTags)
+				} else {
+					backlinks, err = obsidian.CollectBacklinks(config.VaultPath, note, normalizedTargets, blOptions, config.SuppressedTags)
+				}
+				if err != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("error collecting backlinks for contexts: %s", err)), nil
+				}
+			}
+			for _, norm := range normalizedTargets {
+				ctxResp, err := buildNoteContext(norm, analysis, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
+				if err != nil {
+					// Return partial result with error instead of failing the whole request
+					noteContexts = append(noteContexts, NoteContextResponse{
+						Path:  norm,
+						Error: err.Error(),
+					})
+				} else {
+					noteContexts = append(noteContexts, ctxResp)
+				}
+			}
+		}
+
+		resp := VaultContextResponse{
+			Stats:        analysis.Stats,
+			OrphanCount:  len(analysis.Orphans),
+			TopOrphans:   orphans,
+			Components:   components,
+			Communities:  communities,
+			KeyNotes:     keyNotes,
+			MOCs:         mocs,
+			KeyPatterns:  keyPatterns,
+			NoteContexts: noteContexts,
+		}
+
+		encoded, err := json.Marshal(resp)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("error marshaling vault context: %s", err)), nil
+		}
+		return mcp.NewToolResultText(string(encoded)), nil
 	}
 }
 

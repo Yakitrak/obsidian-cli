@@ -8,7 +8,8 @@ import (
 
 // VaultGraphConfig holds per-vault graph preferences.
 type VaultGraphConfig struct {
-	GraphIgnore []string `json:"graphIgnore,omitempty"`
+	GraphIgnore     []string `json:"graphIgnore,omitempty"`
+	KeyNotePatterns []string `json:"keyNotePatterns,omitempty"`
 }
 
 // LoadVaultGraphConfig loads .obsidian-cli/config.json inside the vault if present.

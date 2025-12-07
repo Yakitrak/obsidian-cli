@@ -396,6 +396,8 @@ func TestCommunityListAndDetailTools(t *testing.T) {
 	var listParsed CommunityListResponse
 	require.NoError(t, json.Unmarshal([]byte(listText.Text), &listParsed))
 	require.NotEmpty(t, listParsed.Communities)
+	assert.Equal(t, len(listParsed.Orphans), listParsed.OrphanCount)
+	assert.Equal(t, 2, listParsed.Communities[0].Size)
 
 	commID := listParsed.Communities[0].ID
 
@@ -404,7 +406,8 @@ func TestCommunityListAndDetailTools(t *testing.T) {
 		Params: mcp.CallToolParams{
 			Name: "community_detail",
 			Arguments: map[string]interface{}{
-				"id": commID,
+				"id":               commID,
+				"includeNeighbors": true,
 			},
 		},
 	}
@@ -419,6 +422,9 @@ func TestCommunityListAndDetailTools(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(detailText.Text), &detailParsed))
 	assert.Equal(t, commID, detailParsed.ID)
 	require.Len(t, detailParsed.Members, 2)
+	assert.InDelta(t, 1.0, detailParsed.FractionOfVault, 1e-9)
+	assert.Len(t, detailParsed.BridgesDetailed, len(detailParsed.Bridges))
+	assert.NotEmpty(t, detailParsed.Members[0].LinksOut)
 
 	fileReq := mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -439,4 +445,144 @@ func TestCommunityListAndDetailTools(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(fileText.Text), &fileParsed))
 	assert.Equal(t, commID, fileParsed.ID)
 	require.Len(t, fileParsed.Members, 2)
+}
+
+func TestNoteContextTool(t *testing.T) {
+	root := t.TempDir()
+	vaultPath := filepath.Join(root, "vault")
+	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "A.md"), []byte("Link to [[B]]"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "B.md"), []byte("Link to [[A]]"), 0o644))
+
+	configFile := filepath.Join(root, "obsidian.json")
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]any{"path": vaultPath},
+		},
+	})
+	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
+	origConfig := obsidian.ObsidianConfigFile
+	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
+	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+
+	cfg := Config{
+		Vault:          &obsidian.Vault{Name: "vault"},
+		VaultPath:      vaultPath,
+		Debug:          false,
+		SuppressedTags: []string{},
+		ReadWrite:      true,
+	}
+
+	tool := NoteContextTool(cfg)
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "note_context",
+			Arguments: map[string]interface{}{
+				"files": []interface{}{"A.md", "B.md"},
+			},
+		},
+	}
+
+	resp, err := tool(context.Background(), req)
+	require.NoError(t, err)
+	require.Len(t, resp.Content, 1)
+	text, ok := resp.Content[0].(mcp.TextContent)
+	require.True(t, ok)
+
+	var parsed map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(text.Text), &parsed))
+	assert.Equal(t, float64(2), parsed["count"])
+
+	// Test partial error handling: one valid file, one missing file
+	reqPartial := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "note_context",
+			Arguments: map[string]interface{}{
+				"files": []interface{}{"A.md", "NonExistent.md"},
+			},
+		},
+	}
+	respPartial, err := tool(context.Background(), reqPartial)
+	require.NoError(t, err)
+	require.Len(t, respPartial.Content, 1)
+	textPartial, ok := respPartial.Content[0].(mcp.TextContent)
+	require.True(t, ok)
+
+	var parsedPartial struct {
+		Contexts []struct {
+			Path  string `json:"path"`
+			Error string `json:"error,omitempty"`
+		} `json:"contexts"`
+		Count int `json:"count"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(textPartial.Text), &parsedPartial))
+	assert.Equal(t, 2, parsedPartial.Count)
+	// First context should succeed
+	assert.Equal(t, "A.md", parsedPartial.Contexts[0].Path)
+	assert.Empty(t, parsedPartial.Contexts[0].Error)
+	// Second context should have error
+	assert.Equal(t, "NonExistent.md", parsedPartial.Contexts[1].Path)
+	assert.Contains(t, parsedPartial.Contexts[1].Error, "not found")
+}
+
+func TestVaultContextTool(t *testing.T) {
+	root := t.TempDir()
+	vaultPath := filepath.Join(root, "vault")
+	require.NoError(t, os.MkdirAll(vaultPath, 0o755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "A.md"), []byte("Link to [[B]]"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "B.md"), []byte("Content"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "MOC.md"), []byte("# MOC"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(vaultPath, "Orphan.md"), []byte(""), 0o644))
+
+	configFile := filepath.Join(root, "obsidian.json")
+	configBody, _ := json.Marshal(map[string]any{
+		"vaults": map[string]any{
+			"random": map[string]any{"path": vaultPath},
+		},
+	})
+	require.NoError(t, os.WriteFile(configFile, configBody, 0o644))
+	origConfig := obsidian.ObsidianConfigFile
+	obsidian.ObsidianConfigFile = func() (string, error) { return configFile, nil }
+	defer func() { obsidian.ObsidianConfigFile = origConfig }()
+
+	cfg := Config{
+		Vault:          &obsidian.Vault{Name: "vault"},
+		VaultPath:      vaultPath,
+		Debug:          false,
+		SuppressedTags: []string{},
+		ReadWrite:      true,
+	}
+
+	tool := VaultContextTool(cfg)
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "vault_context",
+			Arguments: map[string]interface{}{
+				"keyPatterns":  []interface{}{"find:MOC"},
+				"contextFiles": []interface{}{"A.md"},
+			},
+		},
+	}
+
+	resp, err := tool(context.Background(), req)
+	require.NoError(t, err)
+	require.Len(t, resp.Content, 1)
+
+	text, ok := resp.Content[0].(mcp.TextContent)
+	require.True(t, ok)
+
+	var parsed VaultContextResponse
+	require.NoError(t, json.Unmarshal([]byte(text.Text), &parsed))
+
+	assert.Equal(t, 4, parsed.Stats.NodeCount)
+	assert.GreaterOrEqual(t, parsed.OrphanCount, len(parsed.TopOrphans))
+	require.NotEmpty(t, parsed.Communities)
+	assert.Contains(t, parsed.KeyPatterns, "find:MOC")
+	require.NotEmpty(t, parsed.MOCs)
+	assert.Equal(t, "MOC.md", parsed.MOCs[0].Path)
+	assert.Equal(t, "find:MOC", parsed.MOCs[0].Pattern)
+	assert.NotEmpty(t, parsed.KeyNotes)
+	require.NotEmpty(t, parsed.NoteContexts)
 }
