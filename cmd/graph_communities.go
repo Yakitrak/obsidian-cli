@@ -82,6 +82,9 @@ var graphCommunitiesCmd = &cobra.Command{
 			if c.Density > 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "    density: %.3f\n", c.Density)
 			}
+			if c.Recency != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "    recency: %.1f days ago (%d in last %dd)\n", c.Recency.LatestAgeDays, c.Recency.RecentCount, c.Recency.WindowDays)
+			}
 			if len(c.TopTags) > 0 {
 				var tags []string
 				tagLimit := graphLimit

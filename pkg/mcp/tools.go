@@ -715,50 +715,13 @@ func GraphStatsTool(config Config) func(context.Context, mcp.CallToolRequest) (*
 func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
-		skipAnchors, _ := args["skipAnchors"].(bool)
-		skipEmbeds, _ := args["skipEmbeds"].(bool)
-		includeTags, _ := args["includeTags"].(bool)
-		minDegree := 0
-		if v, ok := args["minDegree"].(float64); ok {
-			minDegree = int(v)
-		}
-		mutualOnly, _ := args["mutualOnly"].(bool)
-		var exclude []string
-		var include []string
-		if raw, ok := args["exclude"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					exclude = append(exclude, s)
-				}
-			}
-		} else if raw, ok := args["exclude"].([]string); ok {
-			exclude = raw
-		}
-		if raw, ok := args["include"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					include = append(include, s)
-				}
-			}
-		} else if raw, ok := args["include"].([]string); ok {
-			include = raw
-		}
-		exclude = actions.ExpandPatterns(exclude)
-		include = actions.ExpandPatterns(include)
+		opts := parseGraphOptions(args, false)
 
 		analysis, err := actions.GraphAnalysis(config.Vault, resolveNoteManager(config), actions.GraphAnalysisParams{
-			UseConfig: true,
-			Options: obsidian.GraphAnalysisOptions{
-				WikilinkOptions: obsidian.WikilinkOptions{
-					SkipAnchors: skipAnchors,
-					SkipEmbeds:  skipEmbeds,
-				},
-				IncludeTags: includeTags,
-				MinDegree:   minDegree,
-				MutualOnly:  mutualOnly,
-			},
-			ExcludePatterns: exclude,
-			IncludePatterns: include,
+			UseConfig:       true,
+			Options:         opts.toAnalysisOptions(),
+			ExcludePatterns: opts.Exclude,
+			IncludePatterns: opts.Include,
 			AnalysisCache:   config.AnalysisCache,
 		})
 		if err != nil {
@@ -832,37 +795,8 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 		if strings.TrimSpace(id) != "" && strings.TrimSpace(file) != "" {
 			return mcp.NewToolResultError("provide only one of id or file"), nil
 		}
-		skipAnchors, _ := args["skipAnchors"].(bool)
-		skipEmbeds, _ := args["skipEmbeds"].(bool)
-		includeTags, _ := args["includeTags"].(bool)
+		opts := parseGraphOptions(args, false)
 		includeNeighbors, _ := args["includeNeighbors"].(bool)
-		minDegree := 0
-		if v, ok := args["minDegree"].(float64); ok {
-			minDegree = int(v)
-		}
-		mutualOnly, _ := args["mutualOnly"].(bool)
-		var exclude []string
-		var include []string
-		if raw, ok := args["exclude"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					exclude = append(exclude, s)
-				}
-			}
-		} else if raw, ok := args["exclude"].([]string); ok {
-			exclude = raw
-		}
-		if raw, ok := args["include"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					include = append(include, s)
-				}
-			}
-		} else if raw, ok := args["include"].([]string); ok {
-			include = raw
-		}
-		exclude = actions.ExpandPatterns(exclude)
-		include = actions.ExpandPatterns(include)
 
 		limit := 0
 		if v, ok := args["limit"].(float64); ok && int(v) > 0 {
@@ -870,18 +804,10 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 		}
 
 		analysis, err := actions.GraphAnalysis(config.Vault, resolveNoteManager(config), actions.GraphAnalysisParams{
-			UseConfig: true,
-			Options: obsidian.GraphAnalysisOptions{
-				WikilinkOptions: obsidian.WikilinkOptions{
-					SkipAnchors: skipAnchors,
-					SkipEmbeds:  skipEmbeds,
-				},
-				IncludeTags: includeTags,
-				MinDegree:   minDegree,
-				MutualOnly:  mutualOnly,
-			},
-			ExcludePatterns: exclude,
-			IncludePatterns: include,
+			UseConfig:       true,
+			Options:         opts.toAnalysisOptions(),
+			ExcludePatterns: opts.Exclude,
+			IncludePatterns: opts.Include,
 			AnalysisCache:   config.AnalysisCache,
 		})
 		if err != nil {
@@ -919,7 +845,7 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 			}
 		}
 
-		resp := communityDetailPayload(target, analysis, includeTags, includeNeighbors, limit, reverseNeighbors, bridgeCounts)
+		resp := communityDetailPayload(target, analysis, opts.IncludeTags, includeNeighbors, limit, reverseNeighbors, bridgeCounts)
 
 		encoded, err := json.Marshal(resp)
 		if err != nil {
@@ -1222,6 +1148,72 @@ func recencyToPayload(r *obsidian.GraphRecency) *GraphRecencyPayload {
 		LatestAgeDays: age,
 		RecentCount:   r.RecentCount,
 		WindowDays:    r.WindowDays,
+	}
+}
+
+// graphOptions captures common graph analysis parameters parsed from MCP tool args.
+type graphOptions struct {
+	SkipAnchors bool
+	SkipEmbeds  bool
+	IncludeTags bool
+	MinDegree   int
+	MutualOnly  bool
+	Exclude     []string
+	Include     []string
+}
+
+// parseGraphOptions extracts common graph analysis options from MCP tool arguments.
+// When tagsDefaultTrue is set, includeTags defaults to true if not provided.
+func parseGraphOptions(args map[string]interface{}, tagsDefaultTrue bool) graphOptions {
+	opts := graphOptions{}
+	opts.SkipAnchors, _ = args["skipAnchors"].(bool)
+	opts.SkipEmbeds, _ = args["skipEmbeds"].(bool)
+	if tagsDefaultTrue {
+		opts.IncludeTags = true
+		if v, ok := args["includeTags"].(bool); ok {
+			opts.IncludeTags = v
+		}
+	} else {
+		opts.IncludeTags, _ = args["includeTags"].(bool)
+	}
+	if v, ok := args["minDegree"].(float64); ok {
+		opts.MinDegree = int(v)
+	}
+	opts.MutualOnly, _ = args["mutualOnly"].(bool)
+
+	if raw, ok := args["exclude"].([]interface{}); ok {
+		for _, v := range raw {
+			if s, ok := v.(string); ok {
+				opts.Exclude = append(opts.Exclude, s)
+			}
+		}
+	} else if raw, ok := args["exclude"].([]string); ok {
+		opts.Exclude = raw
+	}
+	if raw, ok := args["include"].([]interface{}); ok {
+		for _, v := range raw {
+			if s, ok := v.(string); ok {
+				opts.Include = append(opts.Include, s)
+			}
+		}
+	} else if raw, ok := args["include"].([]string); ok {
+		opts.Include = raw
+	}
+	opts.Exclude = actions.ExpandPatterns(opts.Exclude)
+	opts.Include = actions.ExpandPatterns(opts.Include)
+	return opts
+}
+
+// toAnalysisOptions converts graphOptions to obsidian.GraphAnalysisOptions.
+func (g graphOptions) toAnalysisOptions() obsidian.GraphAnalysisOptions {
+	return obsidian.GraphAnalysisOptions{
+		WikilinkOptions: obsidian.WikilinkOptions{
+			SkipAnchors: g.SkipAnchors,
+			SkipEmbeds:  g.SkipEmbeds,
+		},
+		IncludeTags: g.IncludeTags,
+		MinDegree:   g.MinDegree,
+		MutualOnly:  g.MutualOnly,
 	}
 }
 
@@ -1569,7 +1561,6 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 	}
 }
 
-// NoteContextTool returns a single-note context (graph + community + backlinks).
 // NoteContextTool returns graph + community context for one or more notes.
 func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1579,8 +1570,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 			return mcp.NewToolResultError("files is required (array of paths)"), nil
 		}
 
-		skipAnchors, _ := args["skipAnchors"].(bool)
-		skipEmbeds, _ := args["skipEmbeds"].(bool)
+		opts := parseGraphOptions(args, true)
 		includeFrontmatter, _ := args["includeFrontmatter"].(bool)
 		includeBacklinks := true
 		if v, ok := args["includeBacklinks"].(bool); ok {
@@ -1590,10 +1580,6 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 		if v, ok := args["includeNeighbors"].(bool); ok {
 			includeNeighbors = v
 		}
-		includeTags := true
-		if v, ok := args["includeTags"].(bool); ok {
-			includeTags = v
-		}
 		neighborLimit := 50
 		if v, ok := args["neighborLimit"].(float64); ok && int(v) > 0 {
 			neighborLimit = int(v)
@@ -1602,49 +1588,13 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 		if v, ok := args["backlinksLimit"].(float64); ok && int(v) > 0 {
 			backlinksLimit = int(v)
 		}
-		minDegree := 0
-		if v, ok := args["minDegree"].(float64); ok {
-			minDegree = int(v)
-		}
-		mutualOnly, _ := args["mutualOnly"].(bool)
-
-		var exclude []string
-		var include []string
-		if raw, ok := args["exclude"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					exclude = append(exclude, s)
-				}
-			}
-		} else if raw, ok := args["exclude"].([]string); ok {
-			exclude = raw
-		}
-		if raw, ok := args["include"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					include = append(include, s)
-				}
-			}
-		} else if raw, ok := args["include"].([]string); ok {
-			include = raw
-		}
-		exclude = actions.ExpandPatterns(exclude)
-		include = actions.ExpandPatterns(include)
 
 		note := resolveNoteManager(config)
 		analysis, err := actions.GraphAnalysis(config.Vault, note, actions.GraphAnalysisParams{
-			UseConfig: true,
-			Options: obsidian.GraphAnalysisOptions{
-				WikilinkOptions: obsidian.WikilinkOptions{
-					SkipAnchors: skipAnchors,
-					SkipEmbeds:  skipEmbeds,
-				},
-				IncludeTags: includeTags,
-				MinDegree:   minDegree,
-				MutualOnly:  mutualOnly,
-			},
-			ExcludePatterns: exclude,
-			IncludePatterns: include,
+			UseConfig:       true,
+			Options:         opts.toAnalysisOptions(),
+			ExcludePatterns: opts.Exclude,
+			IncludePatterns: opts.Include,
 			AnalysisCache:   config.AnalysisCache,
 		})
 		if err != nil {
@@ -1663,7 +1613,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 
 		var backlinks map[string][]obsidian.Backlink
 		if includeBacklinks {
-			blOptions := obsidian.WikilinkOptions{SkipAnchors: skipAnchors, SkipEmbeds: skipEmbeds}
+			blOptions := obsidian.WikilinkOptions{SkipAnchors: opts.SkipAnchors, SkipEmbeds: opts.SkipEmbeds}
 			if config.AnalysisCache != nil {
 				backlinks, err = config.AnalysisCache.Backlinks(config.VaultPath, note, normalizedTargets, blOptions, config.SuppressedTags)
 			} else {
@@ -1676,7 +1626,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 
 		contexts := make([]NoteContextResponse, 0, len(normalizedTargets))
 		for _, norm := range normalizedTargets {
-			ctxResp, err := buildNoteContext(norm, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, includeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
+			ctxResp, err := buildNoteContext(norm, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, opts.IncludeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
 			if err != nil {
 				// Return partial result with error instead of failing the whole batch
 				contexts = append(contexts, NoteContextResponse{
@@ -1704,39 +1654,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := request.GetArguments()
-		skipAnchors, _ := args["skipAnchors"].(bool)
-		skipEmbeds, _ := args["skipEmbeds"].(bool)
-		includeTags := true
-		if v, ok := args["includeTags"].(bool); ok {
-			includeTags = v
-		}
-		minDegree := 0
-		if v, ok := args["minDegree"].(float64); ok {
-			minDegree = int(v)
-		}
-		mutualOnly, _ := args["mutualOnly"].(bool)
-		var exclude []string
-		var include []string
-		if raw, ok := args["exclude"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					exclude = append(exclude, s)
-				}
-			}
-		} else if raw, ok := args["exclude"].([]string); ok {
-			exclude = raw
-		}
-		if raw, ok := args["include"].([]interface{}); ok {
-			for _, v := range raw {
-				if s, ok := v.(string); ok {
-					include = append(include, s)
-				}
-			}
-		} else if raw, ok := args["include"].([]string); ok {
-			include = raw
-		}
-		exclude = actions.ExpandPatterns(exclude)
-		include = actions.ExpandPatterns(include)
+		opts := parseGraphOptions(args, true)
 
 		maxCommunities := 10
 		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
@@ -1798,18 +1716,10 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 
 		note := resolveNoteManager(config)
 		analysis, err := actions.GraphAnalysis(config.Vault, note, actions.GraphAnalysisParams{
-			UseConfig: true,
-			Options: obsidian.GraphAnalysisOptions{
-				WikilinkOptions: obsidian.WikilinkOptions{
-					SkipAnchors: skipAnchors,
-					SkipEmbeds:  skipEmbeds,
-				},
-				IncludeTags: includeTags,
-				MinDegree:   minDegree,
-				MutualOnly:  mutualOnly,
-			},
-			ExcludePatterns: exclude,
-			IncludePatterns: include,
+			UseConfig:       true,
+			Options:         opts.toAnalysisOptions(),
+			ExcludePatterns: opts.Exclude,
+			IncludePatterns: opts.Include,
 			AnalysisCache:   config.AnalysisCache,
 		})
 		if err != nil {
@@ -1909,7 +1819,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			}
 			var backlinks map[string][]obsidian.Backlink
 			if contextIncludeBacklinks {
-				blOptions := obsidian.WikilinkOptions{SkipAnchors: skipAnchors, SkipEmbeds: skipEmbeds}
+				blOptions := obsidian.WikilinkOptions{SkipAnchors: opts.SkipAnchors, SkipEmbeds: opts.SkipEmbeds}
 				if config.AnalysisCache != nil {
 					backlinks, err = config.AnalysisCache.Backlinks(config.VaultPath, note, normalizedTargets, blOptions, config.SuppressedTags)
 				} else {

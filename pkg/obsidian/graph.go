@@ -506,7 +506,7 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 		topTags := topTagsForCommunity(members, tags, 5)
 		anchor := anchorForCommunity(members, nodes)
 		buckets, stats := authorityBuckets(members, nodes)
-		recency := communityRecency(members, modTimes, 30)
+		recency := communityRecency(members, modTimes, communityRecencyWindowDays)
 		summaries = append(summaries, CommunitySummary{
 			ID:               communityID(id, anchor, members),
 			Nodes:            members,
@@ -545,12 +545,30 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 }
 
 const (
-	neighborFreshWindow      = 180 * 24 * time.Hour
-	neighborStalenessOffset  = 7 * 24 * time.Hour
-	neighborSampleLimit      = 5
-	minSaneYear              = 1900
-	maxFutureTolerance       = 365 * 24 * time.Hour
+	// neighborFreshWindow defines how far back neighbor activity can boost an undated note.
+	// A neighbor older than this won't contribute to inferred recency.
+	neighborFreshWindow = 180 * 24 * time.Hour
+
+	// neighborStalenessOffset is subtracted from neighbor timestamps when inferring recency,
+	// so a hub's inferred time is at least this many days older than its freshest neighbor.
+	neighborStalenessOffset = 7 * 24 * time.Hour
+
+	// neighborSampleLimit caps the number of neighbors considered for recency inference.
+	neighborSampleLimit = 5
+
+	// minSaneYear rejects dates before this year as implausible.
+	minSaneYear = 1900
+
+	// maxFutureTolerance allows dates up to this far in the future (for scheduled events).
+	maxFutureTolerance = 365 * 24 * time.Hour
+
+	// topLinesForDateDetection limits how many lines to scan for ISO dates near the top of a note.
 	topLinesForDateDetection = 20
+
+	// communityRecencyWindowDays is the window for counting "recent" notes in a community.
+	// This differs from neighborFreshWindow intentionally: neighbor inference looks back 6 months
+	// to boost undated hubs, while community RecentCount measures short-term activity (30 days).
+	communityRecencyWindowDays = 30
 )
 
 var (
