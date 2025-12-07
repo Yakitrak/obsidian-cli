@@ -40,6 +40,16 @@ type GraphRecency struct {
 	WindowDays      int
 }
 
+// GraphTimings captures rough durations for major analysis phases.
+type GraphTimings struct {
+	LoadEntries time.Duration
+	BuildGraph  time.Duration
+	HITS        time.Duration
+	LabelProp   time.Duration
+	Recency     time.Duration
+	Total       time.Duration
+}
+
 // AuthorityStats captures coarse percentiles/mean for authority scores.
 type AuthorityStats struct {
 	Mean float64
@@ -114,6 +124,7 @@ type GraphAnalysis struct {
 	Orphans          []string
 	Stats            GraphStatsSummary
 	EffectiveTimes   map[string]time.Time `json:"-"`
+	Timings          GraphTimings         `json:"-"`
 }
 
 // GraphStatsSummary captures high-level totals.
@@ -329,6 +340,10 @@ func stronglyConnectedComponents(adjacency map[string]map[string]struct{}) [][]s
 
 // ComputeGraphAnalysis builds a rich graph view including hub/authority scores, communities, and tags.
 func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnalysisOptions) (*GraphAnalysis, error) {
+	startTotal := time.Now()
+	var timings GraphTimings
+
+	loadStart := time.Now()
 	var (
 		allNotes []string
 		entries  []NoteEntry
@@ -364,6 +379,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			allNotes = append(allNotes, e.Path)
 		}
 	}
+	timings.LoadEntries = time.Since(loadStart)
 
 	cache := BuildNotePathCache(allNotes)
 
@@ -375,6 +391,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 	contentTimes := make(map[string]time.Time, len(allNotes))
 	normalizedEntries := make([]NoteEntry, 0, len(entries))
 
+	buildStart := time.Now()
 	for _, entry := range entries {
 		normalized := NormalizePath(AddMdSuffix(entry.Path))
 		if _, skip := excluded[normalized]; skip {
@@ -438,6 +455,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 	if options.MinDegree > 0 {
 		adjacency = filterByMinDegree(adjacency, options.MinDegree)
 	}
+	timings.BuildGraph = time.Since(buildStart)
 
 	nodes := make(map[string]NodeStats, len(adjacency))
 	for node := range adjacency {
@@ -462,8 +480,13 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 	sccID := assignIDs(sccs, "scc")
 	weak := weakComponents(adjacency)
 	weakID := assignIDs(weak, "comp")
+	lpStart := time.Now()
 	comms := labelPropagation(adjacency)
+	timings.LabelProp = time.Since(lpStart)
+
+	hitsStart := time.Now()
 	hits := computeHITS(adjacency)
+	timings.HITS = time.Since(hitsStart)
 
 	graphNodes := make(map[string]GraphNode, len(nodes))
 	for path, deg := range nodes {
@@ -487,10 +510,14 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 		cascade = true
 	}
 
+	recencyStart := time.Now()
 	effectiveTimes := applyNeighborRecency(adjacency, contentTimes, time.Now(), cascade)
+	timings.Recency = time.Since(recencyStart)
 	communities := summarizeCommunities(comms, graphNodes, tagMap, effectiveTimes)
 	bridges := computeBridges(adjacency, graphNodes, communities)
 	attachBridges(communities, bridges)
+
+	timings.Total = time.Since(startTotal)
 
 	return &GraphAnalysis{
 		Nodes:            graphNodes,
@@ -503,6 +530,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			EdgeCount: edgeCount,
 		},
 		EffectiveTimes: effectiveTimes,
+		Timings:        timings,
 	}, nil
 }
 

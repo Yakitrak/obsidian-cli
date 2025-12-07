@@ -85,7 +85,13 @@ var graphCommunityCmd = &cobra.Command{
 			}
 		}
 
-		return printCommunityDetail(cmd, target, analysis, selectedVault)
+		if err := printCommunityDetail(cmd, target, analysis, selectedVault); err != nil {
+			return err
+		}
+		if graphTimings {
+			printTimings(cmd, analysis.Timings)
+		}
+		return nil
 	},
 }
 
