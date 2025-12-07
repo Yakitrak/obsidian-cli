@@ -718,11 +718,9 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 		opts := parseGraphOptions(args, false)
 
 		analysis, err := actions.GraphAnalysis(config.Vault, resolveNoteManager(config), actions.GraphAnalysisParams{
-			UseConfig:       true,
-			Options:         opts.toAnalysisOptions(),
-			ExcludePatterns: opts.Exclude,
-			IncludePatterns: opts.Include,
-			AnalysisCache:   config.AnalysisCache,
+			UseConfig:     true,
+			Options:       opts.toAnalysisOptions(),
+			AnalysisCache: config.AnalysisCache,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing communities: %s", err)), nil
@@ -804,11 +802,9 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 		}
 
 		analysis, err := actions.GraphAnalysis(config.Vault, resolveNoteManager(config), actions.GraphAnalysisParams{
-			UseConfig:       true,
-			Options:         opts.toAnalysisOptions(),
-			ExcludePatterns: opts.Exclude,
-			IncludePatterns: opts.Include,
-			AnalysisCache:   config.AnalysisCache,
+			UseConfig:     true,
+			Options:       opts.toAnalysisOptions(),
+			AnalysisCache: config.AnalysisCache,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
@@ -837,7 +833,7 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 				}
 			}
 			if _, ok := analysis.Nodes[normalized]; !ok {
-				return mcp.NewToolResultError(fmt.Sprintf("file %s not found in graph (use vault-relative path and check include/exclude filters)", file)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("file %s not found in graph (use vault-relative path)", file)), nil
 			}
 			target = communityLookup[normalized]
 			if target == nil {
@@ -1156,15 +1152,11 @@ type graphOptions struct {
 	SkipAnchors       bool
 	SkipEmbeds        bool
 	IncludeTags       bool
-	MinDegree         int
-	MutualOnly        bool
-	Exclude           []string
-	Include           []string
 	RecencyCascade    bool
 	RecencyCascadeSet bool
 }
 
-// parseGraphOptions extracts common graph analysis options from MCP tool arguments.
+// parseGraphOptions extracts a minimal set of graph options for MCP tools.
 // When tagsDefaultTrue is set, includeTags defaults to true if not provided.
 func parseGraphOptions(args map[string]interface{}, tagsDefaultTrue bool) graphOptions {
 	opts := graphOptions{}
@@ -1178,31 +1170,6 @@ func parseGraphOptions(args map[string]interface{}, tagsDefaultTrue bool) graphO
 	} else {
 		opts.IncludeTags, _ = args["includeTags"].(bool)
 	}
-	if v, ok := args["minDegree"].(float64); ok {
-		opts.MinDegree = int(v)
-	}
-	opts.MutualOnly, _ = args["mutualOnly"].(bool)
-
-	if raw, ok := args["exclude"].([]interface{}); ok {
-		for _, v := range raw {
-			if s, ok := v.(string); ok {
-				opts.Exclude = append(opts.Exclude, s)
-			}
-		}
-	} else if raw, ok := args["exclude"].([]string); ok {
-		opts.Exclude = raw
-	}
-	if raw, ok := args["include"].([]interface{}); ok {
-		for _, v := range raw {
-			if s, ok := v.(string); ok {
-				opts.Include = append(opts.Include, s)
-			}
-		}
-	} else if raw, ok := args["include"].([]string); ok {
-		opts.Include = raw
-	}
-	opts.Exclude = actions.ExpandPatterns(opts.Exclude)
-	opts.Include = actions.ExpandPatterns(opts.Include)
 
 	opts.RecencyCascade = true
 	if v, ok := args["recencyCascade"].(bool); ok {
@@ -1222,8 +1189,6 @@ func (g graphOptions) toAnalysisOptions() obsidian.GraphAnalysisOptions {
 			SkipEmbeds:  g.SkipEmbeds,
 		},
 		IncludeTags:       g.IncludeTags,
-		MinDegree:         g.MinDegree,
-		MutualOnly:        g.MutualOnly,
 		RecencyCascade:    g.RecencyCascade,
 		RecencyCascadeSet: g.RecencyCascadeSet,
 	}
@@ -1603,11 +1568,9 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 
 		note := resolveNoteManager(config)
 		analysis, err := actions.GraphAnalysis(config.Vault, note, actions.GraphAnalysisParams{
-			UseConfig:       true,
-			Options:         opts.toAnalysisOptions(),
-			ExcludePatterns: opts.Exclude,
-			IncludePatterns: opts.Include,
-			AnalysisCache:   config.AnalysisCache,
+			UseConfig:     true,
+			Options:       opts.toAnalysisOptions(),
+			AnalysisCache: config.AnalysisCache,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
@@ -1728,11 +1691,9 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 
 		note := resolveNoteManager(config)
 		analysis, err := actions.GraphAnalysis(config.Vault, note, actions.GraphAnalysisParams{
-			UseConfig:       true,
-			Options:         opts.toAnalysisOptions(),
-			ExcludePatterns: opts.Exclude,
-			IncludePatterns: opts.Include,
-			AnalysisCache:   config.AnalysisCache,
+			UseConfig:     true,
+			Options:       opts.toAnalysisOptions(),
+			AnalysisCache: config.AnalysisCache,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil

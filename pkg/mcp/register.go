@@ -64,15 +64,11 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(listPropertiesTool, ListPropertiesTool(config))
 
 	communityListTool := mcp.NewTool("community_list",
-		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, and top authority notes (with hub/authority scores) plus authorityBuckets (coarse quantile-style distribution with example paths) and recency (latest note + count in last 30d). Includes size/fractionOfVault, bridge hints, orphan counts, and weak component sizes. Respects include/exclude/minDegree/mutualOnly filters. Response: {communities:[{id,size,fractionOfVault,anchor,topTags,topAuthority,density,bridges,bridgesDetailed,authorityBuckets,recency}], stats, orphanCount, orphans?, components:[{id,size}]}.`),
+		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, top authority notes (with hub/authority scores), authorityBuckets (coarse quantile-style distribution with example paths), and recency (latest note + count in last 30d). Includes size/fractionOfVault, bridge hints, orphan counts, and weak component sizes. Response: {communities:[{id,size,fractionOfVault,anchor,topTags,topAuthority,density,bridges,bridgesDetailed,authorityBuckets,recency}], stats, orphanCount, orphans?, components:[{id,size}]}.`),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
-		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (may be heavier on large vaults)")),
-		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
-		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
 		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
-		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
-		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
 		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
 		mcp.WithNumber("maxTopNotes", mcp.Description("Maximum top authority notes per community (default 5)"), mcp.Min(1)),
 	)
@@ -86,10 +82,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include tags on members (default false)")),
 		mcp.WithBoolean("includeNeighbors", mcp.Description("Include neighbor lists on members (default false)")),
-		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
-		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
-		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
-		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
+		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
 		mcp.WithNumber("limit", mcp.Description("Limit members returned (default all)"), mcp.Min(1)),
 	)
 	s.AddTool(communityDetailTool, CommunityDetailTool(config))
@@ -105,11 +98,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags in community summary (default true)")),
 		mcp.WithNumber("neighborLimit", mcp.Description("Maximum neighbors to return per direction (default 50)"), mcp.Min(1)),
 		mcp.WithNumber("backlinksLimit", mcp.Description("Maximum backlinks to return per note (default 50)"), mcp.Min(1)),
-		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
-		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
-		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
-		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
 	)
 	s.AddTool(noteContextTool, NoteContextTool(config))
 
@@ -118,11 +107,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
-		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
-		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
-		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
-		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
 		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
 		mcp.WithNumber("communityTopNotes", mcp.Description("Top authority notes per community (default 5)"), mcp.Min(1)),
 		mcp.WithNumber("communityTopTags", mcp.Description("Top tags per community (default 5)"), mcp.Min(1)),

@@ -4,8 +4,8 @@
 - `main.go` wires the Cobra CLI; command entrypoints live in `cmd/` (one file per command) and should stay thin.
 - `pkg/actions/` holds orchestration for user-facing commands, while `pkg/obsidian/` contains vault/file/tag primitives and `pkg/config/` manages paths and defaults. Keep new logic in these layers rather than `cmd/`.
 - `pkg/mcp/` exposes the CLI as an MCP server; mirror any new capabilities here when relevant.
-- Keep MCP tool registrations/descriptions in `pkg/mcp/register.go` in sync with CLI flags (e.g., new options must be declared so clients see them).
-- Keep the agent guide resource in `pkg/mcp/resources.go` up to date when adding or changing tools; this is the primary reference for AI agents using the MCP server.
+- Keep MCP tool registrations/descriptions in `pkg/mcp/register.go` in sync with CLI flags (e.g., new options must be declared so clients see them). Bias toward minimal, high-signal options for MCP; prefer sensible defaults over adding knobs.
+- Keep the agent guide resource in `pkg/mcp/resources.go` up to date when adding or changing tools; this is the primary reference for AI agents using the MCP server. Document only the pared-down MCP options (skipAnchors/skipEmbeds, includeTags, recencyCascade, and a handful of limits), not the full CLI flag set.
 - When adding user-facing behavior, update both README.md and MCP docs (`pkg/mcp/register.go` descriptions, `pkg/mcp/resources.go` agent guide) so agents and humans stay aligned.
 - Supporting assets live in `docs/` (images, manual excerpts); build outputs land in `bin/` (do not commit generated binaries). Tests sit next to sources with `_test.go`; shared fixtures and doubles can be placed under `mocks/`.
 
