@@ -130,7 +130,8 @@ var graphVaultContextCmd = &cobra.Command{
 }
 
 func init() {
-	graphVaultContextCmd.Flags().IntVar(&vcMaxCommunities, "max-communities", 25, "max communities to include (0 = all)")
+	graphVaultContextCmd.Flags().IntVar(&vcMaxCommunities, "max-communities", 20, "max communities to include (0 = all)")
+	vcMaxCommunities = 20
 	graphVaultContextCmd.Flags().IntVar(&vcCommunityTopNotes, "community-top-notes", 5, "top authority notes per community")
 	graphVaultContextCmd.Flags().IntVar(&vcCommunityTopTags, "community-top-tags", 5, "top tags per community")
 

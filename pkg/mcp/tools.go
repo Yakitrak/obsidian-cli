@@ -731,7 +731,7 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
 		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
 
-		maxCommunities := 100
+		maxCommunities := 20
 		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
 			maxCommunities = int(v)
 		}

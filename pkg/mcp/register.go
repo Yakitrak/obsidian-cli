@@ -69,7 +69,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
 		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
-		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
+		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 20)"), mcp.Min(1)),
 		mcp.WithNumber("maxTopNotes", mcp.Description("Maximum top authority notes per community (default 5)"), mcp.Min(1)),
 	)
 	s.AddTool(communityListTool, CommunityListTool(config))
@@ -108,7 +108,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
 		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
-		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
+		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 20)"), mcp.Min(1)),
 		mcp.WithNumber("communityTopNotes", mcp.Description("Top authority notes per community (default 5)"), mcp.Min(1)),
 		mcp.WithNumber("communityTopTags", mcp.Description("Top tags per community (default 5)"), mcp.Min(1)),
 		mcp.WithNumber("bridgeLimit", mcp.Description("Bridges to include per community (default 3)"), mcp.Min(1)),
