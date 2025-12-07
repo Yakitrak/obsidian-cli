@@ -113,7 +113,7 @@ func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary,
 	if graphShowAll || limit <= 0 || limit > len(target.Nodes) {
 		limit = len(target.Nodes)
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "\nMembers (sorted by pagerank):\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "\nMembers (sorted by authority):\n")
 	members := rankCommunityMembers(target.Nodes, analysis)
 	for i := 0; i < limit; i++ {
 		m := members[i]
@@ -121,7 +121,7 @@ func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary,
 		if len(m.tags) > 0 && graphCommunityIncludeTags {
 			tagStr = fmt.Sprintf(" tags:%s", strings.Join(m.tags, ","))
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s pr=%.4f in=%d out=%d%s\n", i+1, m.path, m.pr, m.in, m.out, tagStr)
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s auth=%.4f hub=%.4f in=%d out=%d%s\n", i+1, m.path, m.authority, m.hub, m.in, m.out, tagStr)
 		if graphCommunityIncludeNeighbors {
 			fmt.Fprintf(cmd.OutOrStdout(), "      neighbors: %s\n", strings.Join(m.neighbors, ", "))
 		}
@@ -135,7 +135,8 @@ func printCommunityDetail(cmd *cobra.Command, target *obsidian.CommunitySummary,
 
 func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []struct {
 	path      string
-	pr        float64
+	hub       float64
+	authority float64
 	in        int
 	out       int
 	tags      []string
@@ -143,7 +144,8 @@ func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []
 } {
 	var ranked []struct {
 		path      string
-		pr        float64
+		hub       float64
+		authority float64
 		in        int
 		out       int
 		tags      []string
@@ -153,14 +155,16 @@ func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []
 		n := analysis.Nodes[p]
 		ranked = append(ranked, struct {
 			path      string
-			pr        float64
+			hub       float64
+			authority float64
 			in        int
 			out       int
 			tags      []string
 			neighbors []string
 		}{
 			path:      p,
-			pr:        n.Pagerank,
+			hub:       n.Hub,
+			authority: n.Authority,
 			in:        n.Inbound,
 			out:       n.Outbound,
 			tags:      n.Tags,
@@ -168,10 +172,10 @@ func rankCommunityMembers(members []string, analysis *obsidian.GraphAnalysis) []
 		})
 	}
 	sort.Slice(ranked, func(i, j int) bool {
-		if ranked[i].pr == ranked[j].pr {
+		if ranked[i].authority == ranked[j].authority {
 			return ranked[i].path < ranked[j].path
 		}
-		return ranked[i].pr > ranked[j].pr
+		return ranked[i].authority > ranked[j].authority
 	})
 	return ranked
 }

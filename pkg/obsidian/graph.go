@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -31,13 +32,13 @@ type Community struct {
 
 // CommunitySummary captures metadata for a detected community.
 type CommunitySummary struct {
-	ID          string
-	Nodes       []string
-	TopTags     []TagCount
-	TopPagerank []string
-	Anchor      string
-	Density     float64
-	Bridges     []string
+	ID           string
+	Nodes        []string
+	TopTags      []TagCount
+	TopAuthority []string
+	Anchor       string
+	Density      float64
+	Bridges      []string
 }
 
 // TagCount represents a tag and its count.
@@ -52,7 +53,8 @@ type GraphNode struct {
 	Title      string   `json:"title"`
 	Inbound    int      `json:"inbound"`
 	Outbound   int      `json:"outbound"`
-	Pagerank   float64  `json:"pagerank"`
+	Hub        float64  `json:"hub"`       // HITS hub score: measures how well this note curates/aggregates links
+	Authority  float64  `json:"authority"` // HITS authority score: measures how often this note is referenced
 	Community  string   `json:"community"`
 	SCC        string   `json:"scc"`
 	Neighbors  []string `json:"neighbors,omitempty"`
@@ -259,7 +261,7 @@ func stronglyConnectedComponents(adjacency map[string]map[string]struct{}) [][]s
 	return components
 }
 
-// ComputeGraphAnalysis builds a rich graph view including pagerank, communities, and tags.
+// ComputeGraphAnalysis builds a rich graph view including hub/authority scores, communities, and tags.
 func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnalysisOptions) (*GraphAnalysis, error) {
 	allNotes, err := note.GetNotesList(vaultPath)
 	if err != nil {
@@ -355,7 +357,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 	weak := weakComponents(adjacency)
 	weakID := assignIDs(weak, "comp")
 	comms := labelPropagation(adjacency)
-	pagerank := computePagerank(adjacency)
+	hits := computeHITS(adjacency)
 
 	graphNodes := make(map[string]GraphNode, len(nodes))
 	for path, deg := range nodes {
@@ -364,7 +366,8 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			Title:      RemoveMdSuffix(filepath.Base(path)),
 			Inbound:    deg.Inbound,
 			Outbound:   deg.Outbound,
-			Pagerank:   pagerank[path],
+			Hub:        hits.Hubs[path],
+			Authority:  hits.Authorities[path],
 			Community:  comms[path],
 			SCC:        sccID[path],
 			Neighbors:  sortedKeys(adjacency[path]),
@@ -399,16 +402,16 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 	var summaries []CommunitySummary
 	for id, members := range grouped {
 		sort.Strings(members)
-		topPR := topPagerankNodes(members, nodes, 5)
+		topAuth := topAuthorityNodes(members, nodes, 5)
 		topTags := topTagsForCommunity(members, tags, 5)
 		anchor := anchorForCommunity(members, nodes)
 		summaries = append(summaries, CommunitySummary{
-			ID:          communityID(id, anchor, members),
-			Nodes:       members,
-			TopPagerank: topPR,
-			TopTags:     topTags,
-			Anchor:      anchor,
-			Density:     density(members, nodes),
+			ID:           communityID(id, anchor, members),
+			Nodes:        members,
+			TopAuthority: topAuth,
+			TopTags:      topTags,
+			Anchor:       anchor,
+			Density:      density(members, nodes),
 		})
 	}
 
@@ -421,14 +424,14 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 	return summaries
 }
 
-func topPagerankNodes(members []string, nodes map[string]GraphNode, limit int) []string {
+func topAuthorityNodes(members []string, nodes map[string]GraphNode, limit int) []string {
 	type pr struct {
 		path string
 		val  float64
 	}
 	var list []pr
 	for _, m := range members {
-		list = append(list, pr{path: m, val: nodes[m].Pagerank})
+		list = append(list, pr{path: m, val: nodes[m].Authority})
 	}
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].val == list[j].val {
@@ -456,7 +459,7 @@ func anchorForCommunity(members []string, nodes map[string]GraphNode) string {
 	}
 	var list []pr
 	for _, m := range members {
-		list = append(list, pr{path: m, val: nodes[m].Pagerank})
+		list = append(list, pr{path: m, val: nodes[m].Authority})
 	}
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].val == list[j].val {
@@ -646,7 +649,7 @@ func computeBridges(adjacency map[string]map[string]struct{}, nodes map[string]G
 		}
 		sort.Slice(candidates, func(i, j int) bool {
 			if bridgeCount[candidates[i]] == bridgeCount[candidates[j]] {
-				return nodes[candidates[i]].Pagerank > nodes[candidates[j]].Pagerank
+				return nodes[candidates[i]].Authority > nodes[candidates[j]].Authority
 			}
 			return bridgeCount[candidates[i]] > bridgeCount[candidates[j]]
 		})
@@ -666,45 +669,97 @@ func attachBridges(comms []CommunitySummary, bridges map[string][]string) {
 	}
 }
 
-func computePagerank(adjacency map[string]map[string]struct{}) map[string]float64 {
-	const damping = 0.85
+// HITSResult contains the hub and authority scores from HITS algorithm.
+type HITSResult struct {
+	Hubs        map[string]float64
+	Authorities map[string]float64
+}
+
+// computeHITS computes HITS (Hyperlink-Induced Topic Search) scores.
+// Hub score: measures how well a note curates/aggregates links to good authorities.
+// Authority score: measures how often a note is referenced by good hubs.
+func computeHITS(adjacency map[string]map[string]struct{}) HITSResult {
 	const iterations = 30
 
 	n := len(adjacency)
 	if n == 0 {
-		return map[string]float64{}
+		return HITSResult{
+			Hubs:        map[string]float64{},
+			Authorities: map[string]float64{},
+		}
 	}
-	init := 1.0 / float64(n)
 
-	rank := make(map[string]float64, n)
+	// Build reverse adjacency for efficient authority computation
+	// reverse[dst] = set of nodes that link TO dst
+	reverse := make(map[string]map[string]struct{}, n)
 	for node := range adjacency {
-		rank[node] = init
+		reverse[node] = make(map[string]struct{})
+	}
+	for src, targets := range adjacency {
+		for dst := range targets {
+			reverse[dst][src] = struct{}{}
+		}
 	}
 
-	for i := 0; i < iterations; i++ {
-		next := make(map[string]float64, n)
-		sinkSum := 0.0
-		for node, targets := range adjacency {
-			if len(targets) == 0 {
-				sinkSum += rank[node]
-			}
-		}
-		for node := range adjacency {
-			next[node] = (1 - damping) / float64(n)
-			next[node] += damping * sinkSum / float64(n)
-		}
-		for src, targets := range adjacency {
-			if len(targets) == 0 {
-				continue
-			}
-			share := damping * rank[src] / float64(len(targets))
-			for dst := range targets {
-				next[dst] += share
-			}
-		}
-		rank = next
+	// Initialize scores
+	hub := make(map[string]float64, n)
+	auth := make(map[string]float64, n)
+	for node := range adjacency {
+		hub[node] = 1.0
+		auth[node] = 1.0
 	}
-	return rank
+
+	// Iterative refinement
+	for i := 0; i < iterations; i++ {
+		// Update authority scores: auth(p) = sum of hub(q) for all q that link to p
+		newAuth := make(map[string]float64, n)
+		for node := range adjacency {
+			sum := 0.0
+			for src := range reverse[node] {
+				sum += hub[src]
+			}
+			newAuth[node] = sum
+		}
+
+		// Update hub scores: hub(p) = sum of auth(q) for all q that p links to
+		newHub := make(map[string]float64, n)
+		for node, targets := range adjacency {
+			sum := 0.0
+			for dst := range targets {
+				sum += newAuth[dst] // Use updated authority scores
+			}
+			newHub[node] = sum
+		}
+
+		// Normalize to prevent score explosion
+		authNorm := 0.0
+		hubNorm := 0.0
+		for node := range adjacency {
+			authNorm += newAuth[node] * newAuth[node]
+			hubNorm += newHub[node] * newHub[node]
+		}
+		authNorm = math.Sqrt(authNorm)
+		hubNorm = math.Sqrt(hubNorm)
+
+		if authNorm > 0 {
+			for node := range adjacency {
+				newAuth[node] /= authNorm
+			}
+		}
+		if hubNorm > 0 {
+			for node := range adjacency {
+				newHub[node] /= hubNorm
+			}
+		}
+
+		auth = newAuth
+		hub = newHub
+	}
+
+	return HITSResult{
+		Hubs:        hub,
+		Authorities: auth,
+	}
 }
 
 func sortedKeys(m map[string]struct{}) []string {

@@ -79,7 +79,8 @@ func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit i
 	type nodeRank struct {
 		path      string
 		title     string
-		pagerank  float64
+		hub       float64
+		authority float64
 		inbound   int
 		outbound  int
 		community string
@@ -91,20 +92,14 @@ func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit i
 		nodes = append(nodes, nodeRank{
 			path:      n.Path,
 			title:     n.Title,
-			pagerank:  n.Pagerank,
+			hub:       n.Hub,
+			authority: n.Authority,
 			inbound:   n.Inbound,
 			outbound:  n.Outbound,
 			community: n.Community,
 			tags:      n.Tags,
 		})
 	}
-
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].pagerank == nodes[j].pagerank {
-			return nodes[i].path < nodes[j].path
-		}
-		return nodes[i].pagerank > nodes[j].pagerank
-	})
 
 	max := limit
 	if showAll {
@@ -114,20 +109,51 @@ func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit i
 		max = len(nodes)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by pagerank:\n", max)
+	// Top by Authority (cornerstone concepts)
+	topAuthority := append([]nodeRank{}, nodes...)
+	sort.Slice(topAuthority, func(i, j int) bool {
+		if topAuthority[i].authority == topAuthority[j].authority {
+			return topAuthority[i].path < topAuthority[j].path
+		}
+		return topAuthority[i].authority > topAuthority[j].authority
+	})
+	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by authority (cornerstone concepts):\n", max)
 	for i := 0; i < max; i++ {
-		n := nodes[i]
+		n := topAuthority[i]
 		tagStr := ""
 		if len(n.tags) > 0 {
 			tagStr = fmt.Sprintf(" tags:%s", strings.Join(n.tags, ","))
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s pr=%.4f in=%d out=%d community=%s%s\n", i+1, n.path, n.pagerank, n.inbound, n.outbound, n.community, tagStr)
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s auth=%.4f hub=%.4f in=%d out=%d community=%s%s\n", i+1, n.path, n.authority, n.hub, n.inbound, n.outbound, n.community, tagStr)
 	}
-	if !showAll && len(nodes) > max {
-		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(nodes)-max)
+	if !showAll && len(topAuthority) > max {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(topAuthority)-max)
 	}
 	fmt.Fprintln(cmd.OutOrStdout())
 
+	// Top by Hub (index/MOC notes)
+	topHub := append([]nodeRank{}, nodes...)
+	sort.Slice(topHub, func(i, j int) bool {
+		if topHub[i].hub == topHub[j].hub {
+			return topHub[i].path < topHub[j].path
+		}
+		return topHub[i].hub > topHub[j].hub
+	})
+	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by hub (index/MOC notes):\n", max)
+	for i := 0; i < max; i++ {
+		n := topHub[i]
+		tagStr := ""
+		if len(n.tags) > 0 {
+			tagStr = fmt.Sprintf(" tags:%s", strings.Join(n.tags, ","))
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s hub=%.4f auth=%.4f in=%d out=%d community=%s%s\n", i+1, n.path, n.hub, n.authority, n.inbound, n.outbound, n.community, tagStr)
+	}
+	if !showAll && len(topHub) > max {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(topHub)-max)
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	// Top by inbound links
 	topInbound := append([]nodeRank{}, nodes...)
 	sort.Slice(topInbound, func(i, j int) bool {
 		if topInbound[i].inbound == topInbound[j].inbound {
@@ -138,13 +164,14 @@ func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit i
 	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by inbound links:\n", max)
 	for i := 0; i < max; i++ {
 		n := topInbound[i]
-		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s in=%d out=%d pr=%.4f community=%s\n", i+1, n.path, n.inbound, n.outbound, n.pagerank, n.community)
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s in=%d out=%d auth=%.4f hub=%.4f community=%s\n", i+1, n.path, n.inbound, n.outbound, n.authority, n.hub, n.community)
 	}
 	if !showAll && len(topInbound) > max {
 		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(topInbound)-max)
 	}
 	fmt.Fprintln(cmd.OutOrStdout())
 
+	// Top by outbound links
 	topOutbound := append([]nodeRank{}, nodes...)
 	sort.Slice(topOutbound, func(i, j int) bool {
 		if topOutbound[i].outbound == topOutbound[j].outbound {
@@ -155,7 +182,7 @@ func printTopNodes(cmd *cobra.Command, analysis *obsidian.GraphAnalysis, limit i
 	fmt.Fprintf(cmd.OutOrStdout(), "Top %d by outbound links:\n", max)
 	for i := 0; i < max; i++ {
 		n := topOutbound[i]
-		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s out=%d in=%d pr=%.4f community=%s\n", i+1, n.path, n.outbound, n.inbound, n.pagerank, n.community)
+		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s out=%d in=%d auth=%.4f hub=%.4f community=%s\n", i+1, n.path, n.outbound, n.inbound, n.authority, n.hub, n.community)
 	}
 	if !showAll && len(topOutbound) > max {
 		fmt.Fprintf(cmd.OutOrStdout(), "  ... (%d more)\n", len(topOutbound)-max)

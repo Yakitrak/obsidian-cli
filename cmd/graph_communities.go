@@ -99,22 +99,22 @@ var graphCommunitiesCmd = &cobra.Command{
 			}
 
 			noteLimit := graphLimit
-			if graphShowAll || noteLimit <= 0 || noteLimit > len(c.TopPagerank) {
-				noteLimit = len(c.TopPagerank)
+			if graphShowAll || noteLimit <= 0 || noteLimit > len(c.TopAuthority) {
+				noteLimit = len(c.TopAuthority)
 			}
 			if noteLimit > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "    top notes:\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "    top notes (by authority):\n")
 				for j := 0; j < noteLimit; j++ {
-					p := c.TopPagerank[j]
+					p := c.TopAuthority[j]
 					n := analysis.Nodes[p]
 					tagStr := ""
 					if len(n.Tags) > 0 {
 						tagStr = fmt.Sprintf(" tags:%s", strings.Join(n.Tags, ","))
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "      %d) %s pr=%.4f in=%d out=%d%s\n", j+1, p, n.Pagerank, n.Inbound, n.Outbound, tagStr)
+					fmt.Fprintf(cmd.OutOrStdout(), "      %d) %s auth=%.4f hub=%.4f in=%d out=%d%s\n", j+1, p, n.Authority, n.Hub, n.Inbound, n.Outbound, tagStr)
 				}
-				if !graphShowAll && noteLimit < len(c.TopPagerank) {
-					fmt.Fprintf(cmd.OutOrStdout(), "      ... (%d more)\n", len(c.TopPagerank)-noteLimit)
+				if !graphShowAll && noteLimit < len(c.TopAuthority) {
+					fmt.Fprintf(cmd.OutOrStdout(), "      ... (%d more)\n", len(c.TopAuthority)-noteLimit)
 				}
 			}
 			if len(c.Bridges) > 0 {

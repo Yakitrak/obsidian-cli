@@ -73,7 +73,8 @@ type GraphNodePayload struct {
 	Title       string   `json:"title"`
 	Inbound     int      `json:"inbound"`
 	Outbound    int      `json:"outbound"`
-	Pagerank    float64  `json:"pagerank"`
+	Hub         float64  `json:"hub"`       // HITS hub score: measures how well this note curates/aggregates links
+	Authority   float64  `json:"authority"` // HITS authority score: measures how often this note is referenced
 	Community   string   `json:"community"`
 	SCC         string   `json:"scc"`
 	Neighbors   []string `json:"neighbors,omitempty"`
@@ -92,7 +93,7 @@ type GraphCommunityPayload struct {
 	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
 	Nodes           []string            `json:"nodes,omitempty"`
 	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	TopAuthority    []string            `json:"topAuthority,omitempty"`
 	Anchor          string              `json:"anchor,omitempty"`
 	Density         float64             `json:"density,omitempty"`
 	Bridges         []string            `json:"bridges,omitempty"`
@@ -125,7 +126,7 @@ type CommunityDetailResponse struct {
 	Bridges         []string            `json:"bridges,omitempty"`
 	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
 	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	TopAuthority    []string            `json:"topAuthority,omitempty"`
 	Members         []GraphNodePayload  `json:"members"`
 	InternalEdges   int                 `json:"internalEdges,omitempty"`
 }
@@ -143,13 +144,15 @@ type NeighborRef struct {
 
 // NoteGraphContext summarizes graph metrics for a single note.
 type NoteGraphContext struct {
-	Inbound            int     `json:"inbound"`
-	Outbound           int     `json:"outbound"`
-	Pagerank           float64 `json:"pagerank"`
-	PagerankPercentile float64 `json:"pagerankPercentile,omitempty"`
-	IsOrphan           bool    `json:"isOrphan"`
-	WeakComponent      string  `json:"weakComponent,omitempty"`
-	StrongComponent    string  `json:"strongComponent,omitempty"`
+	Inbound             int     `json:"inbound"`
+	Outbound            int     `json:"outbound"`
+	Hub                 float64 `json:"hub"`                           // HITS hub score
+	HubPercentile       float64 `json:"hubPercentile,omitempty"`       // Percentile rank for hub score
+	Authority           float64 `json:"authority"`                     // HITS authority score
+	AuthorityPercentile float64 `json:"authorityPercentile,omitempty"` // Percentile rank for authority score
+	IsOrphan            bool    `json:"isOrphan"`
+	WeakComponent       string  `json:"weakComponent,omitempty"`
+	StrongComponent     string  `json:"strongComponent,omitempty"`
 }
 
 // NoteCommunityContext captures the community around a note.
@@ -160,7 +163,7 @@ type NoteCommunityContext struct {
 	Density         float64             `json:"density,omitempty"`
 	Anchor          string              `json:"anchor,omitempty"`
 	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	TopAuthority    []string            `json:"topAuthority,omitempty"`
 	Bridges         []BridgePayload     `json:"bridges,omitempty"`
 	IsBridge        bool                `json:"isBridge,omitempty"`
 }
@@ -211,7 +214,7 @@ type CommunityOverview struct {
 	Anchor          string              `json:"anchor,omitempty"`
 	Density         float64             `json:"density,omitempty"`
 	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopPagerank     []string            `json:"topPagerank,omitempty"`
+	TopAuthority    []string            `json:"topAuthority,omitempty"`
 	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
 }
 
@@ -735,9 +738,9 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 				break
 			}
 			size := len(comm.Nodes)
-			topPagerank := comm.TopPagerank
-			if len(topPagerank) > maxTopNotes {
-				topPagerank = topPagerank[:maxTopNotes]
+			topAuthority := comm.TopAuthority
+			if len(topAuthority) > maxTopNotes {
+				topAuthority = topAuthority[:maxTopNotes]
 			}
 			comms = append(comms, GraphCommunityPayload{
 				ID:              comm.ID,
@@ -745,7 +748,7 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 				FractionOfVault: fractionOfVault(size, analysis.Stats.NodeCount),
 				Nodes:           nil, // omit members from list response
 				TopTags:         comm.TopTags,
-				TopPagerank:     topPagerank,
+				TopAuthority:    topAuthority,
 				Anchor:          comm.Anchor,
 				Density:         comm.Density,
 				Bridges:         comm.Bridges,
@@ -878,12 +881,13 @@ func CommunityDetailTool(config Config) func(context.Context, mcp.CallToolReques
 }
 
 type rankedMember struct {
-	path  string
-	title string
-	pr    float64
-	in    int
-	out   int
-	tags  []string
+	path      string
+	title     string
+	hub       float64
+	authority float64
+	in        int
+	out       int
+	tags      []string
 }
 
 func rankMembers(members []string, nodes map[string]obsidian.GraphNode) []rankedMember {
@@ -891,19 +895,21 @@ func rankMembers(members []string, nodes map[string]obsidian.GraphNode) []ranked
 	for _, p := range members {
 		n := nodes[p]
 		list = append(list, rankedMember{
-			path:  p,
-			title: n.Title,
-			pr:    n.Pagerank,
-			in:    n.Inbound,
-			out:   n.Outbound,
-			tags:  n.Tags,
+			path:      p,
+			title:     n.Title,
+			hub:       n.Hub,
+			authority: n.Authority,
+			in:        n.Inbound,
+			out:       n.Outbound,
+			tags:      n.Tags,
 		})
 	}
+	// Sort by authority (cornerstone concepts first)
 	sort.Slice(list, func(i, j int) bool {
-		if list[i].pr == list[j].pr {
+		if list[i].authority == list[j].authority {
 			return list[i].path < list[j].path
 		}
-		return list[i].pr > list[j].pr
+		return list[i].authority > list[j].authority
 	})
 	return list
 }
@@ -1061,18 +1067,36 @@ func sortedNeighborRefsFromMap(m map[string]NeighborRef) []NeighborRef {
 	return out
 }
 
-func pagerankPercentile(nodes map[string]obsidian.GraphNode, target string) float64 {
+func hubPercentile(nodes map[string]obsidian.GraphNode, target string) float64 {
 	if len(nodes) == 0 {
 		return 0
 	}
-	targetPR := nodes[target].Pagerank
+	targetHub := nodes[target].Hub
 	total := len(nodes)
 	if total == 0 {
 		return 0
 	}
 	count := 0
 	for _, n := range nodes {
-		if n.Pagerank <= targetPR {
+		if n.Hub <= targetHub {
+			count++
+		}
+	}
+	return float64(count) / float64(total)
+}
+
+func authorityPercentile(nodes map[string]obsidian.GraphNode, target string) float64 {
+	if len(nodes) == 0 {
+		return 0
+	}
+	targetAuth := nodes[target].Authority
+	total := len(nodes)
+	if total == 0 {
+		return 0
+	}
+	count := 0
+	for _, n := range nodes {
+		if n.Authority <= targetAuth {
 			count++
 		}
 	}
@@ -1108,7 +1132,8 @@ func extractStringArray(raw interface{}) []string {
 	}
 }
 
-func topPagerankAcrossGraph(nodes map[string]obsidian.GraphNode, limit int) []string {
+// topAuthorityAcrossGraph returns top notes by Authority score.
+func topAuthorityAcrossGraph(nodes map[string]obsidian.GraphNode, limit int) []string {
 	if limit <= 0 {
 		return nil
 	}
@@ -1118,7 +1143,7 @@ func topPagerankAcrossGraph(nodes map[string]obsidian.GraphNode, limit int) []st
 	}
 	list := make([]pr, 0, len(nodes))
 	for path, n := range nodes {
-		list = append(list, pr{path: path, val: n.Pagerank})
+		list = append(list, pr{path: path, val: n.Authority})
 	}
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].val == list[j].val {
@@ -1136,25 +1161,25 @@ func topPagerankAcrossGraph(nodes map[string]obsidian.GraphNode, limit int) []st
 	return out
 }
 
-// truncateNeighborRefs sorts neighbors by PageRank (descending) before truncating,
+// truncateNeighborRefs sorts neighbors by Authority (descending) before truncating,
 // so the most important neighbors are kept when the limit is applied.
 func truncateNeighborRefs(refs []NeighborRef, limit int, nodes map[string]obsidian.GraphNode) ([]NeighborRef, bool) {
 	if len(refs) == 0 {
 		return refs, false
 	}
-	// Sort by PageRank descending (highest first), then by path for stability
+	// Sort by Authority descending (highest first), then by path for stability
 	sorted := make([]NeighborRef, len(refs))
 	copy(sorted, refs)
 	sort.Slice(sorted, func(i, j int) bool {
-		prI, prJ := 0.0, 0.0
+		authI, authJ := 0.0, 0.0
 		if n, ok := nodes[sorted[i].Path]; ok {
-			prI = n.Pagerank
+			authI = n.Authority
 		}
 		if n, ok := nodes[sorted[j].Path]; ok {
-			prJ = n.Pagerank
+			authJ = n.Authority
 		}
-		if prI != prJ {
-			return prI > prJ
+		if authI != authJ {
+			return authI > authJ
 		}
 		return sorted[i].Path < sorted[j].Path
 	})
@@ -1164,25 +1189,25 @@ func truncateNeighborRefs(refs []NeighborRef, limit int, nodes map[string]obsidi
 	return sorted[:limit], true
 }
 
-// truncateBacklinks sorts backlinks by PageRank (descending) before truncating,
+// truncateBacklinks sorts backlinks by Authority (descending) before truncating,
 // so the most important referrers are kept when the limit is applied.
 func truncateBacklinks(backs []obsidian.Backlink, limit int, nodes map[string]obsidian.GraphNode) ([]obsidian.Backlink, bool) {
 	if len(backs) == 0 {
 		return backs, false
 	}
-	// Sort by PageRank descending (highest first), then by path for stability
+	// Sort by Authority descending (highest first), then by path for stability
 	sorted := make([]obsidian.Backlink, len(backs))
 	copy(sorted, backs)
 	sort.Slice(sorted, func(i, j int) bool {
-		prI, prJ := 0.0, 0.0
+		authI, authJ := 0.0, 0.0
 		if n, ok := nodes[sorted[i].Referrer]; ok {
-			prI = n.Pagerank
+			authI = n.Authority
 		}
 		if n, ok := nodes[sorted[j].Referrer]; ok {
-			prJ = n.Pagerank
+			authJ = n.Authority
 		}
-		if prI != prJ {
-			return prI > prJ
+		if authI != authJ {
+			return authI > authJ
 		}
 		return sorted[i].Referrer < sorted[j].Referrer
 	})
@@ -1309,13 +1334,15 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 	}
 
 	graphContext := NoteGraphContext{
-		Inbound:            node.Inbound,
-		Outbound:           node.Outbound,
-		Pagerank:           node.Pagerank,
-		PagerankPercentile: pagerankPercentile(analysis.Nodes, path),
-		IsOrphan:           node.Inbound == 0 && node.Outbound == 0,
-		WeakComponent:      node.WeakCompID,
-		StrongComponent:    node.SCC,
+		Inbound:             node.Inbound,
+		Outbound:            node.Outbound,
+		Hub:                 node.Hub,
+		HubPercentile:       hubPercentile(analysis.Nodes, path),
+		Authority:           node.Authority,
+		AuthorityPercentile: authorityPercentile(analysis.Nodes, path),
+		IsOrphan:            node.Inbound == 0 && node.Outbound == 0,
+		WeakComponent:       node.WeakCompID,
+		StrongComponent:     node.SCC,
 	}
 
 	communityContext := NoteCommunityContext{
@@ -1325,7 +1352,7 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 		Density:         comm.Density,
 		Anchor:          comm.Anchor,
 		TopTags:         comm.TopTags,
-		TopPagerank:     comm.TopPagerank,
+		TopAuthority:    comm.TopAuthority,
 		Bridges:         bridgePayloads(comm.Bridges, bridgeCounts),
 		IsBridge:        isBridgeNode(path, bridgeSet, bridgeCounts),
 	}
@@ -1373,7 +1400,8 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 			Title:       m.title,
 			Inbound:     m.in,
 			Outbound:    m.out,
-			Pagerank:    m.pr,
+			Hub:         m.hub,
+			Authority:   m.authority,
 			Community:   target.ID,
 			Tags:        m.tags,
 			WeakComp:    analysis.Nodes[m.path].WeakCompID,
@@ -1401,7 +1429,7 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 		Bridges:         target.Bridges,
 		BridgesDetailed: bridgePayloads(target.Bridges, bridgeCounts),
 		TopTags:         target.TopTags,
-		TopPagerank:     target.TopPagerank,
+		TopAuthority:    target.TopAuthority,
 		Members:         payloadMembers,
 		InternalEdges:   edgeCount,
 	}
@@ -1666,7 +1694,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			if len(topTags) > communityTagsLimit {
 				topTags = topTags[:communityTagsLimit]
 			}
-			topPR := comm.TopPagerank
+			topPR := comm.TopAuthority
 			if len(topPR) > communityMemberLimit {
 				topPR = topPR[:communityMemberLimit]
 			}
@@ -1681,7 +1709,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 				Anchor:          comm.Anchor,
 				Density:         comm.Density,
 				TopTags:         topTags,
-				TopPagerank:     topPR,
+				TopAuthority:    topPR,
 				BridgesDetailed: bridges,
 			})
 		}
@@ -1706,11 +1734,11 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 					keySet[b.Path] = struct{}{}
 				}
 			}
-			for _, p := range c.TopPagerank {
+			for _, p := range c.TopAuthority {
 				keySet[p] = struct{}{}
 			}
 		}
-		for _, p := range topPagerankAcrossGraph(analysis.Nodes, topGlobalPRLimit) {
+		for _, p := range topAuthorityAcrossGraph(analysis.Nodes, topGlobalPRLimit) {
 			keySet[p] = struct{}{}
 		}
 		keyNotes := sortedStringsFromSet(keySet)

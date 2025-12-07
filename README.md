@@ -10,7 +10,7 @@ A fast, feature-rich command-line interface for [Obsidian](https://obsidian.md) 
 ## Features
 
 - **Query & Filter** — Find notes by tag, filename pattern, folder, or frontmatter property with boolean logic
-- **Graph Analysis** — Explore link structures, communities, orphans, and PageRank-based importance
+- **Graph Analysis** — Explore link structures, communities, orphans, and HITS-based importance (hub/authority scores)
 - **Bulk Operations** — Add, rename, or delete tags and properties across matching notes
 - **Move & Rename** — Relocate files with automatic backlink updates (git-aware)
 - **MCP Server** — Expose vault operations to Claude, Cursor, VS Code, and other AI assistants

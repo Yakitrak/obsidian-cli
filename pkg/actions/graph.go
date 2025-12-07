@@ -35,7 +35,7 @@ type GraphAnalysisParams struct {
 	AnalysisCache   *cache.AnalysisCache
 }
 
-// GraphAnalysis returns a richer graph representation (pagerank, communities, degrees, neighbors).
+// GraphAnalysis returns a richer graph representation (hub/authority scores, communities, degrees, neighbors).
 func GraphAnalysis(vault obsidian.VaultManager, note obsidian.NoteManager, params GraphAnalysisParams) (*obsidian.GraphAnalysis, error) {
 	vaultPath, err := vault.Path()
 	if err != nil {
