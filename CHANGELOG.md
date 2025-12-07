@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.7.0] - 2025-12-07
+- Added `graph vault-context` and `graph note-context` commands to emit JSON vault and per-note graph context (communities, hubs/authorities, neighbors, backlinks, recency).
+- Replaced PageRank with HITS hub/authority scores across graph stats, communities, and MCP responses, with CLI output updated to show both hub and authority metrics.
+- Turned on multi-hop recency cascading by default for graph analysis (CLI and MCP); use `--recency-cascade=false` or `recencyCascade:false` to opt out. **Default behavior change.**
+- Enriched MCP graph tools (`community_list`, `community_detail`) and added `note_context` / `vault_context` tools with authority distributions, recency summaries, bridge strength, weak components, and key-note/MOC detection.
+- Parallelized graph build and recency computation, reused cached note metadata (including derived content times), and fixed a Windows watcher deadlock for more reliable, faster runs on large vaults.
+- Increased default graph listing limits (e.g., `graph --limit` now 100) and added optional timing output for graph commands and MCP to inspect analysis cost.
+
+
 ## [0.6.2] - 2025-12-06
 - Refresh analysis cache providers before using cached backlinks/graph data for more accurate results.
 - Prevent the files MCP tool from mutating base `SuppressedTags` when per-call overrides are supplied.
