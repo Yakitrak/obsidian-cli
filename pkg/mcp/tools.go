@@ -732,7 +732,7 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
 		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
 
-		maxCommunities := 25
+		maxCommunities := 100
 		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
 			maxCommunities = int(v)
 		}
@@ -1656,7 +1656,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 		args := request.GetArguments()
 		opts := parseGraphOptions(args, true)
 
-		maxCommunities := 10
+		maxCommunities := 100
 		if v, ok := args["maxCommunities"].(float64); ok && int(v) > 0 {
 			maxCommunities = int(v)
 		}

@@ -72,7 +72,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
 		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
-		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 25)"), mcp.Min(1)),
+		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
 		mcp.WithNumber("maxTopNotes", mcp.Description("Maximum top authority notes per community (default 5)"), mcp.Min(1)),
 	)
 	s.AddTool(communityListTool, CommunityListTool(config))
@@ -120,7 +120,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
 		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
-		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 10)"), mcp.Min(1)),
+		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
 		mcp.WithNumber("communityTopNotes", mcp.Description("Top authority notes per community (default 5)"), mcp.Min(1)),
 		mcp.WithNumber("communityTopTags", mcp.Description("Top tags per community (default 5)"), mcp.Min(1)),
 		mcp.WithNumber("bridgeLimit", mcp.Description("Bridges to include per community (default 3)"), mcp.Min(1)),

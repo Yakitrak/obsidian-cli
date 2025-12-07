@@ -19,7 +19,7 @@ var graphMutualOnly bool
 
 func init() {
 	graphCmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
-	graphCmd.PersistentFlags().IntVar(&graphLimit, "limit", 25, "max items to show in summaries (authority/hub, communities, clusters)")
+	graphCmd.PersistentFlags().IntVar(&graphLimit, "limit", 100, "max items to show in summaries (authority/hub, communities, clusters)")
 	graphCmd.PersistentFlags().BoolVar(&graphShowAll, "all", false, "show full listings instead of summaries")
 	graphCmd.PersistentFlags().BoolVar(&graphNoColor, "no-color", false, "disable colored graph output")
 	graphCmd.PersistentFlags().StringSliceVar(&graphExcludePatterns, "exclude", nil, "exclude notes matching these patterns (same syntax as list/prompt)")
