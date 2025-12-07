@@ -1519,7 +1519,7 @@ func relatedNotesForPath(ctx context.Context, path string, analysis *obsidian.Gr
 	if searchK < 30 {
 		searchK = 30
 	}
-	cands, err := config.Embeddings.SearchNotesByVector(ctx, emb, searchK)
+	cands, _, err := config.Embeddings.SearchNotesByVector(ctx, emb, searchK)
 	if err != nil {
 		return nil, err
 	}
@@ -1616,7 +1616,7 @@ func semanticQueryMatches(ctx context.Context, query string, config Config, limi
 	if limit <= 0 {
 		limit = 10
 	}
-	cands, err := config.Embeddings.SearchNotesByVector(ctx, vecs[0], limit*3)
+	cands, _, err := config.Embeddings.SearchNotesByVector(ctx, vecs[0], limit*3)
 	if err != nil {
 		return nil, err
 	}

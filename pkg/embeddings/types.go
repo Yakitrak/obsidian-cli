@@ -37,3 +37,13 @@ type SimilarChunk struct {
 	GraphScore float64
 	FinalScore float64
 }
+
+// IndexMetadata tracks persisted metadata about an embeddings index.
+type IndexMetadata struct {
+	Provider      string
+	Model         string
+	Dimensions    int
+	SchemaVersion int
+	CreatedAt     time.Time
+	LastSync      time.Time
+}

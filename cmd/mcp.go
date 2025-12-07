@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/atomicobject/obsidian-cli/pkg/cache"
 	"github.com/atomicobject/obsidian-cli/pkg/embeddings"
@@ -43,6 +45,8 @@ Example MCP client configuration (e.g., for Claude Desktop):
   }
 }`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		// Enable debug output if debug flag is set
 		if debug {
 			log.SetOutput(os.Stderr)
@@ -118,14 +122,14 @@ Example MCP client configuration (e.g., for Claude Desktop):
 				if err != nil {
 					log.Printf("Embeddings index unavailable at %s: %v", embCfg.IndexPath, err)
 				} else {
-					indexer := embeddings.NewIndexer(store, provider, vaultPath)
+					indexer := embeddings.NewIndexer(store, provider, embCfg.ProviderCfg(apiKey), vaultPath)
 					if embCfg.BatchSize > 0 {
 						indexer.BatchSize = embCfg.BatchSize
 					}
 					if embCfg.MaxConcurrency > 0 {
 						indexer.MaxConcurrent = embCfg.MaxConcurrency
 					}
-					if err := indexer.SyncVault(context.Background()); err != nil {
+					if err := indexer.SyncVault(ctx); err != nil {
 						log.Printf("Embedding index refresh failed (semantic disabled): %v", err)
 						_ = store.Close()
 					} else {
@@ -133,6 +137,7 @@ Example MCP client configuration (e.g., for Claude Desktop):
 						config.EmbedProvider = provider
 						config.EmbeddingsPath = embCfg.IndexPath
 						config.EmbeddingsOn = true
+						watchEmbeddings(ctx, cacheService, indexer, vaultPath)
 					}
 				}
 			}
@@ -199,4 +204,55 @@ Best practices:
 3. Use includeContent/includeFrontmatter/includeBacklinks flags to control payload size in files responses.
 
 Additional resources are available under the URI prefix obsidian-cli/help/* (see list_resources).`
+}
+
+func watchEmbeddings(ctx context.Context, cacheService *cache.Service, indexer *embeddings.Indexer, vaultPath string) {
+	go func() {
+		t := time.NewTicker(3 * time.Second)
+		defer t.Stop()
+		lastFull := time.Now()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				dirty := cacheService.DirtySnapshot()
+				if err := cacheService.Refresh(ctx); err != nil {
+					continue
+				}
+				now := time.Now()
+				if len(dirty) == 0 && now.Sub(lastFull) < time.Hour {
+					continue
+				}
+
+				// Periodic safety sweep to catch missed events or drifts.
+				if now.Sub(lastFull) >= time.Hour {
+					_ = indexer.SyncVault(ctx)
+					lastFull = now
+					continue
+				}
+
+				for rel, kind := range dirty {
+					if filepath.Ext(rel) != ".md" {
+						continue
+					}
+					switch kind {
+					case cache.DirtyRemoved, cache.DirtyRenamed:
+						_ = indexer.Index.DeleteNote(ctx, embeddings.NoteID(rel))
+					default:
+						if entry, ok := cacheService.Entry(rel); ok {
+							info := embeddings.NoteFileInfo{
+								ID:    embeddings.NoteID(entry.Path),
+								Path:  filepath.Join(vaultPath, entry.Path),
+								Title: filepath.Base(entry.Path),
+								Size:  entry.Size,
+								Mtime: entry.ModTime,
+							}
+							_ = indexer.UpdateNote(ctx, info, entry.Content)
+						}
+					}
+				}
+			}
+		}
+	}()
 }

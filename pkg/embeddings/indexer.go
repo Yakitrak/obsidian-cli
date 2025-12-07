@@ -10,22 +10,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Indexer coordinates scanning a vault and keeping the embedding index fresh.
 type Indexer struct {
 	Index         Index
 	Provider      Provider
+	ProviderInfo  ProviderConfig
 	Root          string
 	BatchSize     int
 	MaxConcurrent int
 }
 
 // NewIndexer constructs an indexer with sensible defaults for batching and concurrency.
-func NewIndexer(idx Index, provider Provider, root string) *Indexer {
+func NewIndexer(idx Index, provider Provider, info ProviderConfig, root string) *Indexer {
 	return &Indexer{
 		Index:         idx,
 		Provider:      provider,
+		ProviderInfo:  info,
 		Root:          root,
 		BatchSize:     8,
 		MaxConcurrent: DefaultMaxConcurrent,
@@ -86,6 +89,14 @@ func (ix *Indexer) SyncVault(ctx context.Context) error {
 		return err
 	}
 
+	if err := ix.Index.ValidateOrInitMetadata(ctx, IndexMetadata{
+		Provider:   ix.ProviderInfo.Provider,
+		Model:      ix.ProviderInfo.Model,
+		Dimensions: ix.Provider.Dimensions(),
+	}); err != nil {
+		return err
+	}
+
 	existing, err := ix.Index.ListNotes(ctx)
 	if err != nil {
 		return err
@@ -137,6 +148,7 @@ func (ix *Indexer) SyncVault(ctx context.Context) error {
 		return fmt.Errorf("delete removed notes: %w", err)
 	}
 
+	_ = ix.Index.UpdateLastSync(ctx, time.Now())
 	return nil
 }
 
@@ -200,6 +212,22 @@ func (ix *Indexer) indexNote(ctx context.Context, info NoteFileInfo, content str
 	return ix.Index.UpsertNoteEmbedding(ctx, info.ID, fileHash, vecs[0])
 }
 
+// UpdateNote indexes a single note given its metadata and content (skips unchanged chunks).
+func (ix *Indexer) UpdateNote(ctx context.Context, info NoteFileInfo, content string) error {
+	if ix.Index == nil || ix.Provider == nil {
+		return errors.New("indexer is missing index or provider")
+	}
+	if err := ix.Index.UpsertNoteMeta(ctx, info); err != nil {
+		return fmt.Errorf("upsert meta %s: %w", info.Path, err)
+	}
+	_, prevHash, hasEmb, err := ix.Index.GetNoteEmbedding(ctx, info.ID)
+	if err != nil {
+		return fmt.Errorf("get embedding %s: %w", info.Path, err)
+	}
+	hash := hashContent(content)
+	return ix.indexNote(ctx, info, content, hash, hasEmb && hash == prevHash)
+}
+
 func contentHashForFile(path string) (string, string, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -207,6 +235,11 @@ func contentHashForFile(path string) (string, string, error) {
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), string(b), nil
+}
+
+func hashContent(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
 }
 
 func shouldSkipDir(name string) bool {

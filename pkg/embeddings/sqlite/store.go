@@ -67,6 +67,9 @@ func Open(path string, dimensions int) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if dimensions > 0 {
+		store.dimensions = dimensions
+	}
 	return store, nil
 }
 
@@ -74,6 +77,15 @@ func Open(path string, dimensions int) (*Store, error) {
 func (s *Store) EnsureSchema(ctx context.Context) error {
 	stmts := []string{
 		`PRAGMA foreign_keys = ON;`,
+		`CREATE TABLE IF NOT EXISTS index_meta (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			provider TEXT,
+			model TEXT,
+			dimensions INTEGER,
+			schema_version INTEGER NOT NULL DEFAULT 1,
+			created_at INTEGER NOT NULL,
+			last_sync INTEGER
+		);`,
 		`CREATE TABLE IF NOT EXISTS notes (
 			id              INTEGER PRIMARY KEY,
 			note_id         TEXT NOT NULL UNIQUE,
@@ -118,6 +130,83 @@ func (s *Store) EnsureSchema(ctx context.Context) error {
 // Close releases database resources.
 func (s *Store) Close() error {
 	return s.db.Close()
+}
+
+func (s *Store) Metadata(ctx context.Context) (embeddings.IndexMetadata, bool, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT provider, model, dimensions, schema_version, created_at, last_sync FROM index_meta WHERE id = 1`)
+	var provider, model string
+	var dims, version int
+	var created, lastSync int64
+	if err := row.Scan(&provider, &model, &dims, &version, &created, &lastSync); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return embeddings.IndexMetadata{}, false, nil
+		}
+		return embeddings.IndexMetadata{}, false, err
+	}
+	meta := embeddings.IndexMetadata{
+		Provider:      provider,
+		Model:         model,
+		Dimensions:    dims,
+		SchemaVersion: version,
+		CreatedAt:     time.Unix(created, 0),
+	}
+	if lastSync > 0 {
+		meta.LastSync = time.Unix(lastSync, 0)
+	}
+	return meta, true, nil
+}
+
+func (s *Store) ValidateOrInitMetadata(ctx context.Context, meta embeddings.IndexMetadata) error {
+	current, ok, err := s.Metadata(ctx)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		if meta.SchemaVersion == 0 {
+			meta.SchemaVersion = 1
+		}
+		if meta.CreatedAt.IsZero() {
+			meta.CreatedAt = time.Now()
+		}
+		_, err := s.db.ExecContext(ctx, `
+			INSERT INTO index_meta (id, provider, model, dimensions, schema_version, created_at, last_sync)
+			VALUES (1, ?, ?, ?, ?, ?, ?)
+		`, meta.Provider, meta.Model, meta.Dimensions, meta.SchemaVersion, meta.CreatedAt.Unix(), meta.LastSync.Unix())
+		return err
+	}
+	if meta.Dimensions > 0 && current.Dimensions > 0 && meta.Dimensions != current.Dimensions {
+		return fmt.Errorf("index dimensions mismatch: have %d stored, expected %d (rebuild index)", current.Dimensions, meta.Dimensions)
+	}
+	if meta.Provider != "" && current.Provider != "" && meta.Provider != current.Provider {
+		return fmt.Errorf("index provider mismatch: have %s stored, expected %s (rebuild index)", current.Provider, meta.Provider)
+	}
+	if meta.Model != "" && current.Model != "" && meta.Model != current.Model {
+		return fmt.Errorf("index model mismatch: have %s stored, expected %s (rebuild index)", current.Model, meta.Model)
+	}
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE index_meta SET
+			provider = COALESCE(NULLIF(provider, ''), ?),
+			model = COALESCE(NULLIF(model, ''), ?),
+			dimensions = CASE WHEN dimensions IS NULL OR dimensions = 0 THEN ? ELSE dimensions END
+		WHERE id = 1
+	`, meta.Provider, meta.Model, meta.Dimensions)
+	return err
+}
+
+func (s *Store) UpdateLastSync(ctx context.Context, ts time.Time) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE index_meta SET last_sync = ? WHERE id = 1`, ts.Unix())
+	return err
+}
+
+func (s *Store) Stats(ctx context.Context) (int, int, error) {
+	var notes, chunks int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM notes`).Scan(&notes); err != nil {
+		return 0, 0, err
+	}
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM chunk_embeddings`).Scan(&chunks); err != nil {
+		return 0, 0, err
+	}
+	return notes, chunks, nil
 }
 
 // ChunkHashes returns existing chunk hashes for a note keyed by chunk index.
@@ -206,6 +295,12 @@ func (s *Store) ListNotes(ctx context.Context) ([]embeddings.NoteFileInfo, error
 		})
 	}
 	return res, rows.Err()
+}
+
+// DeleteNote removes a note and cascades embeddings.
+func (s *Store) DeleteNote(ctx context.Context, id embeddings.NoteID) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM notes WHERE note_id = ?`, string(id))
+	return err
 }
 
 // UpsertNoteEmbedding inserts or updates an embedding for a note.
@@ -302,10 +397,6 @@ func (s *Store) UpsertNoteChunks(ctx context.Context, id embeddings.NoteID, chun
 		return err
 	}
 
-	if _, err = tx.ExecContext(ctx, `DELETE FROM chunk_embeddings WHERE note_row_id = ?`, rowID); err != nil {
-		return err
-	}
-
 	now := time.Now().Unix()
 	for i, chunk := range chunks {
 		vec := vecs[i]
@@ -338,9 +429,9 @@ func (s *Store) UpsertNoteChunks(ctx context.Context, id embeddings.NoteID, chun
 }
 
 // SearchChunksByVector performs a brute-force cosine similarity search across chunks.
-func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embedding, k int) ([]embeddings.SimilarChunk, error) {
+func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embedding, k int) ([]embeddings.SimilarChunk, int, error) {
 	if len(query) == 0 {
-		return nil, errors.New("query embedding is empty")
+		return nil, 0, errors.New("query embedding is empty")
 	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT n.note_id, n.title, c.chunk_index, c.breadcrumb, c.heading, c.embedding
@@ -348,20 +439,22 @@ func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embed
 		JOIN notes n ON c.note_row_id = n.id
 	`)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var cands []embeddings.SimilarChunk
+	skipped := 0
 	for rows.Next() {
 		var id, title, breadcrumb, heading string
 		var idx int
 		var blob []byte
 		if err := rows.Scan(&id, &title, &idx, &breadcrumb, &heading, &blob); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		emb := bytesToEmbed(blob)
 		if len(emb) != len(query) {
+			skipped++
 			continue
 		}
 		score := cosine(query, emb)
@@ -375,25 +468,25 @@ func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embed
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	sort.Slice(cands, func(i, j int) bool { return cands[i].Score > cands[j].Score })
 	if k > 0 && len(cands) > k {
 		cands = cands[:k]
 	}
-	return cands, nil
+	return cands, skipped, nil
 }
 
 // SearchNotesByVector aggregates chunk scores to note-level (max score).
-func (s *Store) SearchNotesByVector(ctx context.Context, query embeddings.Embedding, k int) ([]embeddings.SimilarNote, error) {
+func (s *Store) SearchNotesByVector(ctx context.Context, query embeddings.Embedding, k int) ([]embeddings.SimilarNote, int, error) {
 	chunkLimit := k * 3
 	if chunkLimit < k {
 		chunkLimit = k
 	}
-	chunks, err := s.SearchChunksByVector(ctx, query, chunkLimit)
+	chunks, skipped, err := s.SearchChunksByVector(ctx, query, chunkLimit)
 	if err != nil {
-		return nil, err
+		return nil, skipped, err
 	}
 	scoreByNote := make(map[embeddings.NoteID]float64)
 	titleByNote := make(map[embeddings.NoteID]string)
@@ -415,7 +508,7 @@ func (s *Store) SearchNotesByVector(ctx context.Context, query embeddings.Embedd
 	if k > 0 && len(notes) > k {
 		notes = notes[:k]
 	}
-	return notes, nil
+	return notes, skipped, nil
 }
 
 // embedToBytes encodes a float32 slice as little-endian bytes.

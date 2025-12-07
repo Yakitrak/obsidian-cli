@@ -50,7 +50,8 @@ var semanticIndexCmd = &cobra.Command{
 		}
 
 		apiKey := embeddings.ResolveAPIKey(semanticAPIKey)
-		provider, err := embeddings.NewProvider(embCfg.ProviderCfg(apiKey))
+		providerCfg := embCfg.ProviderCfg(apiKey)
+		provider, err := embeddings.NewProvider(providerCfg)
 		if err != nil {
 			return err
 		}
@@ -61,7 +62,7 @@ var semanticIndexCmd = &cobra.Command{
 		}
 		defer store.Close()
 
-		indexer := embeddings.NewIndexer(store, provider, vaultPath)
+		indexer := embeddings.NewIndexer(store, provider, providerCfg, vaultPath)
 		if embCfg.BatchSize > 0 {
 			indexer.BatchSize = embCfg.BatchSize
 		}
@@ -141,18 +142,24 @@ var semanticSearchCmd = &cobra.Command{
 		if limit <= 0 {
 			limit = 10
 		}
-		cands, err := store.SearchNotesByVector(cmd.Context(), vecs[0], limit)
+		cands, skipped, err := store.SearchNotesByVector(cmd.Context(), vecs[0], limit)
 		if err != nil {
 			return err
 		}
 
 		if len(cands) == 0 {
 			fmt.Println("No semantic matches found.")
+			if skipped > 0 {
+				fmt.Printf("(Skipped %d chunks due to dimension mismatch; consider rebuilding index)\n", skipped)
+			}
 			return nil
 		}
 
 		for _, c := range cands {
-			fmt.Printf("%s\t%.4f\n", c.ID, c.Score)
+			fmt.Printf("%s\t%.4f\t%s\n", c.ID, c.Score, c.Title)
+		}
+		if skipped > 0 {
+			fmt.Printf("(Skipped %d chunks due to dimension mismatch; consider rebuilding index)\n", skipped)
 		}
 		return nil
 	},

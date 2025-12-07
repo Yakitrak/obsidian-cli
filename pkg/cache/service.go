@@ -288,6 +288,30 @@ func (s *Service) Paths() []string {
 	return paths
 }
 
+// DirtyPaths returns a snapshot of currently dirty relative paths.
+// Callers should typically invoke Refresh() afterward to apply changes.
+func (s *Service) DirtyPaths() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	paths := make([]string, 0, len(s.dirty))
+	for p := range s.dirty {
+		paths = append(paths, p)
+	}
+	return paths
+}
+
+// DirtySnapshot returns a copy of the current dirty map (relative paths → kind).
+// Callers should typically invoke Refresh() afterward to apply changes.
+func (s *Service) DirtySnapshot() map[string]DirtyKind {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	copyMap := make(map[string]DirtyKind, len(s.dirty))
+	for k, v := range s.dirty {
+		copyMap[k] = v
+	}
+	return copyMap
+}
+
 // Version returns a monotonic counter that increments whenever the cache
 // processes dirty changes or is resynced. Callers can use it to invalidate
 // derived caches (e.g., backlinks, graph analysis).
