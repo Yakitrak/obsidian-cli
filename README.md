@@ -196,11 +196,14 @@ obsidian-cli graph ignore tag:periodic find:*Archive*
 
 ## Semantic Search (opt-in)
 
-1. Build or refresh the index: `obsidian-cli semantic index --provider openai --model text-embedding-3-large` (requires `OPENAI_API_KEY` or `OBSIDIAN_CLI_OPENAI_API_KEY`). The SQLite index lives at `.obsidian-cli/semantic-index.sqlite` inside the vault and is gitignored automatically.
-2. Query: `obsidian-cli semantic search "project kickoff"` (`--limit` to change the number of matches).
-3. Local providers: `--provider ollama --endpoint http://localhost:11434/api/embeddings --model <model>` for local embeddings.
+1. Enable (once per vault): `obsidian-cli semantic enable` (creates/updates `.obsidian-cli/config.json`).
+2. Build or refresh: `obsidian-cli semantic index --provider openai --model text-embedding-3-large` (requires `OPENAI_API_KEY` or `OBSIDIAN_CLI_OPENAI_API_KEY`). Use `semantic refresh` for a soft incremental pass or `semantic rebuild` to drop and recreate the index. Index lives at `.obsidian-cli/semantic-index.sqlite` and is gitignored automatically.
+3. Status: `obsidian-cli semantic status` (shows provider/model, dimensions, counts, last sync, and dimension mismatch warnings).
+4. Query: `obsidian-cli semantic search "project kickoff"` (`--limit` to change the number of matches, `--chunks` to see chunk-level headings/breadcrumbs).
+5. Local providers: `--provider ollama --endpoint http://localhost:11434/api/embeddings --model <model>` for local embeddings.
+6. Disable anytime: `obsidian-cli semantic disable` (turns off MCP semantic features and background watchers).
 
-MCP reuses the same index: `note_context` includes `related` semantic notes, and `vault_context` accepts `semanticQuery` to return `semanticMatches`.
+MCP reuses the same index: `note_context` includes `related` semantic notes with best-match headings, and `vault_context` accepts `semanticQuery` to return chunk-level `semanticMatches`. The MCP server refreshes the index in the background and watches for vault changes; when disabled it skips semantic tools entirely.
 
 ---
 
@@ -239,8 +242,8 @@ obsidian-cli mcp --vault "MyVault" --debug
 | `list_properties`  | Inspect property usage across the vault                                          |
 | `community_list`   | List graph communities with anchors, sizes, and top notes                        |
 | `community_detail` | Full detail for a specific community                                             |
-| `vault_context`    | Compact overview of vault communities and key notes (supports `semanticQuery`)   |
-| `note_context`     | Graph + community context for one or more notes (returns `related` when indexed) |
+| `vault_context`    | Compact overview of vault communities and key notes (supports chunk-level `semanticQuery`) |
+| `note_context`     | Graph + community context for one or more notes (returns `related` with best-match chunk when indexed) |
 | `daily_note`       | Get today's daily note path and content                                          |
 | `daily_note_path`  | Get daily note path for a given date                                             |
 | `rename_note`      | Rename a note with backlink updates                                              |

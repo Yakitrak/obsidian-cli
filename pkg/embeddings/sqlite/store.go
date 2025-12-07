@@ -9,8 +9,10 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/obsidian-cli/pkg/embeddings"
@@ -433,6 +435,7 @@ func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embed
 	if len(query) == 0 {
 		return nil, 0, errors.New("query embedding is empty")
 	}
+
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT n.note_id, n.title, c.chunk_index, c.breadcrumb, c.heading, c.embedding
 		FROM chunk_embeddings c
@@ -443,7 +446,15 @@ func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embed
 	}
 	defer rows.Close()
 
-	var cands []embeddings.SimilarChunk
+	type chunkRow struct {
+		id         string
+		title      string
+		idx        int
+		breadcrumb string
+		heading    string
+		emb        embeddings.Embedding
+	}
+	var rowsBuf []chunkRow
 	skipped := 0
 	for rows.Next() {
 		var id, title, breadcrumb, heading string
@@ -457,19 +468,67 @@ func (s *Store) SearchChunksByVector(ctx context.Context, query embeddings.Embed
 			skipped++
 			continue
 		}
-		score := cosine(query, emb)
-		cands = append(cands, embeddings.SimilarChunk{
-			NoteID:     embeddings.NoteID(id),
-			Title:      title,
-			ChunkIndex: idx,
-			Breadcrumb: breadcrumb,
-			Heading:    heading,
-			Score:      score,
+		rowsBuf = append(rowsBuf, chunkRow{
+			id:         id,
+			title:      title,
+			idx:        idx,
+			breadcrumb: breadcrumb,
+			heading:    heading,
+			emb:        emb,
 		})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, err
 	}
+
+	if len(rowsBuf) == 0 {
+		return nil, skipped, nil
+	}
+
+	workerCount := runtime.NumCPU()
+	if workerCount < 1 {
+		workerCount = 1
+	}
+	if workerCount > len(rowsBuf) {
+		workerCount = len(rowsBuf)
+	}
+
+	cands := make([]embeddings.SimilarChunk, 0, len(rowsBuf))
+	var mu sync.Mutex
+	workCh := make(chan chunkRow)
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			defer wg.Done()
+			for r := range workCh {
+				score := cosine(query, r.emb)
+				res := embeddings.SimilarChunk{
+					NoteID:     embeddings.NoteID(r.id),
+					Title:      r.title,
+					ChunkIndex: r.idx,
+					Breadcrumb: r.breadcrumb,
+					Heading:    r.heading,
+					Score:      score,
+				}
+				mu.Lock()
+				cands = append(cands, res)
+				mu.Unlock()
+			}
+		}()
+	}
+
+	for _, r := range rowsBuf {
+		select {
+		case workCh <- r:
+		case <-ctx.Done():
+			close(workCh)
+			wg.Wait()
+			return nil, skipped, ctx.Err()
+		}
+	}
+	close(workCh)
+	wg.Wait()
 
 	sort.Slice(cands, func(i, j int) bool { return cands[i].Score > cands[j].Score })
 	if k > 0 && len(cands) > k {
@@ -490,18 +549,23 @@ func (s *Store) SearchNotesByVector(ctx context.Context, query embeddings.Embedd
 	}
 	scoreByNote := make(map[embeddings.NoteID]float64)
 	titleByNote := make(map[embeddings.NoteID]string)
+	bestChunk := make(map[embeddings.NoteID]embeddings.SimilarChunk)
 	for _, c := range chunks {
 		if c.Score > scoreByNote[c.NoteID] {
 			scoreByNote[c.NoteID] = c.Score
 			titleByNote[c.NoteID] = c.Title
+			bestChunk[c.NoteID] = c
 		}
 	}
 	notes := make([]embeddings.SimilarNote, 0, len(scoreByNote))
 	for id, score := range scoreByNote {
 		notes = append(notes, embeddings.SimilarNote{
-			ID:    id,
-			Title: titleByNote[id],
-			Score: score,
+			ID:         id,
+			Title:      titleByNote[id],
+			Score:      score,
+			ChunkIndex: bestChunk[id].ChunkIndex,
+			Breadcrumb: bestChunk[id].Breadcrumb,
+			Heading:    bestChunk[id].Heading,
 		})
 	}
 	sort.Slice(notes, func(i, j int) bool { return notes[i].Score > notes[j].Score })

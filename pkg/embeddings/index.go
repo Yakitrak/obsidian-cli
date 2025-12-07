@@ -12,6 +12,9 @@ type SimilarNote struct {
 	Score      float64
 	GraphScore float64
 	FinalScore float64
+	ChunkIndex int
+	Breadcrumb string
+	Heading    string
 }
 
 // Index abstracts persistence and vector search for note embeddings.

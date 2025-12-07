@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -30,7 +31,7 @@ func NewIndexer(idx Index, provider Provider, info ProviderConfig, root string) 
 		Provider:      provider,
 		ProviderInfo:  info,
 		Root:          root,
-		BatchSize:     8,
+		BatchSize:     DefaultBatchSize,
 		MaxConcurrent: DefaultMaxConcurrent,
 	}
 }
@@ -112,6 +113,7 @@ func (ix *Indexer) SyncVault(ctx context.Context) error {
 	}
 
 	ids := make([]NoteID, 0, len(files))
+	var tasks []embedTask
 	for _, info := range files {
 		select {
 		case <-ctx.Done():
@@ -135,13 +137,15 @@ func (ix *Indexer) SyncVault(ctx context.Context) error {
 			return fmt.Errorf("get embedding %s: %w", info.Path, err)
 		}
 
-		hash, content, err := contentHashForFile(info.Path)
-		if err != nil {
-			return fmt.Errorf("hash file %s: %w", info.Path, err)
-		}
-		if err := ix.indexNote(ctx, info, content, hash, hasEmb && hash == prevHash); err != nil {
-			return err
-		}
+		tasks = append(tasks, embedTask{
+			info:     info,
+			prevHash: prevHash,
+			hasEmb:   hasEmb,
+		})
+	}
+
+	if err := ix.processTasks(ctx, tasks); err != nil {
+		return err
 	}
 
 	if err := ix.Index.DeleteNotesNotIn(ctx, ids); err != nil {
@@ -153,9 +157,80 @@ func (ix *Indexer) SyncVault(ctx context.Context) error {
 }
 
 type embedTask struct {
-	info    NoteFileInfo
-	content string
-	hash    string
+	info     NoteFileInfo
+	prevHash string
+	hasEmb   bool
+}
+
+func (ix *Indexer) processTasks(ctx context.Context, tasks []embedTask) error {
+	if len(tasks) == 0 {
+		return nil
+	}
+	workerCount := ix.MaxConcurrent
+	if workerCount <= 0 {
+		workerCount = DefaultMaxConcurrent
+	}
+	if workerCount > len(tasks) {
+		workerCount = len(tasks)
+	}
+
+	taskCh := make(chan embedTask)
+	errCh := make(chan error, 1)
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range taskCh {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				hash, content, err := contentHashForFile(task.info.Path)
+				if err != nil {
+					select {
+					case errCh <- fmt.Errorf("hash file %s: %w", task.info.Path, err):
+					default:
+					}
+					return
+				}
+				unchanged := task.hasEmb && hash == task.prevHash
+				if err := ix.indexNote(ctx, task.info, content, hash, unchanged); err != nil {
+					select {
+					case errCh <- err:
+					default:
+					}
+					return
+				}
+			}
+		}()
+	}
+
+	for _, task := range tasks {
+		select {
+		case <-ctx.Done():
+			close(taskCh)
+			wg.Wait()
+			return ctx.Err()
+		case err := <-errCh:
+			close(taskCh)
+			wg.Wait()
+			return err
+		case taskCh <- task:
+		}
+	}
+	close(taskCh)
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
 }
 
 func (ix *Indexer) indexNote(ctx context.Context, info NoteFileInfo, content string, fileHash string, unchanged bool) error {
@@ -186,15 +261,24 @@ func (ix *Indexer) indexNote(ctx context.Context, info NoteFileInfo, content str
 	}
 
 	if len(changedChunks) > 0 {
-		vecs, err := ix.Provider.EmbedTexts(ctx, changedTexts)
-		if err != nil {
-			return fmt.Errorf("embed chunks %s: %w", info.Path, err)
-		}
-		if len(vecs) != len(changedChunks) {
-			return fmt.Errorf("expected %d chunk embeddings, got %d", len(changedChunks), len(vecs))
-		}
-		if err := ix.Index.UpsertNoteChunks(ctx, info.ID, changedChunks, vecs); err != nil {
-			return fmt.Errorf("upsert chunks %s: %w", info.Path, err)
+		batchSize := ix.batchSize()
+		for start := 0; start < len(changedChunks); start += batchSize {
+			end := start + batchSize
+			if end > len(changedChunks) {
+				end = len(changedChunks)
+			}
+			batchChunks := changedChunks[start:end]
+			batchTexts := changedTexts[start:end]
+			vecs, err := ix.Provider.EmbedTexts(ctx, batchTexts)
+			if err != nil {
+				return fmt.Errorf("embed chunks %s: %w", info.Path, err)
+			}
+			if len(vecs) != len(batchChunks) {
+				return fmt.Errorf("expected %d chunk embeddings, got %d", len(batchChunks), len(vecs))
+			}
+			if err := ix.Index.UpsertNoteChunks(ctx, info.ID, batchChunks, vecs); err != nil {
+				return fmt.Errorf("upsert chunks %s: %w", info.Path, err)
+			}
 		}
 	}
 
@@ -240,6 +324,13 @@ func contentHashForFile(path string) (string, string, error) {
 func hashContent(content string) string {
 	sum := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(sum[:])
+}
+
+func (ix *Indexer) batchSize() int {
+	if ix.BatchSize > 0 {
+		return ix.BatchSize
+	}
+	return DefaultBatchSize
 }
 
 func shouldSkipDir(name string) bool {

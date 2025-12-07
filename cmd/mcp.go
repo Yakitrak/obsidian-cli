@@ -122,6 +122,7 @@ Example MCP client configuration (e.g., for Claude Desktop):
 				if err != nil {
 					log.Printf("Embeddings index unavailable at %s: %v", embCfg.IndexPath, err)
 				} else {
+					defer store.Close()
 					indexer := embeddings.NewIndexer(store, provider, embCfg.ProviderCfg(apiKey), vaultPath)
 					if embCfg.BatchSize > 0 {
 						indexer.BatchSize = embCfg.BatchSize
@@ -129,16 +130,19 @@ Example MCP client configuration (e.g., for Claude Desktop):
 					if embCfg.MaxConcurrency > 0 {
 						indexer.MaxConcurrent = embCfg.MaxConcurrency
 					}
-					if err := indexer.SyncVault(ctx); err != nil {
-						log.Printf("Embedding index refresh failed (semantic disabled): %v", err)
-						_ = store.Close()
-					} else {
-						config.Embeddings = store
-						config.EmbedProvider = provider
-						config.EmbeddingsPath = embCfg.IndexPath
-						config.EmbeddingsOn = true
+
+					config.Embeddings = store
+					config.EmbedProvider = provider
+					config.EmbeddingsPath = embCfg.IndexPath
+					config.EmbeddingsOn = true
+
+					go func() {
+						if err := indexer.SyncVault(ctx); err != nil {
+							log.Printf("Embedding index refresh failed (semantic disabled): %v", err)
+							return
+						}
 						watchEmbeddings(ctx, cacheService, indexer, vaultPath)
-					}
+					}()
 				}
 			}
 		}

@@ -229,6 +229,9 @@ type RelatedNotePayload struct {
 	Score      float64 `json:"score,omitempty"`
 	GraphScore float64 `json:"graphScore,omitempty"`
 	FinalScore float64 `json:"finalScore,omitempty"`
+	Breadcrumb string  `json:"breadcrumb,omitempty"`
+	Heading    string  `json:"heading,omitempty"`
+	ChunkIndex int     `json:"chunkIndex,omitempty"`
 }
 
 // NoteContextResponse is returned by the note_context tool.
@@ -1597,6 +1600,9 @@ func toRelatedPayloads(notes []embeddings.SimilarNote, limit int) []RelatedNoteP
 			Score:      n.Score,
 			GraphScore: n.GraphScore,
 			FinalScore: n.FinalScore,
+			Breadcrumb: n.Breadcrumb,
+			Heading:    n.Heading,
+			ChunkIndex: n.ChunkIndex,
 		}
 	}
 	return payloads
@@ -1604,6 +1610,9 @@ func toRelatedPayloads(notes []embeddings.SimilarNote, limit int) []RelatedNoteP
 
 func semanticQueryMatches(ctx context.Context, query string, config Config, limit int) ([]RelatedNotePayload, error) {
 	if query == "" {
+		return nil, nil
+	}
+	if !config.EmbeddingsOn || config.Embeddings == nil || config.EmbedProvider == nil {
 		return nil, nil
 	}
 	vecs, err := config.EmbedProvider.EmbedTexts(ctx, []string{query})
@@ -1616,14 +1625,23 @@ func semanticQueryMatches(ctx context.Context, query string, config Config, limi
 	if limit <= 0 {
 		limit = 10
 	}
-	cands, _, err := config.Embeddings.SearchNotesByVector(ctx, vecs[0], limit*3)
+	cands, _, err := config.Embeddings.SearchChunksByVector(ctx, vecs[0], limit*3)
 	if err != nil {
 		return nil, err
 	}
-	for i := range cands {
-		cands[i].FinalScore = cands[i].Score
+	notes := make([]embeddings.SimilarNote, len(cands))
+	for i, c := range cands {
+		notes[i] = embeddings.SimilarNote{
+			ID:         c.NoteID,
+			Title:      c.Title,
+			Score:      c.Score,
+			FinalScore: c.Score,
+			ChunkIndex: c.ChunkIndex,
+			Breadcrumb: c.Breadcrumb,
+			Heading:    c.Heading,
+		}
 	}
-	return toRelatedPayloads(cands, limit), nil
+	return toRelatedPayloads(notes, limit), nil
 }
 
 func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidian.GraphAnalysis, includeTags bool, includeNeighbors bool, limit int, reverse map[string][]string, bridgeCounts map[string]int) CommunityDetailResponse {
