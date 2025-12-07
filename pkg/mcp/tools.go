@@ -75,7 +75,7 @@ type GraphNodePayload struct {
 	Outbound    int      `json:"outbound"`
 	Hub         float64  `json:"hub"`       // HITS hub score: measures how well this note curates/aggregates links
 	Authority   float64  `json:"authority"` // HITS authority score: measures how often this note is referenced
-	Community   string   `json:"community"`
+	Community   string   `json:"community,omitempty"`
 	SCC         string   `json:"scc"`
 	Neighbors   []string `json:"neighbors,omitempty"`
 	LinksOut    []string `json:"linksOut,omitempty"`
@@ -86,18 +86,34 @@ type GraphNodePayload struct {
 	BridgeEdges int      `json:"bridgeEdges,omitempty"`
 }
 
+// AuthorityScorePayload carries a note and its hub/authority scores.
+type AuthorityScorePayload struct {
+	Path      string  `json:"path"`
+	Authority float64 `json:"authority"`
+	Hub       float64 `json:"hub,omitempty"`
+}
+
+// AuthorityBucketPayload summarizes authority distribution for a community.
+type AuthorityBucketPayload struct {
+	Low     float64 `json:"low"`
+	High    float64 `json:"high"`
+	Count   int     `json:"count"`
+	Example string  `json:"example,omitempty"`
+}
+
 // GraphCommunityPayload summarizes a community.
 type GraphCommunityPayload struct {
-	ID              string              `json:"id"`
-	Size            int                 `json:"size"`
-	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
-	Nodes           []string            `json:"nodes,omitempty"`
-	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopAuthority    []string            `json:"topAuthority,omitempty"`
-	Anchor          string              `json:"anchor,omitempty"`
-	Density         float64             `json:"density,omitempty"`
-	Bridges         []string            `json:"bridges,omitempty"`
-	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
+	ID               string                   `json:"id"`
+	Size             int                      `json:"size"`
+	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
+	Nodes            []string                 `json:"nodes,omitempty"`
+	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
+	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	Anchor           string                   `json:"anchor,omitempty"`
+	Density          float64                  `json:"density,omitempty"`
+	Bridges          []string                 `json:"bridges,omitempty"`
+	BridgesDetailed  []BridgePayload          `json:"bridgesDetailed,omitempty"`
 }
 
 // CommunityListResponse summarizes communities.
@@ -118,17 +134,18 @@ type ComponentSummary struct {
 
 // CommunityDetailResponse provides full detail for a single community.
 type CommunityDetailResponse struct {
-	ID              string              `json:"id"`
-	Anchor          string              `json:"anchor,omitempty"`
-	Size            int                 `json:"size"`
-	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
-	Density         float64             `json:"density,omitempty"`
-	Bridges         []string            `json:"bridges,omitempty"`
-	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
-	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopAuthority    []string            `json:"topAuthority,omitempty"`
-	Members         []GraphNodePayload  `json:"members"`
-	InternalEdges   int                 `json:"internalEdges,omitempty"`
+	ID               string                   `json:"id"`
+	Anchor           string                   `json:"anchor,omitempty"`
+	Size             int                      `json:"size"`
+	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
+	Density          float64                  `json:"density,omitempty"`
+	Bridges          []string                 `json:"bridges,omitempty"`
+	BridgesDetailed  []BridgePayload          `json:"bridgesDetailed,omitempty"`
+	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
+	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	Members          []GraphNodePayload       `json:"members"`
+	InternalEdges    int                      `json:"internalEdges,omitempty"`
 }
 
 // OrphansResponse describes orphaned note paths.
@@ -157,15 +174,16 @@ type NoteGraphContext struct {
 
 // NoteCommunityContext captures the community around a note.
 type NoteCommunityContext struct {
-	ID              string              `json:"id"`
-	Size            int                 `json:"size"`
-	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
-	Density         float64             `json:"density,omitempty"`
-	Anchor          string              `json:"anchor,omitempty"`
-	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopAuthority    []string            `json:"topAuthority,omitempty"`
-	Bridges         []BridgePayload     `json:"bridges,omitempty"`
-	IsBridge        bool                `json:"isBridge,omitempty"`
+	ID               string                   `json:"id"`
+	Size             int                      `json:"size"`
+	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
+	Density          float64                  `json:"density,omitempty"`
+	Anchor           string                   `json:"anchor,omitempty"`
+	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
+	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	Bridges          []BridgePayload          `json:"bridges,omitempty"`
+	IsBridge         bool                     `json:"isBridge,omitempty"`
 }
 
 // NoteNeighbors distinguishes inbound/outbound and community boundaries.
@@ -208,14 +226,15 @@ type VaultContextResponse struct {
 
 // CommunityOverview is a lightweight community summary for vault_context.
 type CommunityOverview struct {
-	ID              string              `json:"id"`
-	Size            int                 `json:"size"`
-	FractionOfVault float64             `json:"fractionOfVault,omitempty"`
-	Anchor          string              `json:"anchor,omitempty"`
-	Density         float64             `json:"density,omitempty"`
-	TopTags         []obsidian.TagCount `json:"topTags,omitempty"`
-	TopAuthority    []string            `json:"topAuthority,omitempty"`
-	BridgesDetailed []BridgePayload     `json:"bridgesDetailed,omitempty"`
+	ID               string                   `json:"id"`
+	Size             int                      `json:"size"`
+	FractionOfVault  float64                  `json:"fractionOfVault,omitempty"`
+	Anchor           string                   `json:"anchor,omitempty"`
+	Density          float64                  `json:"density,omitempty"`
+	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
+	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
+	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	BridgesDetailed  []BridgePayload          `json:"bridgesDetailed,omitempty"`
 }
 
 // KeyNoteMatch captures a key/MOC note and which pattern matched.
@@ -738,21 +757,20 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 				break
 			}
 			size := len(comm.Nodes)
-			topAuthority := comm.TopAuthority
-			if len(topAuthority) > maxTopNotes {
-				topAuthority = topAuthority[:maxTopNotes]
-			}
+			topAuthorityPayload := authorityScoresToPayload(comm.TopAuthority, maxTopNotes)
+			bucketPayload := authorityBucketsToPayload(comm.AuthorityBuckets)
 			comms = append(comms, GraphCommunityPayload{
-				ID:              comm.ID,
-				Size:            size,
-				FractionOfVault: fractionOfVault(size, analysis.Stats.NodeCount),
-				Nodes:           nil, // omit members from list response
-				TopTags:         comm.TopTags,
-				TopAuthority:    topAuthority,
-				Anchor:          comm.Anchor,
-				Density:         comm.Density,
-				Bridges:         comm.Bridges,
-				BridgesDetailed: bridgePayloads(comm.Bridges, bridgeCounts),
+				ID:               comm.ID,
+				Size:             size,
+				FractionOfVault:  fractionOfVault(size, analysis.Stats.NodeCount),
+				Nodes:            nil, // omit members from list response
+				TopTags:          comm.TopTags,
+				TopAuthority:     topAuthorityPayload,
+				AuthorityBuckets: bucketPayload,
+				Anchor:           comm.Anchor,
+				Density:          comm.Density,
+				Bridges:          comm.Bridges,
+				BridgesDetailed:  bridgePayloads(comm.Bridges, bridgeCounts),
 			})
 		}
 
@@ -1103,6 +1121,37 @@ func authorityPercentile(nodes map[string]obsidian.GraphNode, target string) flo
 	return float64(count) / float64(total)
 }
 
+func authorityScoresToPayload(scores []obsidian.AuthorityScore, limit int) []AuthorityScorePayload {
+	if limit > 0 && len(scores) > limit {
+		scores = scores[:limit]
+	}
+	out := make([]AuthorityScorePayload, 0, len(scores))
+	for _, s := range scores {
+		out = append(out, AuthorityScorePayload{
+			Path:      s.Path,
+			Authority: s.Authority,
+			Hub:       s.Hub,
+		})
+	}
+	return out
+}
+
+func authorityBucketsToPayload(buckets []obsidian.AuthorityBucket) []AuthorityBucketPayload {
+	if len(buckets) == 0 {
+		return nil
+	}
+	out := make([]AuthorityBucketPayload, 0, len(buckets))
+	for _, b := range buckets {
+		out = append(out, AuthorityBucketPayload{
+			Low:     b.Low,
+			High:    b.High,
+			Count:   b.Count,
+			Example: b.Example,
+		})
+	}
+	return out
+}
+
 func normalizeInputFile(file string, config Config) string {
 	normalized := obsidian.NormalizePath(obsidian.AddMdSuffix(file))
 	if filepath.IsAbs(file) && config.VaultPath != "" {
@@ -1346,15 +1395,16 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 	}
 
 	communityContext := NoteCommunityContext{
-		ID:              comm.ID,
-		Size:            len(comm.Nodes),
-		FractionOfVault: fractionOfVault(len(comm.Nodes), analysis.Stats.NodeCount),
-		Density:         comm.Density,
-		Anchor:          comm.Anchor,
-		TopTags:         comm.TopTags,
-		TopAuthority:    comm.TopAuthority,
-		Bridges:         bridgePayloads(comm.Bridges, bridgeCounts),
-		IsBridge:        isBridgeNode(path, bridgeSet, bridgeCounts),
+		ID:               comm.ID,
+		Size:             len(comm.Nodes),
+		FractionOfVault:  fractionOfVault(len(comm.Nodes), analysis.Stats.NodeCount),
+		Density:          comm.Density,
+		Anchor:           comm.Anchor,
+		TopTags:          comm.TopTags,
+		TopAuthority:     authorityScoresToPayload(comm.TopAuthority, 0),
+		AuthorityBuckets: authorityBucketsToPayload(comm.AuthorityBuckets),
+		Bridges:          bridgePayloads(comm.Bridges, bridgeCounts),
+		IsBridge:         isBridgeNode(path, bridgeSet, bridgeCounts),
 	}
 
 	var frontmatter map[string]interface{}
@@ -1402,7 +1452,6 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 			Outbound:    m.out,
 			Hub:         m.hub,
 			Authority:   m.authority,
-			Community:   target.ID,
 			Tags:        m.tags,
 			WeakComp:    analysis.Nodes[m.path].WeakCompID,
 			SCC:         analysis.Nodes[m.path].SCC,
@@ -1421,17 +1470,18 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 	}
 
 	return CommunityDetailResponse{
-		ID:              target.ID,
-		Anchor:          target.Anchor,
-		Size:            len(target.Nodes),
-		FractionOfVault: fractionOfVault(len(target.Nodes), analysis.Stats.NodeCount),
-		Density:         target.Density,
-		Bridges:         target.Bridges,
-		BridgesDetailed: bridgePayloads(target.Bridges, bridgeCounts),
-		TopTags:         target.TopTags,
-		TopAuthority:    target.TopAuthority,
-		Members:         payloadMembers,
-		InternalEdges:   edgeCount,
+		ID:               target.ID,
+		Anchor:           target.Anchor,
+		Size:             len(target.Nodes),
+		FractionOfVault:  fractionOfVault(len(target.Nodes), analysis.Stats.NodeCount),
+		Density:          target.Density,
+		Bridges:          target.Bridges,
+		BridgesDetailed:  bridgePayloads(target.Bridges, bridgeCounts),
+		TopTags:          target.TopTags,
+		TopAuthority:     authorityScoresToPayload(target.TopAuthority, 0),
+		AuthorityBuckets: authorityBucketsToPayload(target.AuthorityBuckets),
+		Members:          payloadMembers,
+		InternalEdges:    edgeCount,
 	}
 }
 
@@ -1694,23 +1744,22 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			if len(topTags) > communityTagsLimit {
 				topTags = topTags[:communityTagsLimit]
 			}
-			topPR := comm.TopAuthority
-			if len(topPR) > communityMemberLimit {
-				topPR = topPR[:communityMemberLimit]
-			}
+			topPR := authorityScoresToPayload(comm.TopAuthority, communityMemberLimit)
+			buckets := authorityBucketsToPayload(comm.AuthorityBuckets)
 			bridges := bridgePayloads(comm.Bridges, bridgeCounts)
 			if len(bridges) > bridgeLimit {
 				bridges = bridges[:bridgeLimit]
 			}
 			communities = append(communities, CommunityOverview{
-				ID:              comm.ID,
-				Size:            len(comm.Nodes),
-				FractionOfVault: fractionOfVault(len(comm.Nodes), analysis.Stats.NodeCount),
-				Anchor:          comm.Anchor,
-				Density:         comm.Density,
-				TopTags:         topTags,
-				TopAuthority:    topPR,
-				BridgesDetailed: bridges,
+				ID:               comm.ID,
+				Size:             len(comm.Nodes),
+				FractionOfVault:  fractionOfVault(len(comm.Nodes), analysis.Stats.NodeCount),
+				Anchor:           comm.Anchor,
+				Density:          comm.Density,
+				TopTags:          topTags,
+				TopAuthority:     topPR,
+				AuthorityBuckets: buckets,
+				BridgesDetailed:  bridges,
 			})
 		}
 
@@ -1735,7 +1784,9 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 				}
 			}
 			for _, p := range c.TopAuthority {
-				keySet[p] = struct{}{}
+				if p.Path != "" {
+					keySet[p.Path] = struct{}{}
+				}
 			}
 		}
 		for _, p := range topAuthorityAcrossGraph(analysis.Nodes, topGlobalPRLimit) {

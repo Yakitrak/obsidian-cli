@@ -245,13 +245,14 @@ func cloneCommunities(src []obsidian.CommunitySummary) []obsidian.CommunitySumma
 	out := make([]obsidian.CommunitySummary, len(src))
 	for i, c := range src {
 		out[i] = obsidian.CommunitySummary{
-			ID:           c.ID,
-			Nodes:        append([]string(nil), c.Nodes...),
-			TopTags:      append([]obsidian.TagCount(nil), c.TopTags...),
-			TopAuthority: append([]string(nil), c.TopAuthority...),
-			Anchor:       c.Anchor,
-			Density:      c.Density,
-			Bridges:      append([]string(nil), c.Bridges...),
+			ID:               c.ID,
+			Nodes:            append([]string(nil), c.Nodes...),
+			TopTags:          append([]obsidian.TagCount(nil), c.TopTags...),
+			TopAuthority:     append([]obsidian.AuthorityScore(nil), c.TopAuthority...),
+			AuthorityBuckets: append([]obsidian.AuthorityBucket(nil), c.AuthorityBuckets...),
+			Anchor:           c.Anchor,
+			Density:          c.Density,
+			Bridges:          append([]string(nil), c.Bridges...),
 		}
 	}
 	return out

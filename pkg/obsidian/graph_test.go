@@ -65,3 +65,50 @@ func TestGraphAnalysisRespectsExcludes(t *testing.T) {
 	_, hasGamma := analysis.Nodes["gamma.md"]
 	assert.False(t, hasGamma)
 }
+
+func TestTopAuthorityNodes(t *testing.T) {
+	nodes := map[string]GraphNode{
+		"a.md": {Authority: 0.9, Hub: 0.2},
+		"b.md": {Authority: 0.7, Hub: 0.5},
+		"c.md": {Authority: 0.7, Hub: 0.1},
+		"d.md": {Authority: 0.4, Hub: 0.9},
+	}
+	members := []string{"a.md", "b.md", "c.md", "d.md"}
+
+	top := topAuthorityNodes(members, nodes, 3)
+
+	require.Len(t, top, 3)
+	assert.Equal(t, AuthorityScore{Path: "a.md", Authority: 0.9, Hub: 0.2}, top[0])
+	// Tie on authority breaks by path
+	assert.Equal(t, AuthorityScore{Path: "b.md", Authority: 0.7, Hub: 0.5}, top[1])
+	assert.Equal(t, AuthorityScore{Path: "c.md", Authority: 0.7, Hub: 0.1}, top[2])
+}
+
+func TestAuthorityBuckets(t *testing.T) {
+	nodes := map[string]GraphNode{
+		"a.md": {Authority: 1.0},
+		"b.md": {Authority: 0.8},
+		"c.md": {Authority: 0.6},
+		"d.md": {Authority: 0.4},
+		"e.md": {Authority: 0.2},
+	}
+	members := []string{"a.md", "b.md", "c.md", "d.md", "e.md"}
+
+	buckets := authorityBuckets(members, nodes, 2)
+
+	require.Len(t, buckets, 2)
+
+	// First bucket should include top half
+	assert.InEpsilon(t, 1.0, buckets[0].High, 1e-9)
+	assert.InEpsilon(t, 0.6, buckets[0].Low, 1e-9)
+	assert.Equal(t, 3, buckets[0].Count)
+
+	// Second bucket covers the rest
+	assert.InEpsilon(t, 0.4, buckets[1].High, 1e-9)
+	assert.InEpsilon(t, 0.2, buckets[1].Low, 1e-9)
+	assert.Equal(t, 2, buckets[1].Count)
+
+	// Examples come from within each bucket
+	assert.Contains(t, members, buckets[0].Example)
+	assert.Contains(t, members, buckets[1].Example)
+}

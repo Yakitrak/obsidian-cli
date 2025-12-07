@@ -106,12 +106,12 @@ var graphCommunitiesCmd = &cobra.Command{
 				fmt.Fprintf(cmd.OutOrStdout(), "    top notes (by authority):\n")
 				for j := 0; j < noteLimit; j++ {
 					p := c.TopAuthority[j]
-					n := analysis.Nodes[p]
+					n := analysis.Nodes[p.Path]
 					tagStr := ""
 					if len(n.Tags) > 0 {
 						tagStr = fmt.Sprintf(" tags:%s", strings.Join(n.Tags, ","))
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "      %d) %s auth=%.4f hub=%.4f in=%d out=%d%s\n", j+1, p, n.Authority, n.Hub, n.Inbound, n.Outbound, tagStr)
+					fmt.Fprintf(cmd.OutOrStdout(), "      %d) %s auth=%.4f hub=%.4f in=%d out=%d%s\n", j+1, p.Path, p.Authority, p.Hub, n.Inbound, n.Outbound, tagStr)
 				}
 				if !graphShowAll && noteLimit < len(c.TopAuthority) {
 					fmt.Fprintf(cmd.OutOrStdout(), "      ... (%d more)\n", len(c.TopAuthority)-noteLimit)

@@ -11,6 +11,21 @@ import (
 	"strings"
 )
 
+// AuthorityScore captures a note and its authority/hub scores.
+type AuthorityScore struct {
+	Path      string
+	Authority float64
+	Hub       float64
+}
+
+// AuthorityBucket summarizes distribution of authority scores within a community.
+type AuthorityBucket struct {
+	Low     float64
+	High    float64
+	Count   int
+	Example string
+}
+
 // NodeStats captures inbound/outbound link counts for a note.
 type NodeStats struct {
 	Inbound  int
@@ -32,13 +47,14 @@ type Community struct {
 
 // CommunitySummary captures metadata for a detected community.
 type CommunitySummary struct {
-	ID           string
-	Nodes        []string
-	TopTags      []TagCount
-	TopAuthority []string
-	Anchor       string
-	Density      float64
-	Bridges      []string
+	ID               string
+	Nodes            []string
+	TopTags          []TagCount
+	TopAuthority     []AuthorityScore
+	AuthorityBuckets []AuthorityBucket
+	Anchor           string
+	Density          float64
+	Bridges          []string
 }
 
 // TagCount represents a tag and its count.
@@ -405,13 +421,15 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 		topAuth := topAuthorityNodes(members, nodes, 5)
 		topTags := topTagsForCommunity(members, tags, 5)
 		anchor := anchorForCommunity(members, nodes)
+		buckets := authorityBuckets(members, nodes, 6) // coarse distribution
 		summaries = append(summaries, CommunitySummary{
-			ID:           communityID(id, anchor, members),
-			Nodes:        members,
-			TopAuthority: topAuth,
-			TopTags:      topTags,
-			Anchor:       anchor,
-			Density:      density(members, nodes),
+			ID:               communityID(id, anchor, members),
+			Nodes:            members,
+			TopAuthority:     topAuth,
+			AuthorityBuckets: buckets,
+			TopTags:          topTags,
+			Anchor:           anchor,
+			Density:          density(members, nodes),
 		})
 	}
 
@@ -424,29 +442,71 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 	return summaries
 }
 
-func topAuthorityNodes(members []string, nodes map[string]GraphNode, limit int) []string {
+func topAuthorityNodes(members []string, nodes map[string]GraphNode, limit int) []AuthorityScore {
 	type pr struct {
-		path string
-		val  float64
+		path      string
+		authority float64
+		hub       float64
 	}
 	var list []pr
 	for _, m := range members {
-		list = append(list, pr{path: m, val: nodes[m].Authority})
+		list = append(list, pr{path: m, authority: nodes[m].Authority, hub: nodes[m].Hub})
 	}
 	sort.Slice(list, func(i, j int) bool {
-		if list[i].val == list[j].val {
+		if list[i].authority == list[j].authority {
 			return list[i].path < list[j].path
 		}
-		return list[i].val > list[j].val
+		return list[i].authority > list[j].authority
 	})
 	if len(list) > limit {
 		list = list[:limit]
 	}
-	out := make([]string, len(list))
+	out := make([]AuthorityScore, len(list))
 	for i, item := range list {
-		out[i] = item.path
+		out[i] = AuthorityScore{
+			Path:      item.path,
+			Authority: item.authority,
+			Hub:       item.hub,
+		}
 	}
 	return out
+}
+
+func authorityBuckets(members []string, nodes map[string]GraphNode, bucketCount int) []AuthorityBucket {
+	if bucketCount <= 0 || len(members) == 0 {
+		return nil
+	}
+	type pr struct {
+		path string
+		val  float64
+	}
+	values := make([]pr, 0, len(members))
+	for _, m := range members {
+		values = append(values, pr{path: m, val: nodes[m].Authority})
+	}
+	sort.Slice(values, func(i, j int) bool { return values[i].val > values[j].val })
+	if len(values) < bucketCount {
+		bucketCount = len(values)
+	}
+	buckets := make([]AuthorityBucket, 0, bucketCount)
+	size := int(math.Ceil(float64(len(values)) / float64(bucketCount)))
+	for i := 0; i < len(values); i += size {
+		end := i + size
+		if end > len(values) {
+			end = len(values)
+		}
+		segment := values[i:end]
+		high := segment[0].val
+		low := segment[len(segment)-1].val
+		example := segment[0].path
+		buckets = append(buckets, AuthorityBucket{
+			Low:     low,
+			High:    high,
+			Count:   len(segment),
+			Example: example,
+		})
+	}
+	return buckets
 }
 
 func anchorForCommunity(members []string, nodes map[string]GraphNode) string {
@@ -697,6 +757,9 @@ func computeHITS(adjacency map[string]map[string]struct{}) HITSResult {
 	}
 	for src, targets := range adjacency {
 		for dst := range targets {
+			if _, ok := reverse[dst]; !ok {
+				reverse[dst] = make(map[string]struct{})
+			}
 			reverse[dst][src] = struct{}{}
 		}
 	}
