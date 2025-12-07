@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/atomicobject/obsidian-cli/pkg/obsidian"
 )
@@ -238,6 +239,12 @@ func cloneGraphAnalysis(src *obsidian.GraphAnalysis) *obsidian.GraphAnalysis {
 	copyAnalysis.StrongComponents = clone2D(src.StrongComponents)
 	copyAnalysis.WeakComponents = clone2D(src.WeakComponents)
 	copyAnalysis.Orphans = append([]string(nil), src.Orphans...)
+	if len(src.EffectiveTimes) > 0 {
+		copyAnalysis.EffectiveTimes = make(map[string]time.Time, len(src.EffectiveTimes))
+		for k, v := range src.EffectiveTimes {
+			copyAnalysis.EffectiveTimes[k] = v
+		}
+	}
 	return &copyAnalysis
 }
 

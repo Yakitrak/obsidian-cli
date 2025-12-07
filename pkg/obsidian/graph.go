@@ -1,13 +1,14 @@
 package obsidian
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
-	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -109,6 +110,7 @@ type GraphAnalysis struct {
 	WeakComponents   [][]string
 	Orphans          []string
 	Stats            GraphStatsSummary
+	EffectiveTimes   map[string]time.Time `json:"-"`
 }
 
 // GraphStatsSummary captures high-level totals.
@@ -125,6 +127,22 @@ type GraphAnalysisOptions struct {
 	IncludedPaths map[string]struct{}
 	MinDegree     int
 	MutualOnly    bool
+}
+
+// NoteEntry captures cached note data that callers can reuse to avoid
+// re-reading files when computing graph metadata.
+type NoteEntry struct {
+	Path        string
+	Content     string
+	Frontmatter map[string]interface{}
+	Tags        []string
+	ContentTime time.Time
+}
+
+// NoteEntriesProvider exposes cached note entries for efficient analysis.
+// Implemented by cache-backed adapters.
+type NoteEntriesProvider interface {
+	NoteEntriesSnapshot(ctx context.Context) ([]NoteEntry, error)
 }
 
 // ComputeGraphStats scans the vault and returns degree counts and strongly connected components.
@@ -302,9 +320,40 @@ func stronglyConnectedComponents(adjacency map[string]map[string]struct{}) [][]s
 
 // ComputeGraphAnalysis builds a rich graph view including hub/authority scores, communities, and tags.
 func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnalysisOptions) (*GraphAnalysis, error) {
-	allNotes, err := note.GetNotesList(vaultPath)
-	if err != nil {
-		return nil, err
+	var (
+		allNotes []string
+		entries  []NoteEntry
+	)
+
+	if provider, ok := note.(NoteEntriesProvider); ok {
+		if snapshot, err := provider.NoteEntriesSnapshot(context.Background()); err == nil {
+			entries = snapshot
+		}
+	}
+
+	var err error
+	if len(entries) == 0 {
+		allNotes, err = note.GetNotesList(vaultPath)
+		if err != nil {
+			return nil, err
+		}
+		// Build entries lazily from GetContents for the legacy path below.
+		entries = make([]NoteEntry, 0, len(allNotes))
+		for _, path := range allNotes {
+			content, err := note.GetContents(vaultPath, path)
+			if err != nil {
+				return nil, err
+			}
+			entries = append(entries, NoteEntry{
+				Path:    path,
+				Content: content,
+			})
+		}
+	} else {
+		allNotes = make([]string, 0, len(entries))
+		for _, e := range entries {
+			allNotes = append(allNotes, e.Path)
+		}
 	}
 
 	cache := BuildNotePathCache(allNotes)
@@ -314,10 +363,11 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 
 	adjacency := make(map[string]map[string]struct{}, len(allNotes))
 	tagMap := make(map[string][]string)
-	modTimes := make(map[string]time.Time, len(allNotes))
+	contentTimes := make(map[string]time.Time, len(allNotes))
+	normalizedEntries := make([]NoteEntry, 0, len(entries))
 
-	for _, path := range allNotes {
-		normalized := NormalizePath(AddMdSuffix(path))
+	for _, entry := range entries {
+		normalized := NormalizePath(AddMdSuffix(entry.Path))
 		if _, skip := excluded[normalized]; skip {
 			continue
 		}
@@ -327,34 +377,32 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			}
 		}
 		adjacency[normalized] = make(map[string]struct{})
+		normalizedEntries = append(normalizedEntries, NoteEntry{
+			Path:        normalized,
+			Content:     entry.Content,
+			Frontmatter: entry.Frontmatter,
+			Tags:        entry.Tags,
+			ContentTime: entry.ContentTime,
+		})
 	}
 
-	for _, path := range allNotes {
-		normalized := NormalizePath(AddMdSuffix(path))
-		if _, skip := excluded[normalized]; skip {
-			continue
-		}
-		if len(included) > 0 {
-			if _, ok := included[normalized]; !ok {
-				continue
+	for _, entry := range normalizedEntries {
+		if options.IncludeTags {
+			if len(entry.Tags) > 0 {
+				tagMap[entry.Path] = entry.Tags
+			} else {
+				tagMap[entry.Path] = extractTags(entry.Content)
 			}
 		}
 
-		content, err := note.GetContents(vaultPath, path)
-		if err != nil {
-			return nil, err
+		if ct := entry.ContentTime; !ct.IsZero() {
+			contentTimes[entry.Path] = ct
+		} else if ct, ok := ResolveContentTime(entry.Path, entry.Content); ok {
+			contentTimes[entry.Path] = ct
 		}
 
-		if options.IncludeTags {
-			tagMap[normalized] = extractTags(content)
-		}
-
-		if fi, statErr := os.Stat(filepath.Join(vaultPath, normalized)); statErr == nil {
-			modTimes[normalized] = fi.ModTime()
-		}
-
-		links := scanWikilinks(content, options.WikilinkOptions)
-		src := normalized
+		links := scanWikilinks(entry.Content, options.WikilinkOptions)
+		src := entry.Path
 
 		for _, link := range links {
 			resolved, ok := cache.ResolveNote(link.Target)
@@ -366,7 +414,12 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			if src == dst {
 				continue
 			}
-			adjacency[src][dst] = struct{}{}
+			// Only retain edges to nodes that survived include/exclude filtering.
+			if _, ok := adjacency[src]; ok {
+				if _, ok := adjacency[dst]; ok {
+					adjacency[src][dst] = struct{}{}
+				}
+			}
 		}
 	}
 
@@ -420,7 +473,8 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 		}
 	}
 
-	communities := summarizeCommunities(comms, graphNodes, tagMap, modTimes)
+	effectiveTimes := applyNeighborRecency(adjacency, contentTimes, time.Now())
+	communities := summarizeCommunities(comms, graphNodes, tagMap, effectiveTimes)
 	bridges := computeBridges(adjacency, graphNodes, communities)
 	attachBridges(communities, bridges)
 
@@ -434,6 +488,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 			NodeCount: len(nodes),
 			EdgeCount: edgeCount,
 		},
+		EffectiveTimes: effectiveTimes,
 	}, nil
 }
 
@@ -471,6 +526,246 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 		return len(summaries[i].Nodes) > len(summaries[j].Nodes)
 	})
 	return summaries
+}
+
+const (
+	neighborFreshWindow      = 180 * 24 * time.Hour
+	neighborStalenessOffset  = 7 * 24 * time.Hour
+	neighborSampleLimit      = 5
+	minSaneYear              = 2000
+	maxFutureTolerance       = 365 * 24 * time.Hour
+	topLinesForDateDetection = 20
+)
+
+var (
+	isoDateRegex     = regexp.MustCompile(`\d{4}-\d{2}-\d{2}(?:[T _]?\d{2}:?\d{2}(?::?\d{2})?)?`)
+	headingDateRegex = regexp.MustCompile(`(?m)^\s{0,3}#*\s*(\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?)\b`)
+)
+
+func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes map[string]time.Time, now time.Time) map[string]time.Time {
+	inbound := make(map[string][]string)
+	for src, targets := range adjacency {
+		for dst := range targets {
+			inbound[dst] = append(inbound[dst], src)
+		}
+	}
+
+	effective := make(map[string]time.Time, len(adjacency))
+
+	for node := range adjacency {
+		base := baseTimes[node]
+		best := base
+
+		type neighborTime struct {
+			path string
+			ts   time.Time
+		}
+		seen := make(map[string]struct{})
+		var neighbors []neighborTime
+
+		for dst := range adjacency[node] {
+			if ts := baseTimes[dst]; !ts.IsZero() {
+				if _, dup := seen[dst]; !dup {
+					seen[dst] = struct{}{}
+					neighbors = append(neighbors, neighborTime{path: dst, ts: ts})
+				}
+			}
+		}
+		for _, src := range inbound[node] {
+			if ts := baseTimes[src]; !ts.IsZero() {
+				if _, dup := seen[src]; !dup {
+					seen[src] = struct{}{}
+					neighbors = append(neighbors, neighborTime{path: src, ts: ts})
+				}
+			}
+		}
+
+		sort.Slice(neighbors, func(i, j int) bool {
+			return neighbors[i].ts.After(neighbors[j].ts)
+		})
+		if len(neighbors) > neighborSampleLimit {
+			neighbors = neighbors[:neighborSampleLimit]
+		}
+
+		for _, n := range neighbors {
+			age := now.Sub(n.ts)
+			if age < -maxFutureTolerance {
+				continue
+			}
+			if age > neighborFreshWindow {
+				continue
+			}
+			adjusted := n.ts.Add(-neighborStalenessOffset)
+			if best.IsZero() || adjusted.After(best) {
+				best = adjusted
+			}
+		}
+
+		if !best.IsZero() {
+			effective[node] = best
+		}
+	}
+
+	for path, ts := range baseTimes {
+		if ts.IsZero() {
+			continue
+		}
+		if _, ok := effective[path]; !ok {
+			effective[path] = ts
+		}
+	}
+
+	return effective
+}
+
+// ResolveContentTime extracts a content-driven timestamp from a note using frontmatter,
+// filename dates, and in-note headings/lines. It rejects non-ISO or implausible dates.
+func ResolveContentTime(path, content string) (time.Time, bool) {
+	now := time.Now()
+
+	if t, ok := parseDateFromFrontmatter(content, now); ok {
+		return t, true
+	}
+	if t, ok := parseDateFromFilename(path, now); ok {
+		return t, true
+	}
+	if t, ok := parseDateFromTopLines(content, now, topLinesForDateDetection); ok {
+		return t, true
+	}
+	if t, ok := parseMostRecentHeadingDate(content, now); ok {
+		return t, true
+	}
+	return time.Time{}, false
+}
+
+func parseDateFromFrontmatter(content string, now time.Time) (time.Time, bool) {
+	frontmatter, err := ExtractFrontmatter(content)
+	if err != nil || frontmatter == nil {
+		return time.Time{}, false
+	}
+	candidates := []string{"event_date", "meeting_date", "date", "created", "updated", "modified"}
+	for _, key := range candidates {
+		if raw, ok := frontmatter[key]; ok {
+			if t, ok := parseDateValue(raw, now); ok {
+				return t, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
+func parseDateValue(raw interface{}, now time.Time) (time.Time, bool) {
+	switch v := raw.(type) {
+	case string:
+		return parseISOTimestamp(v, now)
+	case time.Time:
+		if saneTimestamp(v, now) {
+			return v, true
+		}
+	case *time.Time:
+		if v != nil && saneTimestamp(*v, now) {
+			return *v, true
+		}
+	case []interface{}:
+		for _, item := range v {
+			if t, ok := parseDateValue(item, now); ok {
+				return t, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
+func parseDateFromFilename(path string, now time.Time) (time.Time, bool) {
+	match := isoDateRegex.FindString(path)
+	if match == "" {
+		return time.Time{}, false
+	}
+	return parseISOTimestamp(match, now)
+}
+
+func parseDateFromTopLines(content string, now time.Time, limit int) (time.Time, bool) {
+	lines := strings.Split(content, "\n")
+	if limit > len(lines) {
+		limit = len(lines)
+	}
+	for i := 0; i < limit; i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+		if match := isoDateRegex.FindString(line); match != "" {
+			if t, ok := parseISOTimestamp(match, now); ok {
+				return t, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
+func parseMostRecentHeadingDate(content string, now time.Time) (time.Time, bool) {
+	matches := headingDateRegex.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return time.Time{}, false
+	}
+	var latest time.Time
+	for _, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		candidate := m[1]
+		if t, ok := parseISOTimestamp(candidate, now); ok {
+			if latest.IsZero() || t.After(latest) {
+				latest = t
+			}
+		}
+	}
+	if latest.IsZero() {
+		return time.Time{}, false
+	}
+	return latest, true
+}
+
+func parseISOTimestamp(value string, now time.Time) (time.Time, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02",
+		"2006-01-02T15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02 15:04:05",
+		"2006-01-02T1504",
+		"2006-01-02T150405",
+	}
+	candidate := value
+	if m := isoDateRegex.FindString(value); m != "" {
+		candidate = m
+	}
+	for _, layout := range layouts {
+		if ts, err := time.Parse(layout, candidate); err == nil {
+			if saneTimestamp(ts, now) {
+				return ts.UTC(), true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
+func saneTimestamp(ts time.Time, now time.Time) bool {
+	if ts.IsZero() {
+		return false
+	}
+	if ts.Year() < minSaneYear {
+		return false
+	}
+	if ts.After(now.Add(maxFutureTolerance)) {
+		return false
+	}
+	return true
 }
 
 func topAuthorityNodes(members []string, nodes map[string]GraphNode, limit int) []AuthorityScore {

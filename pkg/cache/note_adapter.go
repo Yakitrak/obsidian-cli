@@ -65,6 +65,25 @@ func (n *NoteAdapter) EntriesSnapshot(ctx context.Context) ([]Entry, error) {
 	return n.cache.EntriesSnapshot(ctx)
 }
 
+// NoteEntriesSnapshot exposes obsidian.NoteEntry slices for analysis that can reuse cached metadata.
+func (n *NoteAdapter) NoteEntriesSnapshot(ctx context.Context) ([]obsidian.NoteEntry, error) {
+	entries, err := n.cache.EntriesSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]obsidian.NoteEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, obsidian.NoteEntry{
+			Path:        e.Path,
+			Content:     e.Content,
+			Frontmatter: e.Frontmatter,
+			Tags:        e.Tags,
+			ContentTime: e.ContentTime,
+		})
+	}
+	return out, nil
+}
+
 // Version exposes the cache version for downstream caches.
 func (n *NoteAdapter) Version() uint64 {
 	return n.cache.Version()

@@ -125,6 +125,51 @@ func TestCommunityRecency(t *testing.T) {
 	assert.Equal(t, 30, recency.WindowDays)
 }
 
+func TestResolveContentTimePrefersFrontmatter(t *testing.T) {
+	content := `---
+date: 2025-05-01
+event_date: 2025-06-01
+---
+Body`
+	ts, ok := ResolveContentTime("Notes/sample.md", content)
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), ts.UTC())
+}
+
+func TestResolveContentTimeFromFilename(t *testing.T) {
+	ts, ok := ResolveContentTime("Log/2024-12-31 Planning.md", "Body")
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC), ts.UTC())
+}
+
+func TestResolveContentTimeFromHeading(t *testing.T) {
+	content := "# 2024-11-25\nSome text"
+	ts, ok := ResolveContentTime("Notes/heading.md", content)
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2024, 11, 25, 0, 0, 0, 0, time.UTC), ts.UTC())
+}
+
+func TestApplyNeighborRecencyBoostsUndated(t *testing.T) {
+	now := time.Date(2025, time.January, 15, 12, 0, 0, 0, time.UTC)
+	adjacency := map[string]map[string]struct{}{
+		"moc.md":    {"recent.md": {}},
+		"recent.md": {},
+	}
+	base := map[string]time.Time{
+		"recent.md": now.Add(-24 * time.Hour),
+	}
+
+	effective := applyNeighborRecency(adjacency, base, now)
+
+	require.Contains(t, effective, "recent.md")
+	assert.WithinDuration(t, now.Add(-24*time.Hour), effective["recent.md"], time.Second)
+
+	moc, ok := effective["moc.md"]
+	require.True(t, ok)
+	ageDays := now.Sub(moc).Hours() / 24.0
+	assert.InDelta(t, 8.0, ageDays, 0.5)
+}
+
 func TestAuthorityStatsAndBucketsAdaptive(t *testing.T) {
 	nodes := map[string]GraphNode{
 		"a.md": {Authority: 1.0},

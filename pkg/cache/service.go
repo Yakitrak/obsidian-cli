@@ -110,6 +110,7 @@ type Entry struct {
 	Frontmatter map[string]interface{} // parsed YAML frontmatter
 	InlineProps map[string][]string    // Dataview-style inline properties
 	Content     string                 // full file content
+	ContentTime time.Time              // derived content timestamp (frontmatter/filename/heading)
 }
 
 // DirtyKind captures why a path was marked dirty. The kind affects how
@@ -329,10 +330,11 @@ func (s *Service) Entry(path string) (Entry, bool) {
 // clone returns a deep copy of the Entry, protecting internal slices and maps.
 func (e *Entry) clone() Entry {
 	out := Entry{
-		Path:    e.Path,
-		ModTime: e.ModTime,
-		Size:    e.Size,
-		Content: e.Content,
+		Path:        e.Path,
+		ModTime:     e.ModTime,
+		Size:        e.Size,
+		Content:     e.Content,
+		ContentTime: e.ContentTime,
 	}
 	if len(e.Tags) > 0 {
 		out.Tags = make([]string, len(e.Tags))
@@ -617,6 +619,10 @@ func (s *Service) refreshPath(absPath string) error {
 		ModTime: info.ModTime(),
 		Size:    info.Size(),
 		Content: string(content),
+	}
+
+	if ct, ok := obsidian.ResolveContentTime(rel, entry.Content); ok {
+		entry.ContentTime = ct
 	}
 
 	// Extract metadata from content.
