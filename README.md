@@ -235,19 +235,19 @@ obsidian-cli mcp --vault "MyVault" --debug
 
 ### Available Tools
 
-| Tool               | Description                                                                      |
-| ------------------ | -------------------------------------------------------------------------------- |
-| `files`            | List/fetch files with optional content, frontmatter, and backlinks               |
-| `list_tags`        | List tags with individual and aggregate counts                                   |
-| `list_properties`  | Inspect property usage across the vault                                          |
-| `community_list`   | List graph communities with anchors, sizes, and top notes                        |
-| `community_detail` | Full detail for a specific community                                             |
-| `vault_context`    | Compact overview of vault communities and key notes (supports chunk-level `semanticQuery`) |
+| Tool               | Description                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `files`            | List/fetch files with optional content, frontmatter, and backlinks                                     |
+| `list_tags`        | List tags with individual and aggregate counts                                                         |
+| `list_properties`  | Inspect property usage across the vault                                                                |
+| `community_list`   | List graph communities with anchors, sizes, and top notes                                              |
+| `community_detail` | Full detail for a specific community                                                                   |
+| `vault_context`    | Compact overview of vault communities and key notes (supports chunk-level `semanticQuery`)             |
 | `note_context`     | Graph + community context for one or more notes (returns `related` with best-match chunk when indexed) |
-| `daily_note`       | Get today's daily note path and content                                          |
-| `daily_note_path`  | Get daily note path for a given date                                             |
-| `rename_note`      | Rename a note with backlink updates                                              |
-| `move_notes`       | Move one or more notes                                                           |
+| `daily_note`       | Get today's daily note path and content                                                                |
+| `daily_note_path`  | Get daily note path for a given date                                                                   |
+| `rename_note`      | Rename a note with backlink updates                                                                    |
+| `move_notes`       | Move one or more notes                                                                                 |
 
 **Write Tools** (requires `--read-write` flag):
 
