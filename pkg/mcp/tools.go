@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/obsidian-cli/pkg/actions"
@@ -1599,19 +1600,28 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 			}
 		}
 
-		contexts := make([]NoteContextResponse, 0, len(normalizedTargets))
-		for _, norm := range normalizedTargets {
-			ctxResp, err := buildNoteContext(norm, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, opts.IncludeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
-			if err != nil {
-				// Return partial result with error instead of failing the whole batch
-				contexts = append(contexts, NoteContextResponse{
-					Path:  norm,
-					Error: err.Error(),
-				})
-			} else {
-				contexts = append(contexts, ctxResp)
-			}
+		contexts := make([]NoteContextResponse, len(normalizedTargets))
+		sem := make(chan struct{}, runtime.NumCPU())
+		var wg sync.WaitGroup
+		for idx, norm := range normalizedTargets {
+			wg.Add(1)
+			go func(i int, path string) {
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				defer wg.Done()
+
+				ctxResp, err := buildNoteContext(path, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, opts.IncludeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
+				if err != nil {
+					contexts[i] = NoteContextResponse{
+						Path:  path,
+						Error: err.Error(),
+					}
+					return
+				}
+				contexts[i] = ctxResp
+			}(idx, norm)
 		}
+		wg.Wait()
 
 		payload := map[string]interface{}{
 			"contexts": contexts,
@@ -1802,18 +1812,28 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 					return mcp.NewToolResultError(fmt.Sprintf("error collecting backlinks for contexts: %s", err)), nil
 				}
 			}
-			for _, norm := range normalizedTargets {
-				ctxResp, err := buildNoteContext(norm, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
-				if err != nil {
-					// Return partial result with error instead of failing the whole request
-					noteContexts = append(noteContexts, NoteContextResponse{
-						Path:  norm,
-						Error: err.Error(),
-					})
-				} else {
-					noteContexts = append(noteContexts, ctxResp)
-				}
+			noteContexts = make([]NoteContextResponse, len(normalizedTargets))
+			sem := make(chan struct{}, runtime.NumCPU())
+			var wg sync.WaitGroup
+			for idx, norm := range normalizedTargets {
+				wg.Add(1)
+				go func(i int, path string) {
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					defer wg.Done()
+
+					ctxResp, err := buildNoteContext(path, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
+					if err != nil {
+						noteContexts[i] = NoteContextResponse{
+							Path:  path,
+							Error: err.Error(),
+						}
+						return
+					}
+					noteContexts[i] = ctxResp
+				}(idx, norm)
 			}
+			wg.Wait()
 		}
 
 		resp := VaultContextResponse{

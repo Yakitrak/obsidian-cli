@@ -9,8 +9,10 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -598,6 +600,12 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 		}
 	}
 
+	nodes := make([]string, 0, len(adjacency))
+	for node := range adjacency {
+		nodes = append(nodes, node)
+	}
+	sort.Strings(nodes)
+
 	clampedBase := make(map[string]time.Time, len(baseTimes))
 	for path, ts := range baseTimes {
 		if ts.IsZero() {
@@ -610,25 +618,25 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 	}
 
 	if !cascade {
-		return recencyPass(adjacency, inbound, clampedBase, clampedBase, now, nil)
+		return recencyPass(nodes, adjacency, inbound, clampedBase, clampedBase, now, nil)
 	}
 
 	current := make(map[string]time.Time, len(adjacency))
-	for node := range adjacency {
+	for _, node := range nodes {
 		if ts := clampedBase[node]; !ts.IsZero() {
 			current[node] = ts
 		}
 	}
 
 	for pass := 0; pass < recencyPropagationPasses; pass++ {
-		next := recencyPass(adjacency, inbound, clampedBase, current, now, current)
+		next := recencyPass(nodes, adjacency, inbound, clampedBase, current, now, current)
 		current = next
 	}
 
 	return current
 }
 
-func recencyPass(adjacency map[string]map[string]struct{}, inbound map[string][]string, base map[string]time.Time, neighborTimes map[string]time.Time, now time.Time, previous map[string]time.Time) map[string]time.Time {
+func recencyPass(nodes []string, adjacency map[string]map[string]struct{}, inbound map[string][]string, base map[string]time.Time, neighborTimes map[string]time.Time, now time.Time, previous map[string]time.Time) map[string]time.Time {
 	type neighborTime struct {
 		path string
 		ts   time.Time
@@ -636,61 +644,97 @@ func recencyPass(adjacency map[string]map[string]struct{}, inbound map[string][]
 
 	effective := make(map[string]time.Time, len(adjacency))
 
-	for node := range adjacency {
-		best := base[node]
-		if prev, ok := previous[node]; ok && prev.After(best) {
-			best = prev
+	workerCount := runtime.NumCPU()
+	if workerCount < 1 {
+		workerCount = 1
+	}
+	if workerCount > len(nodes) {
+		workerCount = len(nodes)
+	}
+
+	chunkSize := (len(nodes) + workerCount - 1) / workerCount
+	partials := make([]map[string]time.Time, workerCount)
+
+	var wg sync.WaitGroup
+	for w := 0; w < workerCount; w++ {
+		start := w * chunkSize
+		end := start + chunkSize
+		if end > len(nodes) {
+			end = len(nodes)
 		}
-
-		seen := make(map[string]struct{})
-		var neighbors []neighborTime
-
-		for dst := range adjacency[node] {
-			if ts := neighborTimes[dst]; !ts.IsZero() {
-				if ts.After(now) {
-					ts = now
+		if start >= end {
+			continue
+		}
+		wg.Add(1)
+		go func(idx int, slice []string) {
+			defer wg.Done()
+			local := make(map[string]time.Time, len(slice))
+			for _, node := range slice {
+				best := base[node]
+				if prev, ok := previous[node]; ok && prev.After(best) {
+					best = prev
 				}
-				if _, dup := seen[dst]; !dup {
-					seen[dst] = struct{}{}
-					neighbors = append(neighbors, neighborTime{path: dst, ts: ts})
+
+				seen := make(map[string]struct{})
+				var neighbors []neighborTime
+
+				for dst := range adjacency[node] {
+					if ts := neighborTimes[dst]; !ts.IsZero() {
+						if ts.After(now) {
+							ts = now
+						}
+						if _, dup := seen[dst]; !dup {
+							seen[dst] = struct{}{}
+							neighbors = append(neighbors, neighborTime{path: dst, ts: ts})
+						}
+					}
+				}
+				for _, src := range inbound[node] {
+					if ts := neighborTimes[src]; !ts.IsZero() {
+						if ts.After(now) {
+							ts = now
+						}
+						if _, dup := seen[src]; !dup {
+							seen[src] = struct{}{}
+							neighbors = append(neighbors, neighborTime{path: src, ts: ts})
+						}
+					}
+				}
+
+				sort.Slice(neighbors, func(i, j int) bool {
+					return neighbors[i].ts.After(neighbors[j].ts)
+				})
+				if len(neighbors) > neighborSampleLimit {
+					neighbors = neighbors[:neighborSampleLimit]
+				}
+
+				for _, n := range neighbors {
+					age := now.Sub(n.ts)
+					if age < -maxFutureTolerance {
+						continue
+					}
+					if age > neighborFreshWindow {
+						continue
+					}
+					adjusted := n.ts.Add(-neighborStalenessOffset)
+					if best.IsZero() || adjusted.After(best) {
+						best = adjusted
+					}
+				}
+
+				if !best.IsZero() {
+					local[node] = best
 				}
 			}
-		}
-		for _, src := range inbound[node] {
-			if ts := neighborTimes[src]; !ts.IsZero() {
-				if ts.After(now) {
-					ts = now
-				}
-				if _, dup := seen[src]; !dup {
-					seen[src] = struct{}{}
-					neighbors = append(neighbors, neighborTime{path: src, ts: ts})
-				}
-			}
-		}
+			partials[idx] = local
+		}(w, nodes[start:end])
+	}
 
-		sort.Slice(neighbors, func(i, j int) bool {
-			return neighbors[i].ts.After(neighbors[j].ts)
-		})
-		if len(neighbors) > neighborSampleLimit {
-			neighbors = neighbors[:neighborSampleLimit]
-		}
+	wg.Wait()
 
-		for _, n := range neighbors {
-			age := now.Sub(n.ts)
-			if age < -maxFutureTolerance {
-				continue
-			}
-			if age > neighborFreshWindow {
-				continue
-			}
-			adjusted := n.ts.Add(-neighborStalenessOffset)
-			if best.IsZero() || adjusted.After(best) {
-				best = adjusted
-			}
-		}
-
-		if !best.IsZero() {
-			effective[node] = best
+	for _, part := range partials {
+		for k, v := range part {
+			effective[k] = v
 		}
 	}
 
