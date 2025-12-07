@@ -16,6 +16,7 @@ var graphShowAll bool
 var graphNoColor bool
 var graphMinDegree int
 var graphMutualOnly bool
+var graphRecencyCascade bool
 
 func init() {
 	graphCmd.PersistentFlags().StringVarP(&vaultName, "vault", "v", "", "vault name")
@@ -26,5 +27,6 @@ func init() {
 	graphCmd.PersistentFlags().StringSliceVar(&graphIncludePatterns, "include", nil, "include only notes matching these patterns (same syntax as list/prompt)")
 	graphCmd.PersistentFlags().IntVar(&graphMinDegree, "min-degree", 2, "drop notes whose in+out degree is below this number before analysis (0 = no filter)")
 	graphCmd.PersistentFlags().BoolVar(&graphMutualOnly, "mutual-only", false, "only consider mutual (bidirectional) links when building the graph")
+	graphCmd.PersistentFlags().BoolVar(&graphRecencyCascade, "recency-cascade", true, "cascade inferred recency beyond 1 hop (disable for legacy single-hop)")
 	rootCmd.AddCommand(graphCmd)
 }

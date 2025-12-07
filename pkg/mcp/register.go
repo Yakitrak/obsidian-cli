@@ -70,6 +70,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (may be heavier on large vaults)")),
 		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
 		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
 		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
 		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),
@@ -106,6 +107,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithNumber("backlinksLimit", mcp.Description("Maximum backlinks to return per note (default 50)"), mcp.Min(1)),
 		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
 		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
 		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
 	)
@@ -118,6 +120,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),
 		mcp.WithArray("exclude", mcp.Description("Exclude notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
 		mcp.WithArray("include", mcp.Description("Include only notes matching these patterns (same syntax as list/prompt)"), mcp.WithStringItems()),
+		mcp.WithBoolean("recencyCascade", mcp.Description("Cascade inferred recency beyond 1 hop (default true)")),
 		mcp.WithNumber("minDegree", mcp.Description("Drop notes whose in+out degree is below this number before analysis (0 = no filter)"), mcp.Min(0)),
 		mcp.WithBoolean("mutualOnly", mcp.Description("Only consider mutual (bidirectional) links when building the graph")),
 		mcp.WithNumber("maxCommunities", mcp.Description("Maximum communities to return (default 100)"), mcp.Min(1)),

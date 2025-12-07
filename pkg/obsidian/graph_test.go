@@ -60,6 +60,7 @@ func TestGraphAnalysisRespectsExcludes(t *testing.T) {
 		ExcludedPaths: map[string]struct{}{
 			"gamma.md": {},
 		},
+		RecencyCascade: true,
 	})
 	require.NoError(t, err)
 
@@ -159,7 +160,7 @@ func TestApplyNeighborRecencyBoostsUndated(t *testing.T) {
 		"recent.md": now.Add(-24 * time.Hour),
 	}
 
-	effective := applyNeighborRecency(adjacency, base, now)
+	effective := applyNeighborRecency(adjacency, base, now, true)
 
 	require.Contains(t, effective, "recent.md")
 	assert.WithinDuration(t, now.Add(-24*time.Hour), effective["recent.md"], time.Second)
@@ -168,6 +169,30 @@ func TestApplyNeighborRecencyBoostsUndated(t *testing.T) {
 	require.True(t, ok)
 	ageDays := now.Sub(moc).Hours() / 24.0
 	assert.InDelta(t, 8.0, ageDays, 0.5)
+}
+
+func TestApplyNeighborRecencyCascadesTwoHops(t *testing.T) {
+	now := time.Date(2025, time.January, 15, 12, 0, 0, 0, time.UTC)
+	adjacency := map[string]map[string]struct{}{
+		"top-moc.md":   {"mid-moc.md": {}},
+		"mid-moc.md":   {"leaf.md": {}},
+		"leaf.md":      {},
+		"unrelated.md": {},
+	}
+	base := map[string]time.Time{
+		"leaf.md": now.Add(-24 * time.Hour),
+	}
+
+	effective := applyNeighborRecency(adjacency, base, now, true)
+
+	require.Contains(t, effective, "leaf.md")
+	top, ok := effective["top-moc.md"]
+	require.True(t, ok)
+
+	// Two hops means we see two staleness offsets (one per hop) applied.
+	ageDays := now.Sub(top).Hours() / 24.0
+	expectedAge := float64((neighborStalenessOffset*2)/(24*time.Hour)) + 1 // includes leaf's 1-day age
+	assert.InDelta(t, expectedAge, ageDays, 0.6)
 }
 
 func TestAuthorityStatsAndBucketsAdaptive(t *testing.T) {

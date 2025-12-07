@@ -128,6 +128,10 @@ type GraphAnalysisOptions struct {
 	IncludedPaths map[string]struct{}
 	MinDegree     int
 	MutualOnly    bool
+	// RecencyCascade controls whether inferred recency is propagated beyond 1 hop.
+	// When true (default), a bounded multi-pass propagation will cascade freshness.
+	// When false, only direct neighbors can boost an undated note.
+	RecencyCascade bool
 }
 
 // NoteEntry captures cached note data that callers can reuse to avoid
@@ -474,7 +478,7 @@ func ComputeGraphAnalysis(vaultPath string, note NoteManager, options GraphAnaly
 		}
 	}
 
-	effectiveTimes := applyNeighborRecency(adjacency, contentTimes, time.Now())
+	effectiveTimes := applyNeighborRecency(adjacency, contentTimes, time.Now(), options.RecencyCascade)
 	communities := summarizeCommunities(comms, graphNodes, tagMap, effectiveTimes)
 	bridges := computeBridges(adjacency, graphNodes, communities)
 	attachBridges(communities, bridges)
@@ -569,6 +573,9 @@ const (
 	// This differs from neighborFreshWindow intentionally: neighbor inference looks back 6 months
 	// to boost undated hubs, while community RecentCount measures short-term activity (30 days).
 	communityRecencyWindowDays = 30
+
+	// recencyPropagationPasses bounds how many times inferred recency can cascade.
+	recencyPropagationPasses = 2
 )
 
 var (
@@ -576,7 +583,7 @@ var (
 	headingDateRegex = regexp.MustCompile(`(?m)^\s{0,3}#*\s*(\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?)\b`)
 )
 
-func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes map[string]time.Time, now time.Time) map[string]time.Time {
+func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes map[string]time.Time, now time.Time, cascade bool) map[string]time.Time {
 	inbound := make(map[string][]string)
 	for src, targets := range adjacency {
 		for dst := range targets {
@@ -584,24 +591,55 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 		}
 	}
 
+	clampedBase := make(map[string]time.Time, len(baseTimes))
+	for path, ts := range baseTimes {
+		if ts.IsZero() {
+			continue
+		}
+		if ts.After(now) {
+			ts = now
+		}
+		clampedBase[path] = ts
+	}
+
+	if !cascade {
+		return recencyPass(adjacency, inbound, clampedBase, clampedBase, now, nil)
+	}
+
+	current := make(map[string]time.Time, len(adjacency))
+	for node := range adjacency {
+		if ts := clampedBase[node]; !ts.IsZero() {
+			current[node] = ts
+		}
+	}
+
+	for pass := 0; pass < recencyPropagationPasses; pass++ {
+		next := recencyPass(adjacency, inbound, clampedBase, current, now, current)
+		current = next
+	}
+
+	return current
+}
+
+func recencyPass(adjacency map[string]map[string]struct{}, inbound map[string][]string, base map[string]time.Time, neighborTimes map[string]time.Time, now time.Time, previous map[string]time.Time) map[string]time.Time {
+	type neighborTime struct {
+		path string
+		ts   time.Time
+	}
+
 	effective := make(map[string]time.Time, len(adjacency))
 
 	for node := range adjacency {
-		base := baseTimes[node]
-		if base.After(now) {
-			base = now
+		best := base[node]
+		if prev, ok := previous[node]; ok && prev.After(best) {
+			best = prev
 		}
-		best := base
 
-		type neighborTime struct {
-			path string
-			ts   time.Time
-		}
 		seen := make(map[string]struct{})
 		var neighbors []neighborTime
 
 		for dst := range adjacency[node] {
-			if ts := baseTimes[dst]; !ts.IsZero() {
+			if ts := neighborTimes[dst]; !ts.IsZero() {
 				if ts.After(now) {
 					ts = now
 				}
@@ -612,7 +650,7 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 			}
 		}
 		for _, src := range inbound[node] {
-			if ts := baseTimes[src]; !ts.IsZero() {
+			if ts := neighborTimes[src]; !ts.IsZero() {
 				if ts.After(now) {
 					ts = now
 				}
@@ -646,21 +684,6 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 
 		if !best.IsZero() {
 			effective[node] = best
-		}
-	}
-
-	for path, ts := range baseTimes {
-		if ts.IsZero() {
-			continue
-		}
-		if ts.After(now) {
-			ts = now
-		}
-		if _, ok := adjacency[path]; !ok {
-			continue
-		}
-		if _, ok := effective[path]; !ok {
-			effective[path] = ts
 		}
 	}
 

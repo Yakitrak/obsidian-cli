@@ -119,6 +119,7 @@ func (c *AnalysisCache) GraphAnalysis(vaultPath string, note obsidian.NoteManage
 		mutualOnly:  options.MutualOnly,
 		excludedKey: hashStrings(mapKeys(options.ExcludedPaths)),
 		includedKey: hashStrings(mapKeys(options.IncludedPaths)),
+		recencyCascade: options.RecencyCascade,
 	}
 
 	c.mu.Lock()
@@ -165,13 +166,14 @@ type backlinkKey struct {
 }
 
 type graphKey struct {
-	skipAnchors bool
-	skipEmbeds  bool
-	includeTags bool
-	minDegree   int
-	mutualOnly  bool
-	excludedKey string
-	includedKey string
+	skipAnchors    bool
+	skipEmbeds     bool
+	includeTags    bool
+	minDegree      int
+	mutualOnly     bool
+	recencyCascade bool
+	excludedKey    string
+	includedKey    string
 }
 
 func normalizeTargets(targets []string) []string {
