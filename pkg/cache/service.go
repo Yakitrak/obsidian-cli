@@ -623,6 +623,8 @@ func (s *Service) refreshPath(absPath string) error {
 
 	if ct, ok := obsidian.ResolveContentTime(rel, entry.Content); ok {
 		entry.ContentTime = ct
+	} else if !info.ModTime().IsZero() {
+		entry.ContentTime = info.ModTime()
 	}
 
 	// Extract metadata from content.

@@ -1116,40 +1116,49 @@ func sortedNeighborRefsFromMap(m map[string]NeighborRef) []NeighborRef {
 	return out
 }
 
-func hubPercentile(nodes map[string]obsidian.GraphNode, target string) float64 {
-	if len(nodes) == 0 {
+func hubPercentile(nodes map[string]obsidian.GraphNode, target string, pct *percentilesCache) float64 {
+	if len(nodes) == 0 || pct == nil {
 		return 0
 	}
-	targetHub := nodes[target].Hub
-	total := len(nodes)
-	if total == 0 {
-		return 0
-	}
-	count := 0
-	for _, n := range nodes {
-		if n.Hub <= targetHub {
-			count++
-		}
-	}
-	return float64(count) / float64(total)
+	return percentileLookup(nodes[target].Hub, pct.Hubs)
 }
 
-func authorityPercentile(nodes map[string]obsidian.GraphNode, target string) float64 {
+func authorityPercentile(nodes map[string]obsidian.GraphNode, target string, pct *percentilesCache) float64 {
+	if len(nodes) == 0 || pct == nil {
+		return 0
+	}
+	return percentileLookup(nodes[target].Authority, pct.Authorities)
+}
+
+type percentilesCache struct {
+	Hubs        []float64
+	Authorities []float64
+}
+
+func buildPercentilesCache(nodes map[string]obsidian.GraphNode) *percentilesCache {
 	if len(nodes) == 0 {
-		return 0
+		return &percentilesCache{}
 	}
-	targetAuth := nodes[target].Authority
-	total := len(nodes)
-	if total == 0 {
-		return 0
-	}
-	count := 0
+	hubs := make([]float64, 0, len(nodes))
+	auths := make([]float64, 0, len(nodes))
 	for _, n := range nodes {
-		if n.Authority <= targetAuth {
-			count++
-		}
+		hubs = append(hubs, n.Hub)
+		auths = append(auths, n.Authority)
 	}
-	return float64(count) / float64(total)
+	sort.Float64s(hubs)
+	sort.Float64s(auths)
+	return &percentilesCache{Hubs: hubs, Authorities: auths}
+}
+
+func percentileLookup(target float64, sorted []float64) float64 {
+	if len(sorted) == 0 {
+		return 0
+	}
+	// Position of the last value <= target.
+	idx := sort.Search(len(sorted), func(i int) bool {
+		return sorted[i] > target
+	})
+	return float64(idx) / float64(len(sorted))
 }
 
 func authorityScoresToPayload(scores []obsidian.AuthorityScore, limit int) []AuthorityScorePayload {
@@ -1210,6 +1219,9 @@ func recencyToPayload(r *obsidian.GraphRecency) *GraphRecencyPayload {
 	}
 }
 
+// normalizeInputFile takes a vault-relative or absolute path. Absolute paths
+// are relativized to the vault; paths outside the vault will not resolve in
+// the graph and will return a filtered error.
 func normalizeInputFile(file string, config Config) string {
 	normalized := obsidian.NormalizePath(obsidian.AddMdSuffix(file))
 	if filepath.IsAbs(file) && config.VaultPath != "" {
@@ -1337,12 +1349,13 @@ func findKeyNotes(config Config, patterns []string) ([]KeyNoteMatch, error) {
 	unique := make(map[string]struct{})
 	order := make([]string, 0)
 	_, err = actions.ListFiles(config.Vault, note, actions.ListParams{
-		Inputs:        parsed,
-		Expression:    expr,
-		MaxDepth:      0,
-		SkipAnchors:   false,
-		SkipEmbeds:    false,
-		AbsolutePaths: false,
+		Inputs:         parsed,
+		Expression:     expr,
+		MaxDepth:       0,
+		SkipAnchors:    false,
+		SkipEmbeds:     false,
+		AbsolutePaths:  false,
+		SuppressedTags: config.SuppressedTags,
 		OnMatch: func(file string) {
 			if _, ok := unique[file]; !ok {
 				unique[file] = struct{}{}
@@ -1368,15 +1381,15 @@ func findKeyNotes(config Config, patterns []string) ([]KeyNoteMatch, error) {
 	return matches, nil
 }
 
-func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeighbors map[string][]string, membership map[string]*obsidian.CommunitySummary, bridgeCounts map[string]int, note obsidian.NoteManager, config Config, includeTags bool, includeNeighbors bool, includeFrontmatter bool, includeBacklinks bool, backlinks map[string][]obsidian.Backlink, neighborLimit int, backlinksLimit int) (NoteContextResponse, error) {
+func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, pct *percentilesCache, reverseNeighbors map[string][]string, membership map[string]*obsidian.CommunitySummary, bridgeCounts map[string]int, note obsidian.NoteManager, config Config, includeTags bool, includeNeighbors bool, includeFrontmatter bool, includeBacklinks bool, backlinks map[string][]obsidian.Backlink, neighborLimit int, backlinksLimit int) (NoteContextResponse, error) {
 	node, ok := analysis.Nodes[path]
 	if !ok {
-		return NoteContextResponse{}, fmt.Errorf("file %s not found in graph (use vault-relative path and check include/exclude filters)", path)
+		return NoteContextResponse{}, fmt.Errorf("graph filter: file %s not found in graph (use vault-relative path and check include/exclude filters)", path)
 	}
 
 	comm := membership[path]
 	if comm == nil {
-		return NoteContextResponse{}, fmt.Errorf("file %s is not assigned to a community under current filters", path)
+		return NoteContextResponse{}, fmt.Errorf("graph filter: file %s is not assigned to a community under current filters", path)
 	}
 
 	bridgeSet := make(map[string]struct{}, len(comm.Bridges))
@@ -1392,23 +1405,13 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 	var backs []obsidian.Backlink
 	backlinksTruncated := false
 	if includeBacklinks {
-		if backlinks != nil {
-			if list, ok := backlinks[path]; ok {
-				backs, backlinksTruncated = truncateBacklinks(list, backlinksLimit, analysis.Nodes)
-			} else {
-				backs = []obsidian.Backlink{}
-			}
+		if backlinks == nil {
+			return NoteContextResponse{}, fmt.Errorf("backlinks are required when includeBacklinks is true")
+		}
+		if list, ok := backlinks[path]; ok {
+			backs, backlinksTruncated = truncateBacklinks(list, backlinksLimit, analysis.Nodes)
 		} else {
-			blOptions := obsidian.WikilinkOptions{}
-			var data map[string][]obsidian.Backlink
-			if config.AnalysisCache != nil {
-				if data, err = config.AnalysisCache.Backlinks(config.VaultPath, note, []string{path}, blOptions, config.SuppressedTags); err != nil {
-					return NoteContextResponse{}, fmt.Errorf("error collecting backlinks: %s", err)
-				}
-			}
-			if list, ok := data[path]; ok {
-				backs, backlinksTruncated = truncateBacklinks(list, backlinksLimit, analysis.Nodes)
-			}
+			backs = []obsidian.Backlink{}
 		}
 	}
 
@@ -1444,9 +1447,9 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 		Inbound:             node.Inbound,
 		Outbound:            node.Outbound,
 		Hub:                 node.Hub,
-		HubPercentile:       hubPercentile(analysis.Nodes, path),
+		HubPercentile:       hubPercentile(analysis.Nodes, path, pct),
 		Authority:           node.Authority,
-		AuthorityPercentile: authorityPercentile(analysis.Nodes, path),
+		AuthorityPercentile: authorityPercentile(analysis.Nodes, path, pct),
 		IsOrphan:            node.Inbound == 0 && node.Outbound == 0,
 		WeakComponent:       node.WeakCompID,
 		StrongComponent:     node.SCC,
@@ -1466,10 +1469,22 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 		Bridges:          bridgePayloads(comm.Bridges, bridgeCounts),
 		IsBridge:         isBridgeNode(path, bridgeSet, bridgeCounts),
 	}
+	if !includeTags {
+		communityContext.TopTags = nil
+	}
 
 	var frontmatter map[string]interface{}
 	if includeFrontmatter && info.Frontmatter != nil {
 		frontmatter = info.Frontmatter
+	}
+
+	neighborsLimitField := 0
+	if includeNeighbors {
+		neighborsLimitField = neighborLimit
+	}
+	backlinksLimitField := 0
+	if includeBacklinks {
+		backlinksLimitField = backlinksLimit
 	}
 
 	return NoteContextResponse{
@@ -1482,9 +1497,9 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 		Neighbors:          neighborContext,
 		Backlinks:          backs,
 		NeighborsTruncated: neighborsTruncated,
-		NeighborsLimit:     neighborLimit,
+		NeighborsLimit:     neighborsLimitField,
 		BacklinksTruncated: backlinksTruncated,
-		BacklinksLimit:     backlinksLimit,
+		BacklinksLimit:     backlinksLimitField,
 	}, nil
 }
 
@@ -1517,6 +1532,7 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 			SCC:         analysis.Nodes[m.path].SCC,
 			IsBridge:    isBridgeNode(m.path, bridgeSet, bridgeCounts),
 			BridgeEdges: bridgeCounts[m.path],
+			Community:   target.ID,
 		}
 		if includeNeighbors {
 			payload.Neighbors = linksOut
@@ -1629,6 +1645,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
 		}
 
+		pct := buildPercentilesCache(analysis.Nodes)
 		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
 		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
 		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
@@ -1653,7 +1670,7 @@ func NoteContextTool(config Config) func(context.Context, mcp.CallToolRequest) (
 
 		contexts := make([]NoteContextResponse, 0, len(normalizedTargets))
 		for _, norm := range normalizedTargets {
-			ctxResp, err := buildNoteContext(norm, analysis, reverseNeighbors, communityLookup, bridgeCounts, note, config, includeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
+			ctxResp, err := buildNoteContext(norm, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, includeTags, includeNeighbors, includeFrontmatter, includeBacklinks, backlinks, neighborLimit, backlinksLimit)
 			if err != nil {
 				// Return partial result with error instead of failing the whole batch
 				contexts = append(contexts, NoteContextResponse{
@@ -1793,6 +1810,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			return mcp.NewToolResultError(fmt.Sprintf("error computing graph: %s", err)), nil
 		}
 
+		pct := buildPercentilesCache(analysis.Nodes)
 		reverseNeighbors := buildReverseNeighbors(analysis.Nodes)
 		communityLookup := obsidian.CommunityMembershipLookup(analysis.Communities)
 		bridgeCounts := crossCommunityEdgeCounts(analysis.Nodes, reverseNeighbors, communityLookup)
@@ -1858,7 +1876,19 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 		for _, p := range topAuthorityAcrossGraph(analysis.Nodes, topGlobalPRLimit) {
 			keySet[p] = struct{}{}
 		}
-		keyNotes := sortedStringsFromSet(keySet)
+		// Rank key notes by authority (desc) for a more useful orientation list.
+		keyNotes := make([]string, 0, len(keySet))
+		for k := range keySet {
+			keyNotes = append(keyNotes, k)
+		}
+		sort.Slice(keyNotes, func(i, j int) bool {
+			ai := analysis.Nodes[keyNotes[i]].Authority
+			aj := analysis.Nodes[keyNotes[j]].Authority
+			if ai == aj {
+				return keyNotes[i] < keyNotes[j]
+			}
+			return ai > aj
+		})
 
 		mocs, err := findKeyNotes(config, keyPatterns)
 		if err != nil {
@@ -1884,7 +1914,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 				}
 			}
 			for _, norm := range normalizedTargets {
-				ctxResp, err := buildNoteContext(norm, analysis, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
+				ctxResp, err := buildNoteContext(norm, analysis, pct, reverseNeighbors, communityLookup, bridgeCounts, note, config, contextIncludeTags, contextIncludeNeighbors, contextIncludeFrontmatter, contextIncludeBacklinks, backlinks, contextNeighborLimit, contextBacklinksLimit)
 				if err != nil {
 					// Return partial result with error instead of failing the whole request
 					noteContexts = append(noteContexts, NoteContextResponse{

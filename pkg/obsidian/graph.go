@@ -520,6 +520,21 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 	}
 
 	sort.Slice(summaries, func(i, j int) bool {
+		ri := summaries[i].Recency
+		rj := summaries[j].Recency
+
+		// Prefer more recently updated communities (smaller age).
+		if ri != nil && rj != nil && ri.LatestAgeDays != rj.LatestAgeDays {
+			return ri.LatestAgeDays < rj.LatestAgeDays
+		}
+		if ri != nil && rj == nil {
+			return true
+		}
+		if ri == nil && rj != nil {
+			return false
+		}
+
+		// Fallback: larger communities first.
 		if len(summaries[i].Nodes) == len(summaries[j].Nodes) {
 			return summaries[i].ID < summaries[j].ID
 		}
@@ -554,6 +569,9 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 
 	for node := range adjacency {
 		base := baseTimes[node]
+		if base.After(now) {
+			base = now
+		}
 		best := base
 
 		type neighborTime struct {
@@ -565,6 +583,9 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 
 		for dst := range adjacency[node] {
 			if ts := baseTimes[dst]; !ts.IsZero() {
+				if ts.After(now) {
+					ts = now
+				}
 				if _, dup := seen[dst]; !dup {
 					seen[dst] = struct{}{}
 					neighbors = append(neighbors, neighborTime{path: dst, ts: ts})
@@ -573,6 +594,9 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 		}
 		for _, src := range inbound[node] {
 			if ts := baseTimes[src]; !ts.IsZero() {
+				if ts.After(now) {
+					ts = now
+				}
 				if _, dup := seen[src]; !dup {
 					seen[src] = struct{}{}
 					neighbors = append(neighbors, neighborTime{path: src, ts: ts})
@@ -610,6 +634,9 @@ func applyNeighborRecency(adjacency map[string]map[string]struct{}, baseTimes ma
 		if ts.IsZero() {
 			continue
 		}
+		if ts.After(now) {
+			ts = now
+		}
 		if _, ok := effective[path]; !ok {
 			effective[path] = ts
 		}
@@ -624,16 +651,16 @@ func ResolveContentTime(path, content string) (time.Time, bool) {
 	now := time.Now()
 
 	if t, ok := parseDateFromFrontmatter(content, now); ok {
-		return t, true
+		return clampFuture(t, now), true
 	}
 	if t, ok := parseDateFromFilename(path, now); ok {
-		return t, true
+		return clampFuture(t, now), true
 	}
 	if t, ok := parseDateFromTopLines(content, now, topLinesForDateDetection); ok {
-		return t, true
+		return clampFuture(t, now), true
 	}
 	if t, ok := parseMostRecentHeadingDate(content, now); ok {
-		return t, true
+		return clampFuture(t, now), true
 	}
 	return time.Time{}, false
 }
@@ -643,7 +670,8 @@ func parseDateFromFrontmatter(content string, now time.Time) (time.Time, bool) {
 	if err != nil || frontmatter == nil {
 		return time.Time{}, false
 	}
-	candidates := []string{"event_date", "meeting_date", "date", "created", "updated", "modified"}
+	// Prefer event/meeting, then "last updated" style fields before creation.
+	candidates := []string{"event_date", "meeting_date", "updated", "modified", "date", "created"}
 	for _, key := range candidates {
 		if raw, ok := frontmatter[key]; ok {
 			if t, ok := parseDateValue(raw, now); ok {
@@ -753,6 +781,13 @@ func parseISOTimestamp(value string, now time.Time) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+func clampFuture(ts time.Time, now time.Time) time.Time {
+	if ts.After(now) {
+		return now
+	}
+	return ts
 }
 
 func saneTimestamp(ts time.Time, now time.Time) bool {
