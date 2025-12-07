@@ -95,9 +95,9 @@ type AuthorityScorePayload struct {
 
 // AuthorityBucketPayload summarizes authority distribution for a community.
 type AuthorityBucketPayload struct {
-	Low     float64 `json:"low"`
-	High    float64 `json:"high"`
-	Count   int     `json:"count"`
+	Low     float64 `json:"low,omitempty"`
+	High    float64 `json:"high,omitempty"`
+	Count   int     `json:"count,omitempty"`
 	Example string  `json:"example,omitempty"`
 }
 

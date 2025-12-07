@@ -64,7 +64,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(listPropertiesTool, ListPropertiesTool(config))
 
 	communityListTool := mcp.NewTool("community_list",
-		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, and top authority notes (with hub/authority scores) plus authorityBuckets (coarse distribution). Includes size/fractionOfVault, bridge hints, orphan counts, and weak component sizes. Respects include/exclude/minDegree/mutualOnly filters. Response: {communities:[{id,size,fractionOfVault,anchor,topTags,topAuthority,density,bridges,bridgesDetailed,authorityBuckets}], stats, orphanCount, orphans?, components:[{id,size}]}.`),
+		mcp.WithDescription(`List communities (label propagation) with anchors, top tags, and top authority notes (with hub/authority scores) plus authorityBuckets (coarse quantile-style distribution with example paths). Includes size/fractionOfVault, bridge hints, orphan counts, and weak component sizes. Respects include/exclude/minDegree/mutualOnly filters. Response: {communities:[{id,size,fractionOfVault,anchor,topTags,topAuthority,density,bridges,bridgesDetailed,authorityBuckets}], stats, orphanCount, orphans?, components:[{id,size}]}.`),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (may be heavier on large vaults)")),
@@ -112,7 +112,7 @@ func RegisterAll(s *server.MCPServer, config Config) error {
 	s.AddTool(noteContextTool, NoteContextTool(config))
 
 	vaultContextTool := mcp.NewTool("vault_context",
-		mcp.WithDescription(`Compact vault summary: graph stats, orphan counts, weak components, top communities (size/fraction/density/anchor/top tags and notes/bridges with hub/authority scores + authorityBuckets), key notes (anchors/bridges/top authority), optional MOC/key-note list sourced from patterns (config or keyPatterns), and optional embedded note_context payloads. Response: {stats, orphanCount, topOrphans?, components?, communities:[{id,size,fractionOfVault,anchor,density,topTags,topAuthority,bridgesDetailed,authorityBuckets}], keyNotes?, mocs?, keyPatterns?, noteContexts?}.`),
+		mcp.WithDescription(`Compact vault summary: graph stats, orphan counts, weak components, top communities (size/fraction/density/anchor/top tags and notes/bridges with hub/authority scores + authorityBuckets shown as coarse quantile-style buckets with examples), key notes (anchors/bridges/top authority), optional MOC/key-note list sourced from patterns (config or keyPatterns), and optional embedded note_context payloads. Response: {stats, orphanCount, topOrphans?, components?, communities:[{id,size,fractionOfVault,anchor,density,topTags,topAuthority,bridgesDetailed,authorityBuckets}], keyNotes?, mocs?, keyPatterns?, noteContexts?}.`),
 		mcp.WithBoolean("skipAnchors", mcp.Description("Skip wikilinks containing anchors (e.g. [[Note#Section]])")),
 		mcp.WithBoolean("skipEmbeds", mcp.Description("Skip embedded wikilinks (e.g. ![[Embedded Note]])")),
 		mcp.WithBoolean("includeTags", mcp.Description("Include top tags per community (default true)")),

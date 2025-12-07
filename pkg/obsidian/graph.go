@@ -421,7 +421,7 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 		topAuth := topAuthorityNodes(members, nodes, 5)
 		topTags := topTagsForCommunity(members, tags, 5)
 		anchor := anchorForCommunity(members, nodes)
-		buckets := authorityBuckets(members, nodes, 6) // coarse distribution
+		buckets := authorityBuckets(members, nodes, 5) // coarse distribution
 		summaries = append(summaries, CommunitySummary{
 			ID:               communityID(id, anchor, members),
 			Nodes:            members,
