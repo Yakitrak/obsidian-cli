@@ -250,6 +250,7 @@ func cloneCommunities(src []obsidian.CommunitySummary) []obsidian.CommunitySumma
 			TopTags:          append([]obsidian.TagCount(nil), c.TopTags...),
 			TopAuthority:     append([]obsidian.AuthorityScore(nil), c.TopAuthority...),
 			AuthorityBuckets: append([]obsidian.AuthorityBucket(nil), c.AuthorityBuckets...),
+			AuthorityStats:   cloneAuthorityStats(c.AuthorityStats),
 			Recency:          cloneRecency(c.Recency),
 			Anchor:           c.Anchor,
 			Density:          c.Density,
@@ -257,6 +258,14 @@ func cloneCommunities(src []obsidian.CommunitySummary) []obsidian.CommunitySumma
 		}
 	}
 	return out
+}
+
+func cloneAuthorityStats(src *obsidian.AuthorityStats) *obsidian.AuthorityStats {
+	if src == nil {
+		return nil
+	}
+	dst := *src
+	return &dst
 }
 
 func cloneRecency(src *obsidian.GraphRecency) *obsidian.GraphRecency {

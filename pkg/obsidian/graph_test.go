@@ -95,23 +95,16 @@ func TestAuthorityBuckets(t *testing.T) {
 	}
 	members := []string{"a.md", "b.md", "c.md", "d.md", "e.md"}
 
-	buckets := authorityBuckets(members, nodes, 2)
+	buckets, _ := authorityBuckets(members, nodes)
 
-	require.Len(t, buckets, 2)
-
-	// First bucket should include top half
+	require.True(t, len(buckets) >= 5 && len(buckets) <= 10)
+	total := 0
+	for _, b := range buckets {
+		total += b.Count
+		assert.Contains(t, members, b.Example)
+	}
+	assert.Equal(t, len(members), total)
 	assert.InEpsilon(t, 1.0, buckets[0].High, 1e-9)
-	assert.InEpsilon(t, 0.6, buckets[0].Low, 1e-9)
-	assert.Equal(t, 3, buckets[0].Count)
-
-	// Second bucket covers the rest
-	assert.InEpsilon(t, 0.4, buckets[1].High, 1e-9)
-	assert.InEpsilon(t, 0.2, buckets[1].Low, 1e-9)
-	assert.Equal(t, 2, buckets[1].Count)
-
-	// Examples come from within each bucket
-	assert.Contains(t, members, buckets[0].Example)
-	assert.Contains(t, members, buckets[1].Example)
 }
 
 func TestCommunityRecency(t *testing.T) {
@@ -130,4 +123,29 @@ func TestCommunityRecency(t *testing.T) {
 	assert.InDelta(t, 2.0, recency.LatestAgeDays, 0.3)
 	assert.Equal(t, 2, recency.RecentCount) // a and b are within 30d
 	assert.Equal(t, 30, recency.WindowDays)
+}
+
+func TestAuthorityStatsAndBucketsAdaptive(t *testing.T) {
+	nodes := map[string]GraphNode{
+		"a.md": {Authority: 1.0},
+		"b.md": {Authority: 0.9},
+		"c.md": {Authority: 0.8},
+		"d.md": {Authority: 0.7},
+		"e.md": {Authority: 0.6},
+		"f.md": {Authority: 0.5},
+		"g.md": {Authority: 0.4},
+		"h.md": {Authority: 0.3},
+		"i.md": {Authority: 0.2},
+		"j.md": {Authority: 0.1},
+	}
+	members := []string{"a.md", "b.md", "c.md", "d.md", "e.md", "f.md", "g.md", "h.md", "i.md", "j.md"}
+
+	buckets, stats := authorityBuckets(members, nodes)
+
+	require.NotNil(t, stats)
+	require.True(t, len(buckets) >= 5 && len(buckets) <= 10)
+	assert.InEpsilon(t, 0.55, stats.Mean, 0.02)
+	assert.InEpsilon(t, 0.50, stats.P50, 0.05)
+	assert.InEpsilon(t, 1.0, stats.Max, 1e-9)
+	assert.InEpsilon(t, 0.9, stats.P95, 0.2)
 }

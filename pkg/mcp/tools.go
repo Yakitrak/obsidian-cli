@@ -109,6 +109,17 @@ type GraphRecencyPayload struct {
 	WindowDays    int     `json:"windowDays,omitempty"`
 }
 
+// AuthorityStatsPayload captures coarse percentiles/mean for authority scores.
+type AuthorityStatsPayload struct {
+	Mean float64 `json:"mean,omitempty"`
+	P50  float64 `json:"p50,omitempty"`
+	P75  float64 `json:"p75,omitempty"`
+	P90  float64 `json:"p90,omitempty"`
+	P95  float64 `json:"p95,omitempty"`
+	P99  float64 `json:"p99,omitempty"`
+	Max  float64 `json:"max,omitempty"`
+}
+
 // GraphCommunityPayload summarizes a community.
 type GraphCommunityPayload struct {
 	ID               string                   `json:"id"`
@@ -118,6 +129,7 @@ type GraphCommunityPayload struct {
 	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
 	Recency          *GraphRecencyPayload     `json:"recency,omitempty"`
 	Anchor           string                   `json:"anchor,omitempty"`
 	Density          float64                  `json:"density,omitempty"`
@@ -153,6 +165,7 @@ type CommunityDetailResponse struct {
 	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
 	Recency          *GraphRecencyPayload     `json:"recency,omitempty"`
 	Members          []GraphNodePayload       `json:"members"`
 	InternalEdges    int                      `json:"internalEdges,omitempty"`
@@ -192,6 +205,7 @@ type NoteCommunityContext struct {
 	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
 	Recency          *GraphRecencyPayload     `json:"recency,omitempty"`
 	Bridges          []BridgePayload          `json:"bridges,omitempty"`
 	IsBridge         bool                     `json:"isBridge,omitempty"`
@@ -245,6 +259,7 @@ type CommunityOverview struct {
 	TopTags          []obsidian.TagCount      `json:"topTags,omitempty"`
 	TopAuthority     []AuthorityScorePayload  `json:"topAuthority,omitempty"`
 	AuthorityBuckets []AuthorityBucketPayload `json:"authorityBuckets,omitempty"`
+	AuthorityStats   *AuthorityStatsPayload   `json:"authorityStats,omitempty"`
 	Recency          *GraphRecencyPayload     `json:"recency,omitempty"`
 	BridgesDetailed  []BridgePayload          `json:"bridgesDetailed,omitempty"`
 }
@@ -771,6 +786,7 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 			size := len(comm.Nodes)
 			topAuthorityPayload := authorityScoresToPayload(comm.TopAuthority, maxTopNotes)
 			bucketPayload := authorityBucketsToPayload(comm.AuthorityBuckets)
+			statsPayload := authorityStatsToPayload(comm.AuthorityStats)
 			recencyPayload := recencyToPayload(comm.Recency)
 			comms = append(comms, GraphCommunityPayload{
 				ID:               comm.ID,
@@ -780,6 +796,7 @@ func CommunityListTool(config Config) func(context.Context, mcp.CallToolRequest)
 				TopTags:          comm.TopTags,
 				TopAuthority:     topAuthorityPayload,
 				AuthorityBuckets: bucketPayload,
+				AuthorityStats:   statsPayload,
 				Recency:          recencyPayload,
 				Anchor:           comm.Anchor,
 				Density:          comm.Density,
@@ -1166,6 +1183,21 @@ func authorityBucketsToPayload(buckets []obsidian.AuthorityBucket) []AuthorityBu
 	return out
 }
 
+func authorityStatsToPayload(stats *obsidian.AuthorityStats) *AuthorityStatsPayload {
+	if stats == nil {
+		return nil
+	}
+	return &AuthorityStatsPayload{
+		Mean: stats.Mean,
+		P50:  stats.P50,
+		P75:  stats.P75,
+		P90:  stats.P90,
+		P95:  stats.P95,
+		P99:  stats.P99,
+		Max:  stats.Max,
+	}
+}
+
 func recencyToPayload(r *obsidian.GraphRecency) *GraphRecencyPayload {
 	if r == nil {
 		return nil
@@ -1429,6 +1461,7 @@ func buildNoteContext(path string, analysis *obsidian.GraphAnalysis, reverseNeig
 		TopTags:          comm.TopTags,
 		TopAuthority:     authorityScoresToPayload(comm.TopAuthority, 0),
 		AuthorityBuckets: authorityBucketsToPayload(comm.AuthorityBuckets),
+		AuthorityStats:   authorityStatsToPayload(comm.AuthorityStats),
 		Recency:          recencyToPayload(comm.Recency),
 		Bridges:          bridgePayloads(comm.Bridges, bridgeCounts),
 		IsBridge:         isBridgeNode(path, bridgeSet, bridgeCounts),
@@ -1507,6 +1540,7 @@ func communityDetailPayload(target *obsidian.CommunitySummary, analysis *obsidia
 		TopTags:          target.TopTags,
 		TopAuthority:     authorityScoresToPayload(target.TopAuthority, 0),
 		AuthorityBuckets: authorityBucketsToPayload(target.AuthorityBuckets),
+		AuthorityStats:   authorityStatsToPayload(target.AuthorityStats),
 		Recency:          recencyToPayload(target.Recency),
 		Members:          payloadMembers,
 		InternalEdges:    edgeCount,
@@ -1774,6 +1808,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 			}
 			topPR := authorityScoresToPayload(comm.TopAuthority, communityMemberLimit)
 			buckets := authorityBucketsToPayload(comm.AuthorityBuckets)
+			stats := authorityStatsToPayload(comm.AuthorityStats)
 			recency := recencyToPayload(comm.Recency)
 			bridges := bridgePayloads(comm.Bridges, bridgeCounts)
 			if len(bridges) > bridgeLimit {
@@ -1788,6 +1823,7 @@ func VaultContextTool(config Config) func(context.Context, mcp.CallToolRequest) 
 				TopTags:          topTags,
 				TopAuthority:     topPR,
 				AuthorityBuckets: buckets,
+				AuthorityStats:   stats,
 				Recency:          recency,
 				BridgesDetailed:  bridges,
 			})

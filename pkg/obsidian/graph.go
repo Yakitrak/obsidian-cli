@@ -36,6 +36,17 @@ type GraphRecency struct {
 	WindowDays    int
 }
 
+// AuthorityStats captures coarse percentiles/mean for authority scores.
+type AuthorityStats struct {
+	Mean float64
+	P50  float64
+	P75  float64
+	P90  float64
+	P95  float64
+	P99  float64
+	Max  float64
+}
+
 // NodeStats captures inbound/outbound link counts for a note.
 type NodeStats struct {
 	Inbound  int
@@ -62,6 +73,7 @@ type CommunitySummary struct {
 	TopTags          []TagCount
 	TopAuthority     []AuthorityScore
 	AuthorityBuckets []AuthorityBucket
+	AuthorityStats   *AuthorityStats
 	Recency          *GraphRecency
 	Anchor           string
 	Density          float64
@@ -437,13 +449,14 @@ func summarizeCommunities(labels map[string]string, nodes map[string]GraphNode, 
 		topAuth := topAuthorityNodes(members, nodes, 5)
 		topTags := topTagsForCommunity(members, tags, 5)
 		anchor := anchorForCommunity(members, nodes)
-		buckets := authorityBuckets(members, nodes, 5) // coarse distribution
+		buckets, stats := authorityBuckets(members, nodes)
 		recency := communityRecency(members, modTimes, 30)
 		summaries = append(summaries, CommunitySummary{
 			ID:               communityID(id, anchor, members),
 			Nodes:            members,
 			TopAuthority:     topAuth,
 			AuthorityBuckets: buckets,
+			AuthorityStats:   stats,
 			Recency:          recency,
 			TopTags:          topTags,
 			Anchor:           anchor,
@@ -490,9 +503,9 @@ func topAuthorityNodes(members []string, nodes map[string]GraphNode, limit int) 
 	return out
 }
 
-func authorityBuckets(members []string, nodes map[string]GraphNode, bucketCount int) []AuthorityBucket {
-	if bucketCount <= 0 || len(members) == 0 {
-		return nil
+func authorityBuckets(members []string, nodes map[string]GraphNode) ([]AuthorityBucket, *AuthorityStats) {
+	if len(members) == 0 {
+		return nil, nil
 	}
 	type pr struct {
 		path string
@@ -503,9 +516,8 @@ func authorityBuckets(members []string, nodes map[string]GraphNode, bucketCount 
 		values = append(values, pr{path: m, val: nodes[m].Authority})
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].val > values[j].val })
-	if len(values) < bucketCount {
-		bucketCount = len(values)
-	}
+
+	bucketCount := bucketCountFor(len(values))
 	buckets := make([]AuthorityBucket, 0, bucketCount)
 	size := int(math.Ceil(float64(len(values)) / float64(bucketCount)))
 	for i := 0; i < len(values); i += size {
@@ -524,7 +536,73 @@ func authorityBuckets(members []string, nodes map[string]GraphNode, bucketCount 
 			Example: example,
 		})
 	}
-	return buckets
+
+	// Convert to simple slice for stats
+	vals := make([]struct {
+		path string
+		val  float64
+	}, len(values))
+	for i, v := range values {
+		vals[i] = struct {
+			path string
+			val  float64
+		}{path: v.path, val: v.val}
+	}
+	stats := authorityStatsFromValues(vals)
+	return buckets, stats
+}
+
+func bucketCountFor(size int) int {
+	if size <= 0 {
+		return 0
+	}
+	c := int(math.Ceil(math.Sqrt(float64(size))))
+	if c < 5 {
+		c = 5
+	}
+	if c > 10 {
+		c = 10
+	}
+	return c
+}
+
+func authorityStatsFromValues(values []struct {
+	path string
+	val  float64
+}) *AuthorityStats {
+	if len(values) == 0 {
+		return nil
+	}
+	vals := make([]float64, len(values))
+	sum := 0.0
+	for i, v := range values {
+		vals[i] = v.val
+		sum += v.val
+	}
+	mean := sum / float64(len(vals))
+	sort.Float64s(vals) // ascending
+	p := func(q float64) float64 {
+		if len(vals) == 1 {
+			return vals[0]
+		}
+		idx := int(math.Ceil(q*float64(len(vals)))) - 1
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= len(vals) {
+			idx = len(vals) - 1
+		}
+		return vals[idx]
+	}
+	return &AuthorityStats{
+		Mean: mean,
+		P50:  p(0.50),
+		P75:  p(0.75),
+		P90:  p(0.90),
+		P95:  p(0.95),
+		P99:  p(0.99),
+		Max:  vals[len(vals)-1],
+	}
 }
 
 func communityRecency(members []string, modTimes map[string]time.Time, windowDays int) *GraphRecency {
