@@ -37,7 +37,8 @@ func TestUriConstruct(t *testing.T) {
 				assert.Equal(t, baseUri, parts[0])
 
 				if len(parts) > 1 {
-					parsedParams, _ := url.ParseQuery(parts[1])
+					parsedParams, err := url.ParseQuery(parts[1])
+					assert.NoError(t, err)
 					for key, expectedValue := range test.want {
 						assert.Equal(t, expectedValue, parsedParams.Get(key))
 					}
