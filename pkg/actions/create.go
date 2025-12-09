@@ -1,9 +1,11 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
 type CreateParams struct {
@@ -12,6 +14,7 @@ type CreateParams struct {
 	ShouldOverwrite bool
 	Content         string
 	ShouldOpen      bool
+	UseEditor       bool
 }
 
 func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params CreateParams) error {
@@ -21,6 +24,32 @@ func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params Cre
 	}
 
 	normalizedContent := NormalizeContent(params.Content)
+
+	// If using editor and should open, use editor mode instead of Obsidian
+	if params.UseEditor && params.ShouldOpen {
+		vaultPath, err := vault.Path()
+		if err != nil {
+			return err
+		}
+		// Note: When using editor mode, the note must be created via Obsidian URI first
+		// before opening in editor, to respect append/overwrite flags
+		obsidianUri := uri.Construct(ObsCreateUrl, map[string]string{
+			"vault":     vaultName,
+			"append":    strconv.FormatBool(params.ShouldAppend),
+			"overwrite": strconv.FormatBool(params.ShouldOverwrite),
+			"content":   normalizedContent,
+			"file":      params.NoteName,
+			"silent":    "true", // Don't open in Obsidian
+		})
+
+		if err := uri.Execute(obsidianUri); err != nil {
+			return err
+		}
+
+		// Now open in editor
+		filePath := filepath.Join(vaultPath, params.NoteName)
+		return obsidian.OpenInEditor(filePath)
+	}
 
 	obsidianUri := uri.Construct(ObsCreateUrl, map[string]string{
 		"vault":     vaultName,

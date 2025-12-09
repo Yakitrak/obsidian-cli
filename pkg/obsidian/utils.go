@@ -2,6 +2,7 @@ package obsidian
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,16 +51,42 @@ func ShouldSkipDirectoryOrFile(info os.FileInfo) bool {
 }
 
 // OpenInEditor opens the specified file path in the user's preferred editor
+// It supports common GUI editors with appropriate wait flags
 func OpenInEditor(filePath string) error {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vim" // Default fallback
 	}
+
+	// Parse editor command to handle GUI editors that need wait flags
+	var cmd *exec.Cmd
+	editorLower := strings.ToLower(filepath.Base(editor))
 	
-	cmd := exec.Command(editor, filePath)
+	switch {
+	case strings.Contains(editorLower, "code") || strings.Contains(editorLower, "vscode"):
+		// VSCode needs --wait flag to block
+		cmd = exec.Command(editor, "--wait", filePath)
+	case strings.Contains(editorLower, "subl"):
+		// Sublime Text needs --wait flag
+		cmd = exec.Command(editor, "--wait", filePath)
+	case strings.Contains(editorLower, "atom"):
+		// Atom needs --wait flag
+		cmd = exec.Command(editor, "--wait", filePath)
+	case strings.Contains(editorLower, "mate"):
+		// TextMate needs --wait flag
+		cmd = exec.Command(editor, "--wait", filePath)
+	default:
+		// For vim, nano, emacs, and other terminal editors, or unknown editors
+		cmd = exec.Command(editor, filePath)
+	}
+
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
-	return cmd.Run()
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to open file in editor '%s': %w", editor, err)
+	}
+
+	return nil
 }

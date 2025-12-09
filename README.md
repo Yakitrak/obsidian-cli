@@ -48,6 +48,27 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 obsidian-cli --help
 ```
 
+### Editor Flag
+
+Many commands support the `--editor` (or `-e`) flag, which opens notes in your default text editor instead of the Obsidian application. This is useful for quick edits or when working in a terminal-only environment.
+
+The editor is determined by the `EDITOR` environment variable. If not set, it defaults to `vim`.
+
+**Supported editors:**
+- Terminal editors: vim, nano, emacs, etc.
+- GUI editors with wait flag: VSCode (`code`), Sublime Text (`subl`), Atom, TextMate
+  - The CLI automatically adds the `--wait` flag for supported GUI editors to ensure they block until you close the file
+
+**Example:**
+```bash
+# Set your preferred editor (add to ~/.zshrc or ~/.bashrc to make permanent)
+export EDITOR="code"  # or "vim", "nano", "subl", etc.
+
+# Use with any supported command
+obsidian-cli search --editor
+obsidian-cli open "my-note.md" --editor
+```
+
 ### Set Default Vault
 
 Defines default vault for future usage. If not set, pass `--vault` flag for other commands. You don't provide the path to vault here, just the name.
@@ -92,6 +113,9 @@ obsidian-cli open "{note-name}"
 # Opens note in specified obsidian vault
 obsidian-cli open "{note-name}" --vault "{vault-name}"
 
+# Opens note in your default editor (set via EDITOR environment variable)
+obsidian-cli open "{note-name}" --editor
+
 ```
 
 ### Daily Note
@@ -103,13 +127,16 @@ Open daily note in Obsidian. It will create one (using template) if one does not
 obsidian-cli daily
 
 # Creates / opens daily note in specified obsidian vault
-obsidian-cli dauly --vault "{vault-name}"
+obsidian-cli daily --vault "{vault-name}"
+
+# Opens daily note in your default editor
+obsidian-cli daily --editor
 
 ```
 
 ### Search Note
 
-Starts a fuzzy search displaying notes in the terminal from the vault. You can hit enter on a note to open that in Obsidian
+Starts a fuzzy search displaying notes in the terminal from the vault. You can hit enter on a note to open that in Obsidian.
 
 ```bash
 # Searches in default obsidian vault
@@ -117,6 +144,9 @@ obsidian-cli search
 
 # Searches in specified obsidian vault
 obsidian-cli search --vault "{vault-name}"
+
+# Searches and opens selected note in your default editor
+obsidian-cli search --editor
 
 ```
 
@@ -130,6 +160,9 @@ obsidian-cli search-content "search term"
 
 # Searches for content in specified obsidian vault
 obsidian-cli search-content "search term" --vault "{vault-name}"
+
+# Searches and opens selected note in your default editor
+obsidian-cli search-content "search term" --editor
 
 ```
 
@@ -172,6 +205,9 @@ obsidian-cli create "{note-name}" --content "abcde" --append
 # Creates note and opens it
 obsidian-cli create "{note-name}" --content "abcde" --open
 
+# Creates note and opens it in your default editor
+obsidian-cli create "{note-name}" --content "abcde" --open --editor
+
 ```
 
 ### Move / Rename Note
@@ -187,6 +223,9 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
 
 # Renames a note in default obsidian and opens it
 obsidian-cli move "{current-note-path}" "{new-note-path}" --open
+
+# Renames a note and opens it in your default editor
+obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
 ```
 
 ### Delete Note

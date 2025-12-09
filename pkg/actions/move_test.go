@@ -2,10 +2,12 @@ package actions_test
 
 import (
 	"errors"
+	"os"
+	"testing"
+
 	"github.com/Yakitrak/obsidian-cli/mocks"
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestMoveNote(t *testing.T) {
@@ -94,8 +96,73 @@ func TestMoveNote(t *testing.T) {
 			CurrentNoteName: "string",
 			NewNoteName:     "string",
 			ShouldOpen:      true,
+			UseEditor:       false,
 		})
 		// Assert
 		assert.Equal(t, err, uriManager.ExecuteErr)
+	})
+
+	t.Run("Successful move note with editor flag and open", func(t *testing.T) {
+		// Arrange
+		vault := mocks.MockVaultOperator{Name: "myVault"}
+		uri := mocks.MockUriManager{}
+		note := mocks.MockNoteManager{}
+
+		// Set EDITOR to a command that will succeed
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		os.Setenv("EDITOR", "true")
+
+		// Act
+		err := actions.MoveNote(&vault, &note, &uri, actions.MoveParams{
+			CurrentNoteName: "old.md",
+			NewNoteName:     "new.md",
+			ShouldOpen:      true,
+			UseEditor:       true,
+		})
+
+		// Assert
+		assert.NoError(t, err)
+	})
+
+	t.Run("Move note with editor flag fails when editor fails", func(t *testing.T) {
+		// Arrange
+		vault := mocks.MockVaultOperator{Name: "myVault"}
+		uri := mocks.MockUriManager{}
+		note := mocks.MockNoteManager{}
+
+		// Set EDITOR to a command that will fail
+		originalEditor := os.Getenv("EDITOR")
+		defer os.Setenv("EDITOR", originalEditor)
+		os.Setenv("EDITOR", "false")
+
+		// Act
+		err := actions.MoveNote(&vault, &note, &uri, actions.MoveParams{
+			CurrentNoteName: "old.md",
+			NewNoteName:     "new.md",
+			ShouldOpen:      true,
+			UseEditor:       true,
+		})
+
+		// Assert
+		assert.Error(t, err)
+	})
+
+	t.Run("Move note with editor flag without open does not use editor", func(t *testing.T) {
+		// Arrange
+		vault := mocks.MockVaultOperator{Name: "myVault"}
+		uri := mocks.MockUriManager{}
+		note := mocks.MockNoteManager{}
+
+		// Act - UseEditor is true but ShouldOpen is false
+		err := actions.MoveNote(&vault, &note, &uri, actions.MoveParams{
+			CurrentNoteName: "old.md",
+			NewNoteName:     "new.md",
+			ShouldOpen:      false,
+			UseEditor:       true,
+		})
+
+		// Assert - should succeed without opening
+		assert.NoError(t, err)
 	})
 }

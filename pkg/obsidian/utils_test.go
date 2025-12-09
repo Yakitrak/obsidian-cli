@@ -158,15 +158,16 @@ func TestOpenInEditor(t *testing.T) {
 		originalEditor := os.Getenv("EDITOR")
 		defer os.Setenv("EDITOR", originalEditor)
 		
-		// Use a command that will fail when given a nonexistent file
-		os.Setenv("EDITOR", "ls") // ls will fail on nonexistent file
+		// Use 'true' which succeeds regardless of arguments
+		// Editors typically create new files when they don't exist
+		os.Setenv("EDITOR", "true")
 		
 		nonexistentFile := filepath.Join(tempDir, "nonexistent.md")
 		err := obsidian.OpenInEditor(nonexistentFile)
 		
-		// We expect this to fail
-		if err == nil {
-			t.Error("Expected error for nonexistent file, got nil")
+		// Should succeed - editors typically create new files
+		if err != nil {
+			t.Errorf("Expected no error for nonexistent file with 'true' editor, got: %v", err)
 		}
 	})
 
@@ -179,9 +180,24 @@ func TestOpenInEditor(t *testing.T) {
 		
 		err := obsidian.OpenInEditor(testFile)
 		
-		// We expect this to fail
+		// We expect this to fail and have error context
 		if err == nil {
 			t.Error("Expected error for failing editor command, got nil")
+		}
+		
+		// Check that error message contains context
+		if err != nil && len(err.Error()) > 0 {
+			errMsg := err.Error()
+			hasContext := false
+			for i := 0; i <= len(errMsg)-len("failed"); i++ {
+				if i+len("failed") <= len(errMsg) && errMsg[i:i+len("failed")] == "failed" {
+					hasContext = true
+					break
+				}
+			}
+			if !hasContext {
+				t.Errorf("Expected error message to contain 'failed', got: %s", errMsg)
+			}
 		}
 	})
 }
