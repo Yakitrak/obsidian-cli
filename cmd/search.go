@@ -18,8 +18,11 @@ var searchCmd = &cobra.Command{
 		note := obsidian.Note{}
 		uri := obsidian.Uri{}
 		fuzzyFinder := obsidian.FuzzyFinder{}
-		useEditor, _ := cmd.Flags().GetBool("editor")
-		err := actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, useEditor)
+		useEditor, err := cmd.Flags().GetBool("editor")
+		if err != nil {
+			log.Fatalf("failed to retrieve 'editor' flag: %v", err)
+		}
+		err = actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, useEditor)
 		if err != nil {
 			log.Fatal(err)
 		}
