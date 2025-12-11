@@ -50,23 +50,27 @@ obsidian-cli --help
 
 ### Editor Flag
 
-Many commands support the `--editor` (or `-e`) flag, which opens notes in your default text editor instead of the Obsidian application. This is useful for quick edits or when working in a terminal-only environment.
+The `search`, `search-content`, `create`, and `move` commands support the `--editor` (or `-e`) flag, which opens notes in your default text editor instead of the Obsidian application. This is useful for quick edits or when working in a terminal-only environment.
 
 The editor is determined by the `EDITOR` environment variable. If not set, it defaults to `vim`.
 
 **Supported editors:**
+
 - Terminal editors: vim, nano, emacs, etc.
 - GUI editors with wait flag: VSCode (`code`), Sublime Text (`subl`), Atom, TextMate
   - The CLI automatically adds the `--wait` flag for supported GUI editors to ensure they block until you close the file
 
 **Example:**
+
 ```bash
 # Set your preferred editor (add to ~/.zshrc or ~/.bashrc to make permanent)
 export EDITOR="code"  # or "vim", "nano", "subl", etc.
 
-# Use with any supported command
+# Use with supported commands
 obsidian-cli search --editor
-obsidian-cli open "my-note.md" --editor
+obsidian-cli search-content "term" --editor
+obsidian-cli create "note.md" --open --editor
+obsidian-cli move "old.md" "new.md" --open --editor
 ```
 
 ### Set Default Vault
@@ -113,9 +117,6 @@ obsidian-cli open "{note-name}"
 # Opens note in specified obsidian vault
 obsidian-cli open "{note-name}" --vault "{vault-name}"
 
-# Opens note in your default editor (set via EDITOR environment variable)
-obsidian-cli open "{note-name}" --editor
-
 ```
 
 ### Daily Note
@@ -128,9 +129,6 @@ obsidian-cli daily
 
 # Creates / opens daily note in specified obsidian vault
 obsidian-cli daily --vault "{vault-name}"
-
-# Opens daily note in your default editor
-obsidian-cli daily --editor
 
 ```
 

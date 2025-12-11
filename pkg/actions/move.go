@@ -1,8 +1,9 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"path/filepath"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
 type MoveParams struct {
@@ -37,7 +38,8 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 
 	if params.ShouldOpen {
 		if params.UseEditor {
-			return obsidian.OpenInEditor(newPath)
+			filePathWithExt := filepath.Join(vaultPath, obsidian.AddMdSuffix(params.NewNoteName))
+			return obsidian.OpenInEditor(filePathWithExt)
 		}
 
 		obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{

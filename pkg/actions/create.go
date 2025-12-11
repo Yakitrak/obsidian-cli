@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
@@ -25,29 +26,28 @@ func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params Cre
 
 	normalizedContent := NormalizeContent(params.Content)
 
-	// If using editor and should open, use editor mode instead of Obsidian
 	if params.UseEditor && params.ShouldOpen {
 		vaultPath, err := vault.Path()
 		if err != nil {
 			return err
 		}
-		// Note: When using editor mode, the note must be created via Obsidian URI first
-		// before opening in editor, to respect append/overwrite flags
+		// Create note via Obsidian URI to respect append/overwrite flags
 		obsidianUri := uri.Construct(ObsCreateUrl, map[string]string{
 			"vault":     vaultName,
 			"append":    strconv.FormatBool(params.ShouldAppend),
 			"overwrite": strconv.FormatBool(params.ShouldOverwrite),
 			"content":   normalizedContent,
 			"file":      params.NoteName,
-			"silent":    "true", // Don't open in Obsidian
+			"silent":    "true",
 		})
 
 		if err := uri.Execute(obsidianUri); err != nil {
 			return err
 		}
 
-		// Now open in editor
-		filePath := filepath.Join(vaultPath, params.NoteName)
+		time.Sleep(200 * time.Millisecond)
+
+		filePath := filepath.Join(vaultPath, obsidian.AddMdSuffix(params.NoteName))
 		return obsidian.OpenInEditor(filePath)
 	}
 

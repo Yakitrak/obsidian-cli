@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 var vaultName string
@@ -17,8 +18,7 @@ var OpenVaultCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: vaultName}
 		uri := obsidian.Uri{}
 		noteName := args[0]
-		useEditor, _ := cmd.Flags().GetBool("editor")
-		params := actions.OpenParams{NoteName: noteName, UseEditor: useEditor}
+		params := actions.OpenParams{NoteName: noteName}
 		err := actions.OpenNote(&vault, &uri, params)
 		if err != nil {
 			log.Fatal(err)
@@ -28,6 +28,5 @@ var OpenVaultCmd = &cobra.Command{
 
 func init() {
 	OpenVaultCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
-	OpenVaultCmd.Flags().BoolP("editor", "e", false, "open in editor instead of Obsidian")
 	rootCmd.AddCommand(OpenVaultCmd)
 }
