@@ -19,7 +19,10 @@ var createNoteCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: vaultName}
 		uri := obsidian.Uri{}
 		noteName := args[0]
-		useEditor, _ := cmd.Flags().GetBool("editor")
+		useEditor, err := cmd.Flags().GetBool("editor")
+		if err != nil {
+			log.Fatalf("Failed to parse --editor flag: %v", err)
+		}
 		params := actions.CreateParams{
 			NoteName:        noteName,
 			Content:         content,
