@@ -53,6 +53,7 @@ func SearchNotesContent(vault obsidian.VaultManager, note obsidian.NoteManager, 
 	selectedMatch := matches[index]
 	if useEditor {
 		filePath := filepath.Join(vaultPath, selectedMatch.FilePath)
+		fmt.Printf("Opening note: %s\n", selectedMatch.FilePath)
 		return obsidian.OpenInEditor(filePath)
 	}
 	obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
