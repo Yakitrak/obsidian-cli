@@ -31,7 +31,7 @@ var createNoteCmd = &cobra.Command{
 			ShouldOpen:      shouldOpen,
 			UseEditor:       useEditor,
 		}
-		err := actions.CreateNote(&vault, &uri, params)
+		err = actions.CreateNote(&vault, &uri, params)
 		if err != nil {
 			log.Fatal(err)
 		}

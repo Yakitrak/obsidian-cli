@@ -30,7 +30,7 @@ var moveCmd = &cobra.Command{
 			ShouldOpen:      shouldOpen,
 			UseEditor:       useEditor,
 		}
-		err := actions.MoveNote(&vault, &note, &uri, params)
+		err = actions.MoveNote(&vault, &note, &uri, params)
 		if err != nil {
 			log.Fatal(err)
 		}

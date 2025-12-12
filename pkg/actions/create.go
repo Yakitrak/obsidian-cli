@@ -45,6 +45,8 @@ func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params Cre
 			return err
 		}
 
+		// Wait for Obsidian to finish creating the file before opening in editor.
+		// The URI command is async, so we need a brief delay to ensure the file exists.
 		time.Sleep(200 * time.Millisecond)
 
 		filePath := filepath.Join(vaultPath, obsidian.AddMdSuffix(params.NoteName))

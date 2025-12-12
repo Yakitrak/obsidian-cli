@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"fmt"
 	"path/filepath"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
@@ -30,7 +31,7 @@ func SearchNotes(vault obsidian.VaultManager, note obsidian.NoteManager, uri obs
 	}
 
 	if useEditor {
-		// Open in editor instead of Obsidian
+		fmt.Printf("Opening note: %s\n", notes[index])
 		filePath := filepath.Join(vaultPath, notes[index])
 		return obsidian.OpenInEditor(filePath)
 	}

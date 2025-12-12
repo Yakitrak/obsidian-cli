@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -148,9 +149,9 @@ func TestOpenInEditor(t *testing.T) {
 		
 		os.Unsetenv("EDITOR")
 		
-		// We can't easily test vim opening in a test environment without it hanging
-		// So we'll skip this test if vim exists and would actually run
-		// This test serves more as documentation of the expected behavior
+		// TODO: We can't easily test vim opening in a test environment without it hanging.
+		// Consider using a test helper that mocks the command execution or documenting
+		// this limitation more explicitly to clarify this is intentional technical debt.
 		t.Skip("Skipping vim fallback test to avoid hanging in test environment")
 	})
 
@@ -186,16 +187,9 @@ func TestOpenInEditor(t *testing.T) {
 		}
 		
 		// Check that error message contains context
-		if err != nil && len(err.Error()) > 0 {
+		if err != nil {
 			errMsg := err.Error()
-			hasContext := false
-			for i := 0; i <= len(errMsg)-len("failed"); i++ {
-				if i+len("failed") <= len(errMsg) && errMsg[i:i+len("failed")] == "failed" {
-					hasContext = true
-					break
-				}
-			}
-			if !hasContext {
+			if !strings.Contains(errMsg, "failed") {
 				t.Errorf("Expected error message to contain 'failed', got: %s", errMsg)
 			}
 		}
