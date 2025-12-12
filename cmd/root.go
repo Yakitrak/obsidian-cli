@@ -10,7 +10,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "obsidian-cli",
 	Short:   "obsidian-cli - CLI to open, search, move, create, delete and update notes",
-	Version: "v0.1.9",
+	Version: "v0.2.0",
 	Long:    "obsidian-cli - CLI to open, search, move, create, delete and update notes",
 }
 
