@@ -39,6 +39,7 @@ func TestUriConstruct(t *testing.T) {
 				if len(parts) > 1 {
 					parsedParams, err := url.ParseQuery(parts[1])
 					assert.NoError(t, err)
+					assert.Equal(t, len(test.want), len(parsedParams), "unexpected number of parameters")
 					for key, expectedValue := range test.want {
 						assert.Equal(t, expectedValue, parsedParams.Get(key))
 					}
