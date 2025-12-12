@@ -20,12 +20,17 @@ var moveCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: vaultName}
 		note := obsidian.Note{}
 		uri := obsidian.Uri{}
+		useEditor, err := cmd.Flags().GetBool("editor")
+		if err != nil {
+			log.Fatalf("Failed to parse --editor flag: %v", err)
+		}
 		params := actions.MoveParams{
 			CurrentNoteName: currentName,
 			NewNoteName:     newName,
 			ShouldOpen:      shouldOpen,
+			UseEditor:       useEditor,
 		}
-		err := actions.MoveNote(&vault, &note, &uri, params)
+		err = actions.MoveNote(&vault, &note, &uri, params)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -36,5 +41,6 @@ var moveCmd = &cobra.Command{
 func init() {
 	moveCmd.Flags().BoolVarP(&shouldOpen, "open", "o", false, "open new note")
 	moveCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	moveCmd.Flags().BoolP("editor", "e", false, "open in editor instead of Obsidian (requires --open flag)")
 	rootCmd.AddCommand(moveCmd)
 }

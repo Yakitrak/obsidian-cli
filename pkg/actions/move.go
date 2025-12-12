@@ -1,14 +1,16 @@
 package actions
 
 import (
-	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 	"path/filepath"
+
+	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
 type MoveParams struct {
 	CurrentNoteName string
 	NewNoteName     string
 	ShouldOpen      bool
+	UseEditor       bool
 }
 
 func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidian.UriManager, params MoveParams) error {
@@ -35,6 +37,11 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 	}
 
 	if params.ShouldOpen {
+		if params.UseEditor {
+			filePathWithExt := filepath.Join(vaultPath, obsidian.AddMdSuffix(params.NewNoteName))
+			return obsidian.OpenInEditor(filePathWithExt)
+		}
+
 		obsidianUri := uri.Construct(ObsOpenUrl, map[string]string{
 			"file":  params.NewNoteName,
 			"vault": vaultName,

@@ -5,6 +5,7 @@
 *.so
 *.dylib
 .vscode
+obsidian-cli
 
 # Test binary, built with `go test -c`
 *.test
