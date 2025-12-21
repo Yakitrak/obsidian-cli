@@ -25,6 +25,7 @@ type NoteManager interface {
 	Delete(string) error
 	UpdateLinks(string, string, string) error
 	GetContents(string, string) (string, error)
+	SetContents(string, string, string) error
 	GetNotesList(string) ([]string, error)
 	SearchNotesWithSnippets(string, string) ([]NoteMatch, error)
 }
@@ -99,6 +100,45 @@ func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+func (m *Note) SetContents(vaultPath string, noteName string, content string) error {
+	note := AddMdSuffix(noteName)
+
+	var notePath string
+	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		// Check for full path match first
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err == nil && relPath == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+
+		// Fall back to basename match for backward compatibility
+		if filepath.Base(path) == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
+
+	if err != nil || notePath == "" {
+		return errors.New(NoteDoesNotExistError)
+	}
+
+	err = os.WriteFile(notePath, []byte(content), 0644)
+	if err != nil {
+		return errors.New(VaultWriteError)
+	}
+
+	return nil
 }
 
 func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
