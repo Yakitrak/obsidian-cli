@@ -14,11 +14,12 @@ import (
 // CustomMockNoteForSingleMatch returns exactly one match for editor testing
 type CustomMockNoteForSingleMatch struct{}
 
-func (m *CustomMockNoteForSingleMatch) Delete(string) error { return nil }
-func (m *CustomMockNoteForSingleMatch) Move(string, string) error { return nil }
-func (m *CustomMockNoteForSingleMatch) UpdateLinks(string, string, string) error { return nil }
+func (m *CustomMockNoteForSingleMatch) Delete(string) error                       { return nil }
+func (m *CustomMockNoteForSingleMatch) Move(string, string) error                  { return nil }
+func (m *CustomMockNoteForSingleMatch) UpdateLinks(string, string, string) error   { return nil }
 func (m *CustomMockNoteForSingleMatch) GetContents(string, string) (string, error) { return "", nil }
-func (m *CustomMockNoteForSingleMatch) GetNotesList(string) ([]string, error) { return nil, nil }
+func (m *CustomMockNoteForSingleMatch) SetContents(string, string, string) error   { return nil }
+func (m *CustomMockNoteForSingleMatch) GetNotesList(string) ([]string, error)      { return nil, nil }
 func (m *CustomMockNoteForSingleMatch) SearchNotesWithSnippets(string, string) ([]obsidian.NoteMatch, error) {
 	return []obsidian.NoteMatch{
 		{FilePath: "test-note.md", LineNumber: 5, MatchLine: "test content"},
