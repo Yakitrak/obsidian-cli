@@ -356,7 +356,12 @@ obsidian-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
-Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
+Moves a given note (path from top level of vault) to a new path. If given the same path but a different name, it's treated as a rename.
+
+When moving/renaming, `obsidian-cli` updates links inside your vault to match the new location, including:
+
+- Wikilinks: `[[note]]`, `[[folder/note]]`, `[[folder/note|alias]]`, `[[folder/note#heading]]`
+- Markdown links: `[text](folder/note.md)`, `[text](./folder/note.md)`, and the same forms without the `.md` extension
 
 ```bash
 # Renames a note in default obsidian
