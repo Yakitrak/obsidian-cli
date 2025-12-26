@@ -481,6 +481,21 @@ obsidian-cli print "{note-name}" --vault "{vault-name}"
 
 ```
 
+### Frontmatter
+
+View or modify YAML frontmatter in a note.
+
+```bash
+# Print frontmatter
+obsidian-cli frontmatter "{note-name}" --print
+
+# Set a key/value
+obsidian-cli frontmatter "{note-name}" --edit --key "status" --value "done"
+
+# Delete a key
+obsidian-cli frontmatter "{note-name}" --delete --key "draft"
+```
+
 ### Create / Update Note
 
 Creates a note (can be a path from the top level of the vault). By default, if the note exists, it will create another note; passing `--overwrite` or `--append` changes that behavior.
