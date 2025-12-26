@@ -299,6 +299,10 @@ obsidian-cli delete "{note-path}" --vault "{vault-name}"
 
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
 
+## Acknowledgements
+
+- Link-update support for path-based wikilinks and markdown links builds on upstream PR #58: https://github.com/Yakitrak/obsidian-cli/pull/58
+
 ## License
 
 Available under [MIT License](./LICENSE)
