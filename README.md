@@ -48,6 +48,12 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 obsidian-cli --help
 ```
 
+For detailed help (including examples) for a specific command:
+
+```bash
+obsidian-cli <command> --help
+```
+
 ### Editor Flag
 
 The `search`, `search-content`, `create`, and `move` commands support the `--editor` (or `-e`) flag, which opens notes in your default text editor instead of the Obsidian application. This is useful for quick edits or when working in a terminal-only environment.
