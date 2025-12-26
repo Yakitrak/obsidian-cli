@@ -287,11 +287,16 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
 
 Deletes a given note (path from top level of vault).
 
+If other notes link to the note, you'll be prompted to confirm. Use `--force` (or `-f`) to skip confirmation.
+
 ```bash
-# Renames a note in default obsidian
+# Delete a note in the default vault
 obsidian-cli delete "{note-path}"
 
-# Renames a note in given obsidian
+# Force delete without prompt (recommended for scripts)
+obsidian-cli delete "{note-path}" --force
+
+# Delete a note in a specific vault
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
