@@ -66,10 +66,16 @@ func (v *Vault) SetDefaultName(name string) error {
 	if err != nil {
 		return errors.New(ObsidianCLIConfigDirWriteEror)
 	}
+	if err := os.Chmod(obsConfigDir, 0750); err != nil {
+		return errors.New(ObsidianCLIConfigDirWriteEror)
+	}
 
 	// create and write file
 	err = os.WriteFile(obsConfigFile, jsonContent, 0600)
 	if err != nil {
+		return errors.New(ObsidianCLIConfigWriteError)
+	}
+	if err := os.Chmod(obsConfigFile, 0600); err != nil {
 		return errors.New(ObsidianCLIConfigWriteError)
 	}
 
@@ -129,7 +135,13 @@ func (v *Vault) SetSettings(settings VaultSettings) error {
 	if err := os.MkdirAll(obsConfigDir, 0750); err != nil {
 		return errors.New(ObsidianCLIConfigDirWriteEror)
 	}
+	if err := os.Chmod(obsConfigDir, 0750); err != nil {
+		return errors.New(ObsidianCLIConfigDirWriteEror)
+	}
 	if err := os.WriteFile(obsConfigFile, jsonContent, 0600); err != nil {
+		return errors.New(ObsidianCLIConfigWriteError)
+	}
+	if err := os.Chmod(obsConfigFile, 0600); err != nil {
 		return errors.New(ObsidianCLIConfigWriteError)
 	}
 	return nil
