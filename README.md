@@ -77,6 +77,12 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 obsidian-cli --help
 ```
 
+For detailed help (including examples) for a specific command:
+
+```bash
+obsidian-cli <command> --help
+```
+
 ### Command Shortcut (Alias)
 
 If you want a shorter command name (for example `obsi`), you can either:
