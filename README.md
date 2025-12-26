@@ -324,6 +324,9 @@ obsidian-cli append
 # Append with timestamp
 obsidian-cli append --timestamp "Started work on feature X"
 
+# Append with timestamp + custom format (Go time format)
+obsidian-cli append --timestamp --time-format "15:04:05" "Did the thing"
+
 # Preview which file would be written (does not write)
 obsidian-cli append --dry-run "hello"
 
@@ -355,14 +358,28 @@ obsidian-cli target inbox
 # Pick a target interactively, then enter content
 obsidian-cli target --select
 
+# Alias for --select
+obsidian-cli target --ls
+
 # Preview which file would be used (does not write)
 obsidian-cli target inbox --dry-run
+
+# Preview resolved paths for one or all targets
+obsidian-cli target test inbox
+obsidian-cli target test
 
 # List targets
 obsidian-cli target list
 
+# Remove a target
+obsidian-cli target remove inbox
+obsidian-cli target rm inbox
+
 # Edit targets (choose CLI mode or open targets.yaml in your editor)
 obsidian-cli target edit
+
+# Run a target using a specific vault (unless the target has its own vault override)
+obsidian-cli target --vault "{vault-name}" inbox "hello"
 ```
 
 Minimal `targets.yaml` examples:
@@ -378,13 +395,22 @@ log:
   type: folder
   folder: Log
   pattern: YYYY-MM-DD
+
+# Folder target with a template and per-target vault override
+worklog:
+  type: folder
+  folder: Log
+  pattern: YYYY-MM-DD
+  template: Templates/Daily
+  vault: Work
 ```
 
 Notes:
 
 - A simplified scalar form is also accepted and can be migrated by `init` / `target edit`:
   - `inbox: Inbox.md`
-- Target names cannot contain whitespace, and some names are reserved (e.g. `add`, `rm`, `ls`, `edit`).
+- Target names cannot contain whitespace, and some names are reserved:
+  - `add`, `remove`, `rm`, `list`, `ls`, `edit`, `validate`, `test`, `help`
 
 ### Date Patterns and Template Variables
 
