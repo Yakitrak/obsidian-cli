@@ -249,21 +249,37 @@ var targetEditCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println("Edit targets:")
-		fmt.Println("  1) Stay in CLI")
-		fmt.Println("  2) Open in editor")
-		fmt.Print("> ")
-		line, err := in.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		switch strings.TrimSpace(line) {
-		case "1":
-			return runTargetEditor(in)
-		case "2":
-			return obsidian.OpenInEditor(path)
-		default:
-			return errors.New("invalid selection")
+		for {
+			fmt.Println("Edit targets:")
+			fmt.Println("  1) Stay in CLI (recommended)")
+			fmt.Println("  2) Open in editor")
+			fmt.Println("Press Enter for CLI, type '?' for help, or 'back' to cancel.")
+			line, action, err := promptLine(in, "> ")
+			if err != nil {
+				return err
+			}
+			switch action {
+			case actionBack:
+				return nil
+			case actionHelp:
+				fmt.Println()
+				fmt.Println("Edit help:")
+				fmt.Printf("- CLI mode provides guided add/edit/remove/test/list workflows.\n")
+				fmt.Printf("- Editor mode opens: %s\n", path)
+				fmt.Println()
+				continue
+			case actionSkip:
+				return runTargetEditor(in)
+			default:
+			}
+			switch strings.ToLower(strings.TrimSpace(line)) {
+			case "", "1", "cli":
+				return runTargetEditor(in)
+			case "2", "editor":
+				return obsidian.OpenInEditor(path)
+			default:
+				fmt.Println("Invalid selection. Enter 1 or 2, or type '?' for help.")
+			}
 		}
 	},
 }
