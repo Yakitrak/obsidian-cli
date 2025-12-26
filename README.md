@@ -294,13 +294,13 @@ If other notes link to the note, `delete` prints the incoming links and prompts 
 Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `delete, del`. Heads up: `daily` uses alias `d`, so `delete` uses `del` to avoid ambiguity.
 
 ```bash
-# Delete a note in default obsidian
+# Delete a note in the default vault
 obsidian-cli delete "{note-path}"
 
 # Force delete without prompt
 obsidian-cli delete "{note-path}" --force
 
-# Delete a note in given obsidian
+# Delete a note in a specific vault
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
