@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 var (
 	appendTimestamp bool
 	appendTimeFmt   string
+	appendDryRun    bool
 )
 
 var appendCmd = &cobra.Command{
@@ -42,10 +45,21 @@ interactively until EOF.`,
 		vault := obsidian.Vault{Name: vaultName}
 
 		content := strings.TrimSpace(strings.Join(args, " "))
-		var err error
-		content, err = actions.PromptForContentIfEmpty(content)
-		if err != nil {
-			return err
+		if content == "" {
+			stat, err := os.Stdin.Stat()
+			if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+				b, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return err
+				}
+				content = strings.TrimSpace(string(b))
+			} else if !appendDryRun {
+				var err error
+				content, err = actions.PromptForContentIfEmpty(content)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		if appendTimestamp {
@@ -56,6 +70,27 @@ interactively until EOF.`,
 			content = fmt.Sprintf("- %s %s", time.Now().Format(format), content)
 		}
 
+		if appendDryRun {
+			plan, err := actions.PlanDailyAppend(&vault, time.Now())
+			if err != nil {
+				return err
+			}
+			fmt.Println("Append dry-run:")
+			fmt.Printf("  vault: %s\n", plan.VaultName)
+			fmt.Printf("  note: %s\n", plan.AbsoluteNotePath)
+			fmt.Printf("  create_dirs: %t\n", plan.WillCreateDirs)
+			fmt.Printf("  create_file: %t\n", plan.WillCreateFile)
+			if plan.WillApplyTemplate {
+				fmt.Printf("  template: %s\n", plan.TemplateAbs)
+			}
+			if strings.TrimSpace(content) == "" {
+				fmt.Println("  content: (none supplied; would prompt interactively without --dry-run)")
+			} else {
+				fmt.Printf("  append_bytes: %d\n", len([]byte(content)))
+			}
+			return nil
+		}
+
 		return actions.AppendToDailyNote(&vault, content)
 	},
 }
@@ -63,6 +98,7 @@ interactively until EOF.`,
 func init() {
 	appendCmd.Flags().BoolVarP(&appendTimestamp, "timestamp", "t", false, "prepend a timestamp to the content")
 	appendCmd.Flags().StringVar(&appendTimeFmt, "time-format", "", "custom timestamp format (Go time format, default: 15:04)")
+	appendCmd.Flags().BoolVar(&appendDryRun, "dry-run", false, "preview which note would be written without writing")
 	appendCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name (not required if default is set)")
 	rootCmd.AddCommand(appendCmd)
 }

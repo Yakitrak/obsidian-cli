@@ -88,6 +88,22 @@ func TestAppendToDailyNoteRejectsEscapePaths(t *testing.T) {
 	})
 }
 
+func TestPlanDailyAppendSupportsTimeBasedPatterns(t *testing.T) {
+	withTempVaultAndConfig(t, func(vault *obsidian.Vault, _ string) {
+		now := time.Date(2025, 12, 25, 17, 31, 45, 0, time.UTC)
+		assert.NoError(t, vault.SetSettings(obsidian.VaultSettings{
+			DailyNote: obsidian.DailyNoteSettings{
+				Folder:          "Daily",
+				FilenamePattern: "YYYY-MM-DD_HHmmss",
+			},
+		}))
+
+		plan, err := PlanDailyAppend(vault, now)
+		assert.NoError(t, err)
+		assert.Equal(t, "2025-12-25_173145", plan.Filename)
+	})
+}
+
 func withTempVaultAndConfig(t *testing.T, fn func(vault *obsidian.Vault, vaultPath string)) {
 	t.Helper()
 

@@ -14,20 +14,46 @@ type DeleteParams struct {
 	Force    bool
 }
 
-func DeleteNote(vault obsidian.VaultManager, note obsidian.NoteManager, params DeleteParams) error {
-	_, err := vault.DefaultName()
+type DeletePlan struct {
+	VaultName        string
+	VaultPath        string
+	RelativeNotePath string
+	AbsoluteNotePath string
+}
+
+func PlanDeleteNote(vault obsidian.VaultManager, params DeleteParams) (DeletePlan, error) {
+	vaultName, err := vault.DefaultName()
 	if err != nil {
-		return err
+		return DeletePlan{}, err
 	}
 
 	vaultPath, err := vault.Path()
 	if err != nil {
+		return DeletePlan{}, err
+	}
+
+	rel := filepath.ToSlash(params.NotePath)
+	abs, err := obsidian.SafeJoinVaultPath(vaultPath, rel)
+	if err != nil {
+		return DeletePlan{}, err
+	}
+
+	return DeletePlan{
+		VaultName:        vaultName,
+		VaultPath:        vaultPath,
+		RelativeNotePath: rel,
+		AbsoluteNotePath: abs,
+	}, nil
+}
+
+func DeleteNote(vault obsidian.VaultManager, note obsidian.NoteManager, params DeleteParams) error {
+	plan, err := PlanDeleteNote(vault, params)
+	if err != nil {
 		return err
 	}
-	notePath := filepath.Join(vaultPath, params.NotePath)
 
 	if !params.Force {
-		links, err := obsidian.FindIncomingLinks(vaultPath, params.NotePath)
+		links, err := obsidian.FindIncomingLinks(plan.VaultPath, plan.RelativeNotePath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not check for incoming links: %v\n", err)
 		} else if len(links) > 0 {
@@ -42,7 +68,7 @@ func DeleteNote(vault obsidian.VaultManager, note obsidian.NoteManager, params D
 		}
 	}
 
-	err = note.Delete(notePath)
+	err = note.Delete(plan.AbsoluteNotePath)
 	if err != nil {
 		return err
 	}

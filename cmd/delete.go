@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 
@@ -8,6 +10,7 @@ import (
 )
 
 var deleteForce bool
+var deleteDryRun bool
 
 var deleteCmd = &cobra.Command{
 	Use:     "delete <note>",
@@ -34,11 +37,23 @@ Use --force to skip confirmation (recommended for scripts).`,
 			NotePath: notePath,
 			Force:    deleteForce,
 		}
+
+		if deleteDryRun {
+			plan, err := actions.PlanDeleteNote(&vault, params)
+			if err != nil {
+				return err
+			}
+			fmt.Println("Delete dry-run:")
+			fmt.Printf("  vault: %s\n", plan.VaultName)
+			fmt.Printf("  path: %s\n", plan.AbsoluteNotePath)
+			return nil
+		}
 		return actions.DeleteNote(&vault, &note, params)
 	},
 }
 
 func init() {
+	deleteCmd.Flags().BoolVar(&deleteDryRun, "dry-run", false, "preview which file would be deleted without deleting it")
 	deleteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
 	deleteCmd.Flags().BoolVarP(&deleteForce, "force", "f", false, "skip confirmation if the note has incoming links")
 	rootCmd.AddCommand(deleteCmd)
