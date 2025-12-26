@@ -107,7 +107,7 @@ func EnsureTargetsFileExists() (string, error) {
 	} else if err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(defaultTargetsHeader), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(targetsFileHeader), 0600); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -140,7 +140,8 @@ func SaveTargets(cfg TargetsConfig) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, out, 0600)
+	content := append([]byte(targetsFileHeader), out...)
+	return os.WriteFile(path, content, 0600)
 }
 
 func ListTargetNames(cfg TargetsConfig) []string {
@@ -262,11 +263,36 @@ func PlanTargetAppend(vaultPath string, targetName string, target Target, now ti
 	return plan, nil
 }
 
-const defaultTargetsHeader = `# Obsidian CLI Targets
-# Define capture targets for obsidian-cli target <id>.
+const targetsFileHeader = `# Obsidian CLI Targets
 #
-# Example:
+# This file defines capture targets for:
+#   obsidian-cli target <id> [text]
+#
+# Targets can be:
+#   - type: file   (append to a fixed note)
+#   - type: folder (append to a dated note determined by folder + pattern)
+#
+# Fields:
+#   type:     "file" or "folder"
+#   file:     (file target) path relative to vault root
+#   folder:   (folder target) folder path relative to vault root
+#   pattern:  (folder target) filename pattern, without ".md"
+#   template: (optional) note path to use as initial content when creating a new file
+#   vault:    (optional) override the default vault
+#
+# Pattern format:
+#   - Supports Obsidian-style tokens like YYYY, MM, DD, HH, mm, ss, ddd, dddd, MMM, MMMM
+#   - Supports [literal] blocks, e.g. YYYY-[log]-MM
+#   - Supports the "zettel" timestamp: YYYYMMDDHHmmss
+#
+# Examples:
 #   inbox:
 #     type: file
 #     file: Inbox.md
-#`
+#
+#   hourly-log:
+#     type: folder
+#     folder: Logs
+#     pattern: YYYY-MM-DD_HH
+#
+`
