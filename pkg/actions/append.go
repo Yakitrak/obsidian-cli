@@ -20,6 +20,8 @@ func AppendToDailyNote(vault *obsidian.Vault, content string) error {
 		return errors.New("no content provided")
 	}
 
+	now := time.Now()
+
 	vaultPath, err := vault.Path()
 	if err != nil {
 		return err
@@ -40,7 +42,7 @@ func AppendToDailyNote(vault *obsidian.Vault, content string) error {
 		pattern = "{YYYY-MM-DD}"
 	}
 
-	filename := expandDailyFilename(pattern, time.Now())
+	filename := expandDailyFilename(pattern, now)
 	relNotePath := filepath.ToSlash(filepath.Join(folder, filename))
 	abs, err := safeJoinVaultPath(vaultPath, relNotePath)
 	if err != nil {
@@ -65,6 +67,24 @@ func AppendToDailyNote(vault *obsidian.Vault, content string) error {
 			return fmt.Errorf("failed to read note: %w", err)
 		}
 		existing = []byte{}
+
+		templateRel := strings.TrimSpace(settings.DailyNote.TemplatePath)
+		if templateRel != "" {
+			templateAbs, err := obsidian.SafeJoinVaultPath(vaultPath, filepath.ToSlash(templateRel))
+			if err != nil {
+				return fmt.Errorf("invalid template path: %w", err)
+			}
+			if !strings.HasSuffix(strings.ToLower(templateAbs), ".md") {
+				templateAbs += ".md"
+			}
+			b, err := os.ReadFile(templateAbs)
+			if err != nil {
+				return fmt.Errorf("failed to read template: %w", err)
+			}
+			title := filepath.Base(abs)
+			b = obsidian.ExpandTemplateVariablesAt(b, title, now)
+			existing = b
+		}
 	}
 
 	next := appendWithSeparator(string(existing), content)
