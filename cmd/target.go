@@ -259,9 +259,7 @@ var targetEditCmd = &cobra.Command{
 		}
 		switch strings.TrimSpace(line) {
 		case "1":
-			// Enter interactive selection mode.
-			targetSelect = true
-			return targetCmd.RunE(targetCmd, []string{})
+			return runTargetEditor(in)
 		case "2":
 			return obsidian.OpenInEditor(path)
 		default:
@@ -419,7 +417,7 @@ func runTargetAddWizard(in *bufio.Reader, vaultPath string, existingName string,
 			}
 		case 2:
 			if strings.ToLower(strings.TrimSpace(t.Type)) == "file" {
-				p, err := promptForTargetFile(in, vaultPath)
+				p, err := promptForTargetFile(in, vaultPath, "")
 				if err != nil {
 					if errors.Is(err, errBack) {
 						step = 1
@@ -430,7 +428,7 @@ func runTargetAddWizard(in *bufio.Reader, vaultPath string, existingName string,
 				t.File = p
 				step = 4
 			} else {
-				folder, err := promptForTargetFolder(in, vaultPath)
+				folder, err := promptForTargetFolder(in, vaultPath, "")
 				if err != nil {
 					if errors.Is(err, errBack) {
 						step = 1
@@ -442,7 +440,7 @@ func runTargetAddWizard(in *bufio.Reader, vaultPath string, existingName string,
 				step = 3
 			}
 		case 3:
-			pattern, err := promptForTargetPattern(in)
+			pattern, err := promptForTargetPattern(in, "")
 			if err != nil {
 				if errors.Is(err, errBack) {
 					step = 2
@@ -514,9 +512,12 @@ func runTargetAddWizard(in *bufio.Reader, vaultPath string, existingName string,
 
 var errBack = errors.New("back")
 
-func promptForTargetFile(in *bufio.Reader, vaultPath string) (string, error) {
+func promptForTargetFile(in *bufio.Reader, vaultPath string, existing string) (string, error) {
 	fmt.Println("Target file path (relative to vault).")
-	fmt.Println("Type a path, 'ls' to browse, or 'back' to go back.")
+	if strings.TrimSpace(existing) != "" {
+		fmt.Printf("Current: %s (press Enter to keep)\n", existing)
+	}
+	fmt.Println("Type a path, press Enter to keep current, 'ls' to browse, or 'back' to go back.")
 	for {
 		fmt.Print("> ")
 		line, err := in.ReadString('\n')
@@ -526,6 +527,9 @@ func promptForTargetFile(in *bufio.Reader, vaultPath string) (string, error) {
 		line = strings.TrimSpace(line)
 		if strings.EqualFold(line, "back") {
 			return "", errBack
+		}
+		if line == "" && strings.TrimSpace(existing) != "" {
+			return existing, nil
 		}
 		if strings.EqualFold(line, "ls") {
 			return pickOrCreateNotePath(vaultPath)
@@ -542,9 +546,12 @@ func promptForTargetFile(in *bufio.Reader, vaultPath string) (string, error) {
 	}
 }
 
-func promptForTargetFolder(in *bufio.Reader, vaultPath string) (string, error) {
+func promptForTargetFolder(in *bufio.Reader, vaultPath string, existing string) (string, error) {
 	fmt.Println("Target folder path (relative to vault).")
-	fmt.Println("Type a path, 'ls' to browse, or 'back' to go back.")
+	if strings.TrimSpace(existing) != "" {
+		fmt.Printf("Current: %s (press Enter to keep)\n", existing)
+	}
+	fmt.Println("Type a path, press Enter to keep current, 'ls' to browse, or 'back' to go back.")
 	for {
 		fmt.Print("> ")
 		line, err := in.ReadString('\n')
@@ -554,6 +561,9 @@ func promptForTargetFolder(in *bufio.Reader, vaultPath string) (string, error) {
 		line = strings.TrimSpace(line)
 		if strings.EqualFold(line, "back") {
 			return "", errBack
+		}
+		if line == "" && strings.TrimSpace(existing) != "" {
+			return existing, nil
 		}
 		if strings.EqualFold(line, "ls") {
 			return pickOrCreateFolderPath(vaultPath)
@@ -618,7 +628,7 @@ func promptForTemplatePath(in *bufio.Reader, vaultPath string) (string, error) {
 	}
 }
 
-func promptForTargetPattern(in *bufio.Reader) (string, error) {
+func promptForTargetPattern(in *bufio.Reader, existing string) (string, error) {
 	now := time.Now()
 	options := []struct {
 		label   string
@@ -639,6 +649,9 @@ func promptForTargetPattern(in *bufio.Reader) (string, error) {
 	}
 
 	fmt.Println("Filename pattern (controls when a new file is created).")
+	if strings.TrimSpace(existing) != "" {
+		fmt.Printf("Current: %s (press Enter to keep)\n", existing)
+	}
 	fmt.Println("Type a number, or 'back' to go back.")
 	for i, o := range options {
 		ex := o.pattern
@@ -662,6 +675,9 @@ func promptForTargetPattern(in *bufio.Reader) (string, error) {
 		line = strings.TrimSpace(line)
 		if strings.EqualFold(line, "back") {
 			return "", errBack
+		}
+		if line == "" && strings.TrimSpace(existing) != "" {
+			return existing, nil
 		}
 		// allow direct entry of a pattern
 		if line != "" && (strings.ContainsAny(line, "YMDHmsd") || strings.Contains(line, "{") || strings.Contains(line, "[") || strings.Contains(line, "]")) && !isDigits(line) {
@@ -867,4 +883,238 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func runTargetEditor(in *bufio.Reader) error {
+	cfg, err := loadTargetsOrEmpty()
+	if err != nil {
+		return err
+	}
+
+	vault := obsidian.Vault{Name: vaultName}
+	vaultPath, err := vault.Path()
+	if err != nil {
+		return err
+	}
+
+	for {
+		fmt.Println()
+		fmt.Println("Target editor:")
+		fmt.Println("  1) Add target")
+		fmt.Println("  2) Edit target")
+		fmt.Println("  3) Remove target")
+		fmt.Println("  4) Test target")
+		fmt.Println("  5) List targets")
+		fmt.Println("  6) Back")
+		fmt.Print("> ")
+		line, err := in.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		line = strings.TrimSpace(line)
+		switch line {
+		case "1":
+			name, target, err := runTargetAddWizard(in, vaultPath, "", cfg)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+			cfg[name] = target
+			if err := obsidian.SaveTargets(cfg); err != nil {
+				return err
+			}
+			fmt.Printf("Saved target: %s\n", name)
+		case "2":
+			name, err := pickTargetNameFromConfig(cfg)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+			current := cfg[name]
+			updated, err := runTargetEditWizard(in, vaultPath, name, current)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+			cfg[name] = updated
+			if err := obsidian.SaveTargets(cfg); err != nil {
+				return err
+			}
+			fmt.Printf("Updated target: %s\n", name)
+		case "3":
+			name, err := pickTargetNameFromConfig(cfg)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+			delete(cfg, name)
+			if err := obsidian.SaveTargets(cfg); err != nil {
+				return err
+			}
+			fmt.Printf("Removed target: %s\n", name)
+		case "4":
+			name, err := pickTargetNameFromConfig(cfg)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+			if err := printTargetPlan(&vault, name); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		case "5":
+			names := obsidian.ListTargetNames(cfg)
+			if len(names) == 0 {
+				fmt.Println("No targets configured.")
+				continue
+			}
+			for _, n := range names {
+				t := cfg[n]
+				if strings.ToLower(strings.TrimSpace(t.Type)) == "folder" {
+					fmt.Printf("- %s (folder: %s, pattern: %s)\n", n, t.Folder, t.Pattern)
+				} else {
+					fmt.Printf("- %s (file: %s)\n", n, firstNonEmpty(t.File, t.Note))
+				}
+			}
+		case "6", "back":
+			return nil
+		default:
+			fmt.Println("Invalid selection.")
+		}
+	}
+}
+
+func runTargetEditWizard(in *bufio.Reader, vaultPath string, name string, current obsidian.Target) (obsidian.Target, error) {
+	step := 0
+	t := current
+
+	for {
+		switch step {
+		case 0:
+			fmt.Printf("Editing target: %s\n", name)
+			step = 1
+		case 1:
+			fmt.Println("Target type:")
+			fmt.Printf("Current: %s (press Enter to keep)\n", strings.TrimSpace(t.Type))
+			fmt.Println("  1) file   (append to one fixed note)")
+			fmt.Println("  2) folder (append to a dated note based on a pattern)")
+			fmt.Println("Type a number, press Enter to keep current, or 'back' to cancel.")
+			fmt.Print("> ")
+			line, err := in.ReadString('\n')
+			if err != nil {
+				return obsidian.Target{}, err
+			}
+			line = strings.TrimSpace(line)
+			if strings.EqualFold(line, "back") {
+				return obsidian.Target{}, errors.New("cancelled")
+			}
+			if line == "" && strings.TrimSpace(t.Type) != "" {
+				step = 2
+				continue
+			}
+			switch line {
+			case "1":
+				t.Type = "file"
+				step = 2
+			case "2":
+				t.Type = "folder"
+				step = 2
+			default:
+				fmt.Println("Invalid selection.")
+			}
+		case 2:
+			if strings.ToLower(strings.TrimSpace(t.Type)) == "file" {
+				p, err := promptForTargetFile(in, vaultPath, firstNonEmpty(t.File, t.Note))
+				if err != nil {
+					if errors.Is(err, errBack) {
+						step = 1
+						continue
+					}
+					return obsidian.Target{}, err
+				}
+				t.File = p
+				t.Note = ""
+				t.Folder = ""
+				t.Pattern = ""
+				step = 4
+			} else {
+				folder, err := promptForTargetFolder(in, vaultPath, t.Folder)
+				if err != nil {
+					if errors.Is(err, errBack) {
+						step = 1
+						continue
+					}
+					return obsidian.Target{}, err
+				}
+				t.Folder = folder
+				step = 3
+			}
+		case 3:
+			pattern, err := promptForTargetPattern(in, t.Pattern)
+			if err != nil {
+				if errors.Is(err, errBack) {
+					step = 2
+					continue
+				}
+				return obsidian.Target{}, err
+			}
+			t.Pattern = pattern
+			step = 4
+		case 4:
+			template, err := promptForTemplatePath(in, vaultPath)
+			if err != nil {
+				if errors.Is(err, errBack) {
+					if strings.ToLower(strings.TrimSpace(t.Type)) == "folder" {
+						step = 3
+					} else {
+						step = 2
+					}
+					continue
+				}
+				return obsidian.Target{}, err
+			}
+			t.Template = template
+			step = 5
+		case 5:
+			vaultOverride, err := promptForVaultOverride(in)
+			if err != nil {
+				if errors.Is(err, errBack) {
+					step = 4
+					continue
+				}
+				return obsidian.Target{}, err
+			}
+			t.Vault = vaultOverride
+			step = 6
+		case 6:
+			fmt.Println()
+			fmt.Println("Save changes? (y/N)")
+			fmt.Printf("  name: %s\n", name)
+			fmt.Printf("  type: %s\n", t.Type)
+			if strings.ToLower(strings.TrimSpace(t.Type)) == "folder" {
+				fmt.Printf("  folder: %s\n", t.Folder)
+				fmt.Printf("  pattern: %s\n", t.Pattern)
+				fmt.Printf("  example: %s\n", obsidian.ExpandDatePattern(t.Pattern, time.Now()))
+			} else {
+				fmt.Printf("  file: %s\n", t.File)
+			}
+			if strings.TrimSpace(t.Template) != "" {
+				fmt.Printf("  template: %s\n", t.Template)
+			}
+			if strings.TrimSpace(t.Vault) != "" {
+				fmt.Printf("  vault: %s\n", t.Vault)
+			}
+			fmt.Print("> ")
+			line, err := in.ReadString('\n')
+			if err != nil {
+				return obsidian.Target{}, err
+			}
+			line = strings.TrimSpace(strings.ToLower(line))
+			if line == "y" || line == "yes" {
+				return t, nil
+			}
+			return obsidian.Target{}, errors.New("cancelled")
+		default:
+			return obsidian.Target{}, errors.New("invalid wizard state")
+		}
+	}
 }
