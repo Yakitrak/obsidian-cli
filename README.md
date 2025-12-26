@@ -36,8 +36,14 @@ Use "obsidian-cli [command] --help" for more information about a command.
 
 ## Description
 
-Obsidian is a powerful and extensible knowledge base application
-that works on top of your local folder of plain text notes. This CLI tool (written in Go) will let you interact with the application using the terminal. You are currently able to open, search, move, create, update and delete notes.
+Obsidian is a powerful and extensible knowledge base application that works on top of your local folder of plain text notes.
+This CLI tool (written in Go) lets you interact with Obsidian from the terminal:
+
+- Open/search/create/move/delete notes
+- Open daily notes
+- Append to daily notes from the CLI
+- Capture into named “targets” configured in `targets.yaml`
+- Guided `init` wizard to set up defaults
 
 ---
 
@@ -83,6 +89,26 @@ For detailed help (including examples) for a specific command:
 ```bash
 obsidian-cli <command> --help
 ```
+
+### Quickstart (Recommended)
+
+Run the interactive wizard:
+
+```bash
+obsidian-cli init
+```
+
+The wizard:
+
+- Selects and saves your default vault (`set-default`)
+- Configures per-vault daily note settings (used by `append`)
+- Offers to set up/migrate `targets.yaml`, and optionally add your first target
+
+Most wizard prompts accept:
+
+- `?` for help
+- `back` to go back / cancel
+- `skip` to accept defaults where applicable
 
 ### Command Shortcut (Alias)
 
@@ -241,19 +267,19 @@ Then you can use `obs_cd` to navigate to the default vault directory within your
 
 ### Config Files
 
-`obsidian-cli` reads and writes configuration under your OS user config directory (`os.UserConfigDir()`):
+`obsidian-cli` stores configuration under your OS user config directory (`os.UserConfigDir()`):
 
 - `obsidian-cli/preferences.json` (default vault name + optional per-vault `vault_settings`)
+- `obsidian-cli/targets.yaml` (capture targets, used by `target`)
 
 It also reads Obsidian’s vault list from:
 
 - `obsidian/obsidian.json` (Obsidian config, used for vault discovery)
 
 Note: when writing `preferences.json`, the CLI attempts to create the config directory with mode `0750` and the file with mode `0600` (confirmed from `os.MkdirAll(…, 0750)` / `os.WriteFile(…, 0600)` in code).
-
 ### Open Note
 
-Open given note name in Obsidian. Note can also be an absolute path from top level of vault.
+Open a note in Obsidian by vault-relative note path.
 
 ```bash
 # Opens note in obsidian vault
@@ -268,7 +294,7 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 Open the daily note in Obsidian (via Obsidian URI).
 
-Note: creation/templates are controlled by Obsidian’s daily note settings/plugins.
+Note: creation/templates are controlled by Obsidian’s daily note settings/plugins. Use `append` (below) if you want the CLI to create/write daily notes itself.
 
 ```bash
 # Creates / opens daily note in obsidian vault
@@ -277,6 +303,108 @@ obsidian-cli daily
 # Creates / opens daily note in specified obsidian vault
 obsidian-cli daily --vault "{vault-name}"
 
+# Print the Obsidian URI (does not open Obsidian)
+obsidian-cli daily --dry-run
+
+```
+
+### Append to Daily Note
+
+Append text to today’s daily note **by writing the Markdown file directly** using your per-vault settings in `preferences.json` (`daily_note.folder`, `daily_note.filename_pattern`, and optional `daily_note.template_path`).
+
+If you provide no text, content is read from stdin (piped) or entered interactively until EOF (Ctrl-D to save, Ctrl-C to cancel).
+
+```bash
+# Append a one-liner
+obsidian-cli append "Meeting notes: discussed roadmap"
+
+# Multi-line content interactively (Ctrl-D to save, Ctrl-C to cancel)
+obsidian-cli append
+
+# Append with timestamp
+obsidian-cli append --timestamp "Started work on feature X"
+
+# Preview which file would be written (does not write)
+obsidian-cli append --dry-run "hello"
+
+# Append in a specific vault
+obsidian-cli append --vault "{vault-name}" "Daily standup notes"
+```
+
+### Targets (Quick Capture)
+
+Targets let you define named shortcuts for capturing into specific notes.
+
+Targets are configured in `targets.yaml` (stored next to `preferences.json`), and can point at:
+
+- A fixed file path (always append to the same note)
+- A folder + filename pattern (append to a dated note based on the current time)
+
+Common workflows:
+
+```bash
+# Guided target creation workflow
+obsidian-cli target add
+
+# Capture a one-liner to a target
+obsidian-cli target inbox "Buy milk"
+
+# Multi-line content (Ctrl-D to save, Ctrl-C to cancel)
+obsidian-cli target inbox
+
+# Pick a target interactively, then enter content
+obsidian-cli target --select
+
+# Preview which file would be used (does not write)
+obsidian-cli target inbox --dry-run
+
+# List targets
+obsidian-cli target list
+
+# Edit targets (choose CLI mode or open targets.yaml in your editor)
+obsidian-cli target edit
+```
+
+Minimal `targets.yaml` examples:
+
+```yaml
+# Fixed-file target
+inbox:
+  type: file
+  file: Inbox.md
+
+# Folder + pattern target
+log:
+  type: folder
+  folder: Log
+  pattern: YYYY-MM-DD
+```
+
+Notes:
+
+- A simplified scalar form is also accepted and can be migrated by `init` / `target edit`:
+  - `inbox: Inbox.md`
+- Target names cannot contain whitespace, and some names are reserved (e.g. `add`, `rm`, `ls`, `edit`).
+
+### Date Patterns and Template Variables
+
+Date patterns (used by daily note filename patterns and folder targets) support Obsidian-style tokens and `[literal]` blocks:
+
+- Tokens (curated subset): `YYYY`, `YY`, `MM`, `M`, `DD`, `D`, `HH`, `H`, `mm`, `m`, `ss`, `s`, `ddd`, `dddd`, `MMM`, `MMMM`, `A`, `a`
+- Zettel timestamp: `YYYYMMDDHHmmss`
+- Literal blocks: wrap text in `[brackets]`, e.g. `YYYY-[log]-MM`
+
+Templates (used when `append` creates a daily note for the first time, and optionally by targets) support:
+
+- `{{title}}`
+- `{{date}}` / `{{date:FORMAT}}`
+- `{{time}}` / `{{time:FORMAT}}`
+
+Example template snippet:
+
+```text
+Title={{title}}
+Created={{date:YYYY-MM-DD}} {{time:HH:mm}}
 ```
 
 ### Append to Daily Note
@@ -399,13 +527,15 @@ obsidian-cli print "{note-name}" --vault "{vault-name}"
 
 ### Create / Update Note
 
-Creates note (can also be a path with name) in vault. By default, if the note exists, it will create another note but passing `--overwrite` or `--append` can be used to edit the named note.
+Creates a note (can be a path from the top level of the vault). By default, if the note exists, it will create another note; passing `--overwrite` or `--append` changes that behavior.
+
+Note: `--editor` only applies when `--open` is also provided.
 
 ```bash
-# Creates empty note in default obsidian and opens it
+# Creates empty note in default obsidian (does not open unless --open is used)
 obsidian-cli create "{note-name}"
 
-# Creates empty note in given obsidian and opens it
+# Creates empty note in given obsidian
 obsidian-cli create "{note-name}"  --vault "{vault-name}"
 
 # Creates note in default obsidian with content
@@ -433,6 +563,8 @@ When moving/renaming, `obsidian-cli` updates links inside your vault to match th
 
 - Wikilinks: `[[note]]`, `[[folder/note]]`, `[[folder/note|alias]]`, `[[folder/note#heading]]`
 - Markdown links: `[text](folder/note.md)`, `[text](./folder/note.md)`, and the same forms without the `.md` extension
+
+Note: `--editor` only applies when `--open` is also provided.
 
 ```bash
 # Renames a note in default obsidian
@@ -462,6 +594,9 @@ obsidian-cli delete "{note-path}"
 
 # Force delete without prompt
 obsidian-cli delete "{note-path}" --force
+
+# Preview which file would be deleted (does not delete)
+obsidian-cli delete --dry-run "{note-path}"
 
 # Delete a note in a specific vault
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
