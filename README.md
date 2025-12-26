@@ -669,6 +669,7 @@ Fork the project, add your feature or fix and submit a pull request. You can als
 ## Acknowledgements
 
 - Link-update support for path-based wikilinks and markdown links builds on upstream PR #58: https://github.com/Yakitrak/obsidian-cli/pull/58
+- The note move/rename link-update improvements build on the approach from Logan McDuffie’s fix for issue #44 (`tidalstudio/fix/issue-44-link-updates`).
 
 ## License
 
