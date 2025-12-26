@@ -278,6 +278,28 @@ obsidian-cli daily --vault "{vault-name}"
 
 ```
 
+### Append to Daily Note
+
+Appends text to today's daily note.
+
+This command writes to a daily note path derived from your per-vault settings in `obsidian-cli/preferences.json` (`daily_note.folder` and `daily_note.filename_pattern`). If `daily_note.folder` is not set for the vault, the command will error.
+
+If no text argument is provided, content is read from stdin (piped) or entered interactively until EOF.
+
+```bash
+# Append a one-liner
+obsidian-cli append "Meeting notes: discussed roadmap"
+
+# Append from stdin
+echo "Line 1\nLine 2" | obsidian-cli append
+
+# Append with timestamp
+obsidian-cli append --timestamp "Started work on feature X"
+
+# Append in a specific vault
+obsidian-cli append --vault "{vault-name}" "Daily standup notes"
+```
+
 ### Search Note
 
 Starts a fuzzy search displaying notes in the terminal from the vault. You can hit enter on a note to open that in Obsidian.
