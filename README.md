@@ -135,6 +135,26 @@ obsidian-cli set-default "{vault-name}"
 
 Note: `open` and other commands in `obsidian-cli` use this vault's base directory as the working directory, not the current working directory of your terminal.
 
+The default vault is stored in `obsidian-cli/preferences.json` under your OS user config directory (`os.UserConfigDir()`).
+
+This preferences file also supports optional per-vault settings under `vault_settings` (for example, daily note configuration):
+
+```json
+{
+  "default_vault_name": "My Vault",
+  "vault_settings": {
+    "My Vault": {
+      "daily_note": {
+        "folder": "Daily",
+        "filename_pattern": "{YYYY-MM-DD}",
+        "template_path": "Templates/Daily.md",
+        "create_if_missing": true
+      }
+    }
+  }
+}
+```
+
 ### Print Default Vault
 
 Prints default vault and path. Please set this with `set-default` command if not set.
