@@ -11,7 +11,7 @@ import (
 
 var shouldRenderMarkdown bool
 var printCmd = &cobra.Command{
-	Use:     "print <note>",
+	Use:     "print <note-path>",
 	Aliases: []string{"p"},
 	Short:   "Print contents of note",
 	Long: `Prints the contents of a note to stdout.

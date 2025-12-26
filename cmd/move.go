@@ -11,7 +11,7 @@ import (
 
 var shouldOpen bool
 var moveCmd = &cobra.Command{
-	Use:     "move <source> <destination>",
+	Use:     "move <from-note-path> <to-note-path>",
 	Aliases: []string{"m"},
 	Short:   "Move or rename note in vault and update corresponding links",
 	Long: `Moves or renames a note and updates all links pointing to it.

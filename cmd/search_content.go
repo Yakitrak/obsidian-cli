@@ -10,7 +10,7 @@ import (
 )
 
 var searchContentCmd = &cobra.Command{
-	Use:   "search-content <term>",
+	Use:   "search-content <search-term>",
 	Short: "Search note content for search term",
 	Long: `Searches the contents of all notes for a term.
 

@@ -8,7 +8,7 @@ import (
 )
 
 var setDefaultCmd = &cobra.Command{
-	Use:     "set-default <vault>",
+	Use:     "set-default <vault-name>",
 	Aliases: []string{"sd"},
 	Short:   "Sets default vault",
 	Long: `Sets the default vault for all commands.

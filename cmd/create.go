@@ -12,7 +12,7 @@ var shouldAppend bool
 var shouldOverwrite bool
 var content string
 var createNoteCmd = &cobra.Command{
-	Use:     "create <note>",
+	Use:     "create <note-path>",
 	Aliases: []string{"c"},
 	Short:   "Creates note in vault",
 	Long: `Creates a new note in your Obsidian vault.

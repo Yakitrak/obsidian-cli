@@ -8,7 +8,7 @@ import (
 
 var vaultName string
 var OpenVaultCmd = &cobra.Command{
-	Use:     "open <note>",
+	Use:     "open <note-path>",
 	Aliases: []string{"o"},
 	Short:   "Opens note in vault by note name",
 	Long: `Opens a note in Obsidian by name or path.
