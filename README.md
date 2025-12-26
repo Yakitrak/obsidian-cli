@@ -139,7 +139,7 @@ Note: `open` and other commands in `obsidian-cli` use this vault's base director
 
 - `obsidian-cli/preferences.json`
 
-PR04a also introduces optional per-vault settings under `vault_settings` (keyed by vault name). For example:
+This preferences file also supports optional per-vault settings under `vault_settings` (for example, daily note configuration). For example:
 
 ```json
 {
