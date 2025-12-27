@@ -11,7 +11,7 @@ var deleteForce bool
 
 var deleteCmd = &cobra.Command{
 	Use:     "delete <note>",
-	Aliases: []string{"d"},
+	Aliases: []string{"del"},
 	Short:   "Delete note in vault",
 	Long: `Delete a note from the vault.
 
