@@ -173,7 +173,9 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 ### Daily Note
 
-Open daily note in Obsidian. It will create one (using template) if one does not exist.
+Open the daily note in Obsidian (via Obsidian URI).
+
+Note: creation/templates are controlled by Obsidian’s daily note settings/plugins.
 
 ```bash
 # Creates / opens daily note in obsidian vault
@@ -262,12 +264,7 @@ obsidian-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
-Moves a given note (path from top level of vault) to a new path. If given the same path but a different name, it's treated as a rename.
-
-When moving/renaming, `obsidian-cli` updates links inside your vault to match the new location, including:
-
-- Wikilinks: `[[note]]`, `[[folder/note]]`, `[[folder/note|alias]]`, `[[folder/note#heading]]`
-- Markdown links: `[text](folder/note.md)`, `[text](./folder/note.md)`, and the same forms without the `.md` extension
+Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
 
 ```bash
 # Renames a note in default obsidian
@@ -287,26 +284,58 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
 
 Deletes a given note (path from top level of vault).
 
-If other notes link to the note, you'll be prompted to confirm. Use `--force` (or `-f`) to skip confirmation.
+If other notes link to the note, `delete` prints the incoming links and prompts for confirmation. The default is **No** (press Enter to cancel).
+
+Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `delete, del`. Heads up: `daily` uses alias `d`, so `delete` uses `del` to avoid ambiguity.
 
 ```bash
-# Delete a note in the default vault
+# Delete a note in default obsidian
 obsidian-cli delete "{note-path}"
 
-# Force delete without prompt (recommended for scripts)
+# Force delete without prompt
 obsidian-cli delete "{note-path}" --force
 
-# Delete a note in a specific vault
+# Delete a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
+
+<details>
+<summary><code>delete</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli delete --help
+Delete a note from the vault.
+
+If other notes link to the note, you'll be prompted to confirm.
+Use --force to skip confirmation (recommended for scripts).
+
+Usage:
+  obsidian-cli delete <note> [flags]
+
+Aliases:
+  delete, del
+
+Examples:
+  # Delete a note (prompts if linked)
+  obsidian-cli delete "old-note"
+
+  # Force delete without prompt
+  obsidian-cli delete "temp" --force
+
+  # Delete from specific vault
+  obsidian-cli delete "note" --vault "Archive"
+
+Flags:
+  -f, --force          skip confirmation if the note has incoming links
+  -h, --help           help for delete
+  -v, --vault string   vault name
+```
+
+</details>
 
 ## Contribution
 
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
-
-## Acknowledgements
-
-- Link-update support for path-based wikilinks and markdown links builds on upstream PR #58: https://github.com/Yakitrak/obsidian-cli/pull/58
 
 ## License
 
