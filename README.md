@@ -13,6 +13,7 @@ Usage:
 
 Available Commands:
   alias          Generate a shell alias snippet or install a symlink shortcut
+  append         Append text to today's daily note
   completion     Generate the autocompletion script for the specified shell
   create         Creates note in vault
   daily          Creates or opens daily note in vault
@@ -280,25 +281,73 @@ obsidian-cli daily --vault "{vault-name}"
 
 ### Append to Daily Note
 
-Appends text to today's daily note.
+PR04b adds an `append` command which **writes the daily note Markdown file directly** (no Obsidian URI). The daily note path is derived from per-vault settings in `preferences.json`:
 
-This command writes to a daily note path derived from your per-vault settings in `obsidian-cli/preferences.json` (`daily_note.folder` and `daily_note.filename_pattern`). If `daily_note.folder` is not set for the vault, the command will error.
+- `vault_settings.{vault}.daily_note.folder` (required)
+- `vault_settings.{vault}.daily_note.filename_pattern` (optional; defaults to `{YYYY-MM-DD}`)
 
-If no text argument is provided, content is read from stdin (piped) or entered interactively until EOF.
+If you omit the `[text]` argument, `append` reads content from stdin (piped) or prompts for multi-line input until EOF (Ctrl-D).
 
 ```bash
 # Append a one-liner
 obsidian-cli append "Meeting notes: discussed roadmap"
 
-# Append from stdin
-echo "Line 1\nLine 2" | obsidian-cli append
+# Multi-line content interactively (Ctrl-D to save, Ctrl-C to cancel)
+obsidian-cli append
 
-# Append with timestamp
+# Pipe content
+printf "line1\nline2\n" | obsidian-cli append
+
+# Append with a timestamp prefix (default format 15:04)
 obsidian-cli append --timestamp "Started work on feature X"
+
+# Append with a custom timestamp format (Go time format)
+obsidian-cli append --timestamp --time-format "15:04:05" "Did the thing"
 
 # Append in a specific vault
 obsidian-cli append --vault "{vault-name}" "Daily standup notes"
 ```
+
+<details>
+<summary><code>append</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli append --help
+Appends text to today's daily note.
+
+This command writes to a daily note path derived from your per-vault settings
+in preferences.json (daily_note.folder and daily_note.filename_pattern).
+
+If no text argument is provided, content is read from stdin (piped) or entered
+interactively until EOF.
+
+Usage:
+  obsidian-cli append [text] [flags]
+
+Aliases:
+  append, a
+
+Examples:
+  # Append a one-liner
+  obsidian-cli append "Meeting notes: discussed roadmap"
+
+  # Append multi-line content interactively (Ctrl-D to save)
+  obsidian-cli append
+
+  # Append with timestamp
+  obsidian-cli append --timestamp "Started work on feature X"
+
+  # Append in a specific vault
+  obsidian-cli append --vault "Work" "Daily standup notes"
+
+Flags:
+  -h, --help                 help for append
+      --time-format string   custom timestamp format (Go time format, default: 15:04)
+  -t, --timestamp            prepend a timestamp to the content
+  -v, --vault string         vault name (not required if default is set)
+```
+
+</details>
 
 ### Search Note
 
@@ -378,12 +427,7 @@ obsidian-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
-Moves a given note (path from top level of vault) to a new path. If given the same path but a different name, it's treated as a rename.
-
-When moving/renaming, `obsidian-cli` updates links inside your vault to match the new location, including:
-
-- Wikilinks: `[[note]]`, `[[folder/note]]`, `[[folder/note|alias]]`, `[[folder/note#heading]]`
-- Markdown links: `[text](folder/note.md)`, `[text](./folder/note.md)`, and the same forms without the `.md` extension
+Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
 
 ```bash
 # Renames a note in default obsidian
@@ -408,13 +452,13 @@ If other notes link to the note, `delete` prints the incoming links and prompts 
 Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `delete, del`. Heads up: `daily` uses alias `d`, so `delete` uses `del` to avoid ambiguity.
 
 ```bash
-# Delete a note in the default vault
+# Delete a note in default obsidian
 obsidian-cli delete "{note-path}"
 
 # Force delete without prompt
 obsidian-cli delete "{note-path}" --force
 
-# Delete a note in a specific vault
+# Delete a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
@@ -455,10 +499,6 @@ Flags:
 ## Contribution
 
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
-
-## Acknowledgements
-
-- Link-update support for path-based wikilinks and markdown links builds on upstream PR #58: https://github.com/Yakitrak/obsidian-cli/pull/58
 
 ## License
 
