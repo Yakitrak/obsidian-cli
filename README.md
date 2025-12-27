@@ -445,6 +445,12 @@ Common workflows:
 # Guided target creation workflow
 obsidian-cli target add
 
+# Short alias for `target`
+obsidian-cli t inbox "Buy milk"
+
+# You can also invoke a target name directly (the CLI routes it to `target <name> ...`)
+obsidian-cli inbox "Buy milk"
+
 # Capture a one-liner to a target
 obsidian-cli target inbox "Buy milk"
 

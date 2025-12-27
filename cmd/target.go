@@ -22,7 +22,8 @@ var (
 )
 
 var targetCmd = &cobra.Command{
-	Use:   "target [id] [text]",
+	Use:     "target [id] [text]",
+	Aliases: []string{"t"},
 	Short: "Append text to a configured target note",
 	Long: `Appends text to a note configured in targets.yaml.
 
