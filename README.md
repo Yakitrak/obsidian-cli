@@ -345,12 +345,18 @@ Append text to today’s daily note **by writing the Markdown file directly** us
 
 If you provide no text, content is read from stdin (piped) or entered interactively until EOF (Ctrl-D to save, Ctrl-C to cancel).
 
+Tip: if you already use targets, `append --select` / `append --ls` is a convenience shortcut that selects a target from `targets.yaml` and appends to that target instead of the daily note.
+
 ```bash
 # Append a one-liner
 obsidian-cli append "Meeting notes: discussed roadmap"
 
 # Multi-line content interactively (Ctrl-D to save, Ctrl-C to cancel)
 obsidian-cli append
+
+# Select a target, then append to it (shortcut for: obsidian-cli target --select)
+obsidian-cli append --select
+obsidian-cli append --ls "Buy milk"
 
 # Pipe content
 printf "line1\nline2\n" | obsidian-cli append
@@ -378,6 +384,8 @@ Appends text to today's daily note.
 This command writes to a daily note path derived from your per-vault settings
 in preferences.json (daily_note.folder and daily_note.filename_pattern).
 
+If you prefer, you can use --select/--ls to pick a target from targets.yaml and append to that note instead.
+
 If no text argument is provided, content is read from stdin (piped) or entered
 interactively until EOF.
 
@@ -394,6 +402,9 @@ Examples:
   # Append multi-line content interactively (Ctrl-D to save)
   obsidian-cli append
 
+  # Pick a target interactively, then enter content
+  obsidian-cli append --select
+
   # Append with timestamp
   obsidian-cli append --timestamp "Started work on feature X"
 
@@ -403,6 +414,8 @@ Examples:
 Flags:
       --dry-run              preview which note would be written without writing
   -h, --help                 help for append
+      --ls                   select a target interactively (targets.yaml)
+      --select               select a target interactively (targets.yaml)
       --time-format string   custom timestamp format (Go time format, default: 15:04)
   -t, --timestamp            prepend a timestamp to the content
   -v, --vault string         vault name (not required if default is set)
