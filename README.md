@@ -328,6 +328,41 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 ```
 
+<details>
+<summary><code>open</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli open --help
+Opens a note in Obsidian by name or path.
+
+The note name can be just the filename or a path relative to the vault root.
+The .md extension is optional.
+
+Usage:
+  obsidian-cli open [note-path] [flags]
+
+Aliases:
+  open, o
+
+Examples:
+  # Open a note by name
+  obsidian-cli open "Meeting Notes"
+
+  # Open a note in a subfolder
+  obsidian-cli open "Projects/my-project"
+
+  # Open in a specific vault
+  obsidian-cli open "Daily" --vault "Work"
+
+Flags:
+  -h, --help           help for open
+      --ls             select a note interactively
+      --select         select a note interactively
+  -v, --vault string   vault name (not required if default is set)
+```
+
+</details>
+
 ### Daily Note
 
 Open the daily note in Obsidian (via Obsidian URI).
@@ -532,6 +567,9 @@ Usage:
   obsidian-cli target [id] [text] [flags]
   obsidian-cli target [command]
 
+Aliases:
+  target, t
+
 Examples:
   # Append a one-liner to a target
   obsidian-cli target inbox "Buy milk"
@@ -714,6 +752,44 @@ obsidian-cli print "{note-name}" --vault "{vault-name}"
 
 ```
 
+<details>
+<summary><code>print</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli print --help
+Prints the contents of a note to stdout.
+
+Useful for piping note contents to other commands, or quickly viewing
+a note without opening Obsidian.
+
+Usage:
+  obsidian-cli print [note-path] [flags]
+
+Aliases:
+  print, p
+
+Examples:
+  # Print a note
+  obsidian-cli print "Meeting Notes"
+
+  # Print note in subfolder
+  obsidian-cli print "Projects/readme"
+
+  # Pipe to grep
+  obsidian-cli print "Todo" | grep "TODO"
+
+  # Copy to clipboard (macOS)
+  obsidian-cli print "Template" | pbcopy
+
+Flags:
+  -h, --help           help for print
+      --ls             select a note interactively
+      --select         select a note interactively
+  -v, --vault string   vault name
+```
+
+</details>
+
 ### Create / Update Note
 
 Creates a note (can be a path from the top level of the vault). By default, if the note exists, it will create another note; passing `--overwrite` or `--append` changes that behavior.
@@ -747,6 +823,53 @@ obsidian-cli create "{note-name}" --content "abcde" --open --editor
 
 ```
 
+<details>
+<summary><code>create</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli create --help
+Creates a new note in your Obsidian vault.
+
+By default, if the note already exists, Obsidian will create a new note
+with a numeric suffix. Use --append to add to an existing note, or
+--overwrite to replace its contents.
+
+Usage:
+  obsidian-cli create [note-path] [flags]
+
+Aliases:
+  create, c
+
+Examples:
+  # Create an empty note
+  obsidian-cli create "New Note"
+
+  # Create with content
+  obsidian-cli create "Ideas" --content "My brilliant idea"
+
+  # Append to existing note
+  obsidian-cli create "Log" --content "Entry" --append
+
+  # Create and open in Obsidian
+  obsidian-cli create "Draft" --open
+
+  # Create and open in $EDITOR
+  obsidian-cli create "Draft" --open --editor
+
+Flags:
+  -a, --append           append to note
+  -c, --content string   text to add to note
+  -e, --editor           open in editor instead of Obsidian (requires --open flag)
+  -h, --help             help for create
+      --ls               select a note interactively
+      --open             open created note
+  -o, --overwrite        overwrite note
+      --select           select a note interactively
+  -v, --vault string     vault name
+```
+
+</details>
+
 ### Move / Rename Note
 
 Moves a note to a new path (or renames it) and updates links inside the vault to match.
@@ -766,9 +889,99 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
 # Renames a note in default obsidian and opens it
 obsidian-cli move "{current-note-path}" "{new-note-path}" --open
 
-# Renames a note and opens it in your default editor
-obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
+	# Renames a note and opens it in your default editor
+	obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
 ```
+
+<details>
+<summary><code>move</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli move --help
+Moves or renames a note and updates all links pointing to it.
+
+This command safely renames notes by also updating any [[wikilinks]]
+or [markdown](links) that reference the moved note.
+
+Usage:
+  obsidian-cli move [from-note-path] [to-note-path] [flags]
+
+Aliases:
+  move, m
+
+Examples:
+  # Rename a note
+  obsidian-cli move "Old Name" "New Name"
+
+  # Move to a different folder
+  obsidian-cli move "Inbox/note" "Projects/note"
+
+  # Move and open the result
+  obsidian-cli move "temp" "Archive/temp" --open
+
+Flags:
+  -e, --editor         open in editor instead of Obsidian (requires --open flag)
+  -h, --help           help for move
+      --ls             select the note to move interactively
+  -o, --open           open new note
+      --select         select the note to move interactively
+  -v, --vault string   vault name
+```
+
+</details>
+
+### Frontmatter
+
+View or edit a note’s YAML frontmatter.
+
+```bash
+# Print frontmatter
+obsidian-cli frontmatter "My Note" --print
+
+# Edit a key
+obsidian-cli frontmatter "My Note" --edit --key "status" --value "done"
+
+# Delete a key
+obsidian-cli frontmatter "My Note" --delete --key "draft"
+
+# Pick a note interactively
+obsidian-cli frontmatter --ls
+```
+
+<details>
+<summary><code>frontmatter</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli frontmatter --help
+View or modify YAML frontmatter in a note.
+
+Use --print to display frontmatter, --edit to modify a key,
+or --delete to remove a key.
+
+Examples:
+  obsidian-cli frontmatter "My Note" --print
+  obsidian-cli frontmatter "My Note" --edit --key "status" --value "done"
+  obsidian-cli frontmatter "My Note" --delete --key "draft"
+
+Usage:
+  obsidian-cli frontmatter [note] [flags]
+
+Aliases:
+  frontmatter, fm
+
+Flags:
+  -d, --delete         delete a frontmatter key
+  -e, --edit           edit a frontmatter key
+  -h, --help           help for frontmatter
+  -k, --key string     key to edit or delete
+      --ls             select a note interactively
+  -p, --print          print frontmatter
+      --select         select a note interactively
+      --value string   value to set (required for --edit)
+  -v, --vault string   vault name
+```
+
+</details>
 
 ### Delete Note
 
