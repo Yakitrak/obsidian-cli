@@ -12,6 +12,7 @@ Usage:
   obsidian-cli [command]
 
 Available Commands:
+  alias          Generate a shell alias snippet or install a symlink shortcut
   completion     Generate the autocompletion script for the specified shell
   create         Creates note in vault
   daily          Creates or opens daily note in vault
