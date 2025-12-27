@@ -59,4 +59,11 @@ func TestDeleteNote(t *testing.T) {
 		// Assert
 		assert.Equal(t, note.DeleteErr, err)
 	})
+
+	t.Run("rejects note paths that escape the vault", func(t *testing.T) {
+		err := actions.DeleteNote(&mocks.MockVaultOperator{}, &mocks.MockNoteManager{}, actions.DeleteParams{
+			NotePath: "../escape",
+		})
+		assert.Error(t, err)
+	})
 }

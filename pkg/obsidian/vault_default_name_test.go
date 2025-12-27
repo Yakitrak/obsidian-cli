@@ -132,13 +132,17 @@ func TestVaultSetDefaultName(t *testing.T) {
 	})
 
 	t.Run("Error in json marshal", func(t *testing.T) {
+		mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
+		obsidian.CliConfigPath = func() (string, string, error) {
+			return mockCliConfigDir, mockCliConfigFile, nil
+		}
+
 		// Temporarily override the JsonMarshal function
 		originalJsonMarshal := obsidian.JsonMarshal
 		defer func() { obsidian.JsonMarshal = originalJsonMarshal }()
 		obsidian.JsonMarshal = func(v interface{}) ([]byte, error) {
 			return nil, errors.New("json marshal error")
 		}
-		// Arrange
 		vault := obsidian.Vault{}
 		// Act
 		err := vault.SetDefaultName("invalid json")
@@ -160,11 +164,13 @@ func TestVaultSetDefaultName(t *testing.T) {
 
 	t.Run("Error in writing to default vault config file", func(t *testing.T) {
 		// Arrange
-		mockCliConfigDir, _ := mocks.CreateMockCliConfigDirectories(t)
+		mockCliConfigDir, mockCliConfigFile := mocks.CreateMockCliConfigDirectories(t)
 		obsidian.CliConfigPath = func() (string, string, error) {
-			return mockCliConfigDir + "/unwrittable", mockCliConfigDir + "unwrittable/preferences.json", nil
+			return mockCliConfigDir, mockCliConfigFile, nil
 		}
-		err := os.Mkdir(mockCliConfigDir+"/unwrittable", 0444)
+		// Create a directory at the file path so os.WriteFile fails deterministically.
+		err := os.Mkdir(mockCliConfigFile, 0755)
+		assert.NoError(t, err)
 		vault := obsidian.Vault{}
 		// Act
 		err = vault.SetDefaultName("vault-name")

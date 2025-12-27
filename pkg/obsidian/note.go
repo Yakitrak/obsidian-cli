@@ -25,6 +25,7 @@ type NoteManager interface {
 	Delete(string) error
 	UpdateLinks(string, string, string) error
 	GetContents(string, string) (string, error)
+	SetContents(string, string, string) error
 	GetNotesList(string) ([]string, error)
 	SearchNotesWithSnippets(string, string) ([]NoteMatch, error)
 }
@@ -101,6 +102,45 @@ func (m *Note) GetContents(vaultPath string, noteName string) (string, error) {
 	return string(content), nil
 }
 
+func (m *Note) SetContents(vaultPath string, noteName string, content string) error {
+	note := AddMdSuffix(noteName)
+
+	var notePath string
+	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		// Check for full path match first
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err == nil && relPath == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+
+		// Fall back to basename match for backward compatibility
+		if filepath.Base(path) == note {
+			notePath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
+
+	if err != nil || notePath == "" {
+		return errors.New(NoteDoesNotExistError)
+	}
+
+	err = os.WriteFile(notePath, []byte(content), 0644)
+	if err != nil {
+		return errors.New(VaultWriteError)
+	}
+
+	return nil
+}
+
 func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName string) error {
 	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -116,14 +156,8 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 			return errors.New(VaultReadError)
 		}
 
-		oldNoteLinkTexts := GenerateNoteLinkTexts(oldNoteName)
-		newNoteLinkTexts := GenerateNoteLinkTexts(newNoteName)
-
-		updatedContent := ReplaceContent(originalContent, map[string]string{
-			oldNoteLinkTexts[0]: newNoteLinkTexts[0],
-			oldNoteLinkTexts[1]: newNoteLinkTexts[1],
-			oldNoteLinkTexts[2]: newNoteLinkTexts[2],
-		})
+		replacements := GenerateLinkReplacements(oldNoteName, newNoteName)
+		updatedContent := ReplaceContent(originalContent, replacements)
 
 		if bytes.Equal(originalContent, updatedContent) {
 			return nil
