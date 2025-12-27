@@ -71,6 +71,73 @@ func TestGenerateNoteLinkTexts(t *testing.T) {
 	}
 }
 
+func TestGenerateLinkReplacements(t *testing.T) {
+	t.Run("Simple note rename", func(t *testing.T) {
+		replacements := obsidian.GenerateLinkReplacements("oldNote", "newNote")
+
+		// Should have wikilink patterns
+		assert.Equal(t, "[[newNote]]", replacements["[[oldNote]]"])
+		assert.Equal(t, "[[newNote|", replacements["[[oldNote|"])
+		assert.Equal(t, "[[newNote#", replacements["[[oldNote#"])
+
+		// Should have markdown link patterns
+		assert.Equal(t, "](newNote.md)", replacements["](oldNote.md)"])
+		assert.Equal(t, "](newNote)", replacements["](oldNote)"])
+	})
+
+	t.Run("Note with path", func(t *testing.T) {
+		replacements := obsidian.GenerateLinkReplacements("folder/oldNote", "folder/newNote")
+
+		// Simple wikilinks (basename)
+		assert.Equal(t, "[[newNote]]", replacements["[[oldNote]]"])
+		assert.Equal(t, "[[newNote|", replacements["[[oldNote|"])
+		assert.Equal(t, "[[newNote#", replacements["[[oldNote#"])
+
+		// Path-based wikilinks
+		assert.Equal(t, "[[folder/newNote]]", replacements["[[folder/oldNote]]"])
+		assert.Equal(t, "[[folder/newNote|", replacements["[[folder/oldNote|"])
+		assert.Equal(t, "[[folder/newNote#", replacements["[[folder/oldNote#"])
+
+		// Markdown links
+		assert.Equal(t, "](folder/newNote.md)", replacements["](folder/oldNote.md)"])
+		assert.Equal(t, "](folder/newNote)", replacements["](folder/oldNote)"])
+
+		// Relative markdown links
+		assert.Equal(t, "](./folder/newNote.md)", replacements["](./folder/oldNote.md)"])
+	})
+
+	t.Run("Move to different folder", func(t *testing.T) {
+		replacements := obsidian.GenerateLinkReplacements("folder1/note", "folder2/note")
+
+		// Basename stays same
+		assert.Equal(t, "[[note]]", replacements["[[note]]"])
+
+		// Path-based wikilinks update
+		assert.Equal(t, "[[folder2/note]]", replacements["[[folder1/note]]"])
+
+		// Markdown links update
+		assert.Equal(t, "](folder2/note.md)", replacements["](folder1/note.md)"])
+	})
+
+	t.Run("Note with .md extension", func(t *testing.T) {
+		replacements := obsidian.GenerateLinkReplacements("folder/note.md", "folder/renamed.md")
+
+		// Wikilinks don't include .md
+		assert.Equal(t, "[[renamed]]", replacements["[[note]]"])
+		assert.Equal(t, "[[folder/renamed]]", replacements["[[folder/note]]"])
+
+		// Markdown links with .md
+		assert.Equal(t, "](folder/renamed.md)", replacements["](folder/note.md)"])
+	})
+
+	t.Run("Nested path", func(t *testing.T) {
+		replacements := obsidian.GenerateLinkReplacements("a/b/c/note", "x/y/note")
+
+		assert.Equal(t, "[[x/y/note]]", replacements["[[a/b/c/note]]"])
+		assert.Equal(t, "](x/y/note.md)", replacements["](a/b/c/note.md)"])
+	})
+}
+
 func TestReplaceContent(t *testing.T) {
 	tests := []struct {
 		testName     string
@@ -194,4 +261,34 @@ func TestOpenInEditor(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestFindIncomingLinks(t *testing.T) {
+	vaultPath := t.TempDir()
+
+	targetNote := filepath.Join(vaultPath, "target.md")
+	linkingNote := filepath.Join(vaultPath, "linking.md")
+	nonLinkingNote := filepath.Join(vaultPath, "other.md")
+	aliasLinkNote := filepath.Join(vaultPath, "alias.md")
+
+	assert.NoError(t, os.WriteFile(targetNote, []byte("# Target\nThis is the target note."), 0644))
+	assert.NoError(t, os.WriteFile(linkingNote, []byte("# Linking\nSee [[target]] for more info."), 0644))
+	assert.NoError(t, os.WriteFile(nonLinkingNote, []byte("# Other\nNo links here."), 0644))
+	assert.NoError(t, os.WriteFile(aliasLinkNote, []byte("# Alias\nCheck [[target|the target]] out."), 0644))
+
+	links, err := obsidian.FindIncomingLinks(vaultPath, "target")
+	assert.NoError(t, err)
+	assert.Len(t, links, 2)
+
+	sourceFiles := make(map[string]bool)
+	for _, link := range links {
+		sourceFiles[link.SourcePath] = true
+	}
+	assert.True(t, sourceFiles["linking.md"])
+	assert.True(t, sourceFiles["alias.md"])
+	assert.False(t, sourceFiles["target.md"])
+
+	links, err = obsidian.FindIncomingLinks(vaultPath, "other")
+	assert.NoError(t, err)
+	assert.Len(t, links, 0)
 }

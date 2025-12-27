@@ -23,6 +23,12 @@ func RemoveMdSuffix(str string) string {
 	return str
 }
 
+// normalizePathSeparators converts backslashes to forward slashes for cross-platform consistency.
+// Obsidian uses forward slashes in links regardless of OS.
+func normalizePathSeparators(path string) string {
+	return strings.ReplaceAll(path, "\\", "/")
+}
+
 func GenerateNoteLinkTexts(noteName string) [3]string {
 	var noteLinkTexts [3]string
 	noteName = filepath.Base(noteName)
@@ -33,11 +39,147 @@ func GenerateNoteLinkTexts(noteName string) [3]string {
 	return noteLinkTexts
 }
 
+// GenerateLinkReplacements creates all replacement patterns for updating links when moving a note.
+// This handles:
+// - Simple wikilinks: [[note]], [[note|alias]], [[note#heading]]
+// - Path-based wikilinks: [[folder/note]], [[folder/note|alias]], [[folder/note#heading]]
+// - Markdown links: [text](folder/note.md), [text](./folder/note.md)
+func GenerateLinkReplacements(oldNotePath, newNotePath string) map[string]string {
+	replacements := make(map[string]string)
+
+	// Normalize paths to forward slashes for consistent matching
+	oldNormalized := normalizePathSeparators(oldNotePath)
+	newNormalized := normalizePathSeparators(newNotePath)
+
+	// Get basename without .md extension
+	oldBase := RemoveMdSuffix(filepath.Base(oldNotePath))
+	newBase := RemoveMdSuffix(filepath.Base(newNotePath))
+
+	// Get full path without .md extension
+	oldPathNoExt := RemoveMdSuffix(oldNormalized)
+	newPathNoExt := RemoveMdSuffix(newNormalized)
+
+	// 1. Simple wikilinks (basename only) - for backward compatibility
+	replacements["[["+oldBase+"]]"] = "[[" + newBase + "]]"
+	replacements["[["+oldBase+"|"] = "[[" + newBase + "|"
+	replacements["[["+oldBase+"#"] = "[[" + newBase + "#"
+
+	// 2. Path-based wikilinks (only if path differs from basename)
+	if oldPathNoExt != oldBase {
+		replacements["[["+oldPathNoExt+"]]"] = "[[" + newPathNoExt + "]]"
+		replacements["[["+oldPathNoExt+"|"] = "[[" + newPathNoExt + "|"
+		replacements["[["+oldPathNoExt+"#"] = "[[" + newPathNoExt + "#"
+	}
+
+	// 3. Markdown links (various formats)
+	oldMd := AddMdSuffix(oldNormalized)
+	newMd := AddMdSuffix(newNormalized)
+
+	// Standard markdown link: [text](folder/note.md)
+	replacements["]("+oldMd+")"] = "](" + newMd + ")"
+	replacements["]("+oldPathNoExt+")"] = "](" + newPathNoExt + ")"
+
+	// Relative markdown link: [text](./folder/note.md)
+	replacements["](./"+oldMd+")"] = "](./" + newMd + ")"
+	replacements["](./"+oldPathNoExt+")"] = "](./" + newPathNoExt + ")"
+
+	return replacements
+}
+
 func ReplaceContent(content []byte, replacements map[string]string) []byte {
 	for o, n := range replacements {
 		content = bytes.ReplaceAll(content, []byte(o), []byte(n))
 	}
 	return content
+}
+
+type IncomingLink struct {
+	SourcePath string
+	LinkText   string
+}
+
+func FindIncomingLinks(vaultPath string, targetNotePath string) ([]IncomingLink, error) {
+	var links []IncomingLink
+
+	patterns := generateLinkPatterns(targetNotePath)
+	target := AddMdSuffix(normalizePathSeparators(targetNotePath))
+
+	err := filepath.Walk(vaultPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if info.IsDir() {
+			// Avoid descending into hidden directories (.obsidian, .git, etc.).
+			if strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if ShouldSkipDirectoryOrFile(info) {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err != nil {
+			return nil
+		}
+		relPath = normalizePathSeparators(relPath)
+
+		if relPath == target {
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		contentStr := string(content)
+		for _, pattern := range patterns {
+			if strings.Contains(contentStr, pattern) {
+				links = append(links, IncomingLink{
+					SourcePath: relPath,
+					LinkText:   pattern,
+				})
+				break
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan vault: %w", err)
+	}
+
+	return links, nil
+}
+
+func generateLinkPatterns(notePath string) []string {
+	var patterns []string
+
+	normalized := normalizePathSeparators(notePath)
+	basename := RemoveMdSuffix(filepath.Base(notePath))
+	pathNoExt := RemoveMdSuffix(normalized)
+
+	patterns = append(patterns, "[["+basename+"]]")
+	patterns = append(patterns, "[["+basename+"|")
+	patterns = append(patterns, "[["+basename+"#")
+
+	if pathNoExt != basename {
+		patterns = append(patterns, "[["+pathNoExt+"]]")
+		patterns = append(patterns, "[["+pathNoExt+"|")
+		patterns = append(patterns, "[["+pathNoExt+"#")
+	}
+
+	withMd := AddMdSuffix(normalized)
+	patterns = append(patterns, "]("+withMd+")")
+	patterns = append(patterns, "]("+pathNoExt+")")
+	patterns = append(patterns, "](./"+withMd+")")
+	patterns = append(patterns, "](./"+pathNoExt+")")
+
+	return patterns
 }
 
 func ShouldSkipDirectoryOrFile(info os.FileInfo) bool {

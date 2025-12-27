@@ -2,7 +2,36 @@
 
 ---
 
-## ![obsidian-cli Usage](./docs/usage.png)
+## CLI Help (Generated)
+
+```text
+$ obsidian-cli --help
+obsidian-cli - CLI to open, search, move, create, delete and update notes
+
+Usage:
+  obsidian-cli [command]
+
+Available Commands:
+  alias          Generate a shell alias snippet or install a symlink shortcut
+  completion     Generate the autocompletion script for the specified shell
+  create         Creates note in vault
+  daily          Creates or opens daily note in vault
+  delete         Delete note in vault
+  help           Help about any command
+  move           Move or rename note in vault and update corresponding links
+  open           Opens note in vault by note name
+  print          Print contents of note
+  print-default  Prints default vault name and path
+  search         Fuzzy searches and opens note in vault
+  search-content Search note content for search term
+  set-default    Sets default vault
+
+Flags:
+  -h, --help      help for obsidian-cli
+  -v, --version   version for obsidian-cli
+
+Use "obsidian-cli [command] --help" for more information about a command.
+```
 
 ## Description
 
@@ -47,6 +76,29 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 # See All command instructions
 obsidian-cli --help
 ```
+
+For detailed help (including examples) for a specific command:
+
+```bash
+obsidian-cli <command> --help
+```
+
+### Command Shortcut (Alias)
+
+If you want a shorter command name (for example `obsi`), you can either:
+
+- Create a shell alias (session-scoped unless you add it to your shell profile):
+
+  ```bash
+  # zsh/bash
+  eval "$(obsidian-cli alias obsi --shell zsh)"
+  ```
+
+- Or install a persistent symlink shortcut (recommended):
+
+  ```bash
+  obsidian-cli alias obsi --symlink --dir "$HOME/.local/bin"
+  ```
 
 ### Editor Flag
 
@@ -121,7 +173,9 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 ### Daily Note
 
-Open daily note in Obsidian. It will create one (using template) if one does not exist.
+Open the daily note in Obsidian (via Obsidian URI).
+
+Note: creation/templates are controlled by Obsidian’s daily note settings/plugins.
 
 ```bash
 # Creates / opens daily note in obsidian vault
@@ -230,13 +284,54 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
 
 Deletes a given note (path from top level of vault).
 
+If other notes link to the note, `delete` prints the incoming links and prompts for confirmation. The default is **No** (press Enter to cancel).
+
+Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `delete, del`. Heads up: `daily` uses alias `d`, so `delete` uses `del` to avoid ambiguity.
+
 ```bash
-# Renames a note in default obsidian
+# Delete a note in default obsidian
 obsidian-cli delete "{note-path}"
 
-# Renames a note in given obsidian
+# Force delete without prompt
+obsidian-cli delete "{note-path}" --force
+
+# Delete a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
+
+<details>
+<summary><code>delete</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli delete --help
+Delete a note from the vault.
+
+If other notes link to the note, you'll be prompted to confirm.
+Use --force to skip confirmation (recommended for scripts).
+
+Usage:
+  obsidian-cli delete <note> [flags]
+
+Aliases:
+  delete, del
+
+Examples:
+  # Delete a note (prompts if linked)
+  obsidian-cli delete "old-note"
+
+  # Force delete without prompt
+  obsidian-cli delete "temp" --force
+
+  # Delete from specific vault
+  obsidian-cli delete "note" --vault "Archive"
+
+Flags:
+  -f, --force          skip confirmation if the note has incoming links
+  -h, --help           help for delete
+  -v, --vault string   vault name
+```
+
+</details>
 
 ## Contribution
 
