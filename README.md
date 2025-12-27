@@ -47,6 +47,10 @@ This CLI tool (written in Go) lets you interact with Obsidian from the terminal:
 - Capture into named “targets” configured in `targets.yaml`
 - Guided `init` wizard to set up defaults
 
+## Versioning (Maintainer Note)
+
+This PR keeps `obsidian-cli` at `v0.2.0` to avoid unnecessary merge/rebase churn across a stacked PR chain. If you merge the full chain (or the “just merge it” option), consider doing a single version bump afterward (for example to `v0.3.0`) in a follow-up PR/release.
+
 ---
 
 ## Install
