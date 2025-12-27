@@ -9,11 +9,11 @@ import (
 
 var deleteForce bool
 
-	var deleteCmd = &cobra.Command{
-		Use:     "delete <note>",
-		Aliases: []string{"del"},
-		Short:   "Delete note in vault",
-		Long: `Delete a note from the vault.
+var deleteCmd = &cobra.Command{
+	Use:     "delete <note>",
+	Aliases: []string{"del"},
+	Short:   "Delete note in vault",
+	Long: `Delete a note from the vault.
 
 If other notes link to the note, you'll be prompted to confirm.
 Use --force to skip confirmation (recommended for scripts).`,
