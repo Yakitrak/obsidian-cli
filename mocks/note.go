@@ -7,7 +7,9 @@ type MockNoteManager struct {
 	MoveErr          error
 	UpdateLinksError error
 	GetContentsError error
+	SetContentsError error
 	NoMatches        bool
+	Contents         string
 }
 
 func (m *MockNoteManager) Delete(string) error {
@@ -23,7 +25,14 @@ func (m *MockNoteManager) UpdateLinks(string, string, string) error {
 }
 
 func (m *MockNoteManager) GetContents(string, string) (string, error) {
+	if m.Contents != "" {
+		return m.Contents, m.GetContentsError
+	}
 	return "example contents", m.GetContentsError
+}
+
+func (m *MockNoteManager) SetContents(string, string, string) error {
+	return m.SetContentsError
 }
 
 func (m *MockNoteManager) GetNotesList(string) ([]string, error) {
