@@ -2,7 +2,36 @@
 
 ---
 
-## ![obsidian-cli Usage](./docs/usage.png)
+## CLI Help (Generated)
+
+```text
+$ obsidian-cli --help
+obsidian-cli - CLI to open, search, move, create, delete and update notes
+
+Usage:
+  obsidian-cli [command]
+
+Available Commands:
+  alias          Generate a shell alias snippet or install a symlink shortcut
+  completion     Generate the autocompletion script for the specified shell
+  create         Creates note in vault
+  daily          Creates or opens daily note in vault
+  delete         Delete note in vault
+  help           Help about any command
+  move           Move or rename note in vault and update corresponding links
+  open           Opens note in vault by note name
+  print          Print contents of note
+  print-default  Prints default vault name and path
+  search         Fuzzy searches and opens note in vault
+  search-content Search note content for search term
+  set-default    Sets default vault
+
+Flags:
+  -h, --help      help for obsidian-cli
+  -v, --version   version for obsidian-cli
+
+Use "obsidian-cli [command] --help" for more information about a command.
+```
 
 ## Description
 
@@ -48,6 +77,29 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 obsidian-cli --help
 ```
 
+For detailed help (including examples) for a specific command:
+
+```bash
+obsidian-cli <command> --help
+```
+
+### Command Shortcut (Alias)
+
+If you want a shorter command name (for example `obsi`), you can either:
+
+- Create a shell alias (session-scoped unless you add it to your shell profile):
+
+  ```bash
+  # zsh/bash
+  eval "$(obsidian-cli alias obsi --shell zsh)"
+  ```
+
+- Or install a persistent symlink shortcut (recommended):
+
+  ```bash
+  obsidian-cli alias obsi --symlink --dir "$HOME/.local/bin"
+  ```
+
 ### Editor Flag
 
 The `search`, `search-content`, `create`, and `move` commands support the `--editor` (or `-e`) flag, which opens notes in your default text editor instead of the Obsidian application. This is useful for quick edits or when working in a terminal-only environment.
@@ -83,6 +135,57 @@ obsidian-cli set-default "{vault-name}"
 
 Note: `open` and other commands in `obsidian-cli` use this vault's base directory as the working directory, not the current working directory of your terminal.
 
+`set-default` stores the default vault name in `preferences.json` under your OS user config directory (`os.UserConfigDir()`), at:
+
+- `obsidian-cli/preferences.json`
+
+PR04a also introduces optional per-vault settings under `vault_settings` (keyed by vault name). For example:
+
+```json
+{
+  "default_vault_name": "My Vault",
+  "vault_settings": {
+    "My Vault": {
+      "daily_note": {
+        "folder": "Daily",
+        "filename_pattern": "{YYYY-MM-DD}",
+        "template_path": "Templates/Daily.md",
+        "create_if_missing": true
+      }
+    }
+  }
+}
+```
+
+<details>
+<summary><code>set-default</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli set-default --help
+Sets the default vault for all commands.
+
+The vault name must match exactly as it appears in Obsidian.
+Once set, you won't need to specify --vault for each command.
+
+Usage:
+  obsidian-cli set-default <vault> [flags]
+
+Aliases:
+  set-default, sd
+
+Examples:
+  # Set default vault
+  obsidian-cli set-default "My Vault"
+
+  # Verify it worked
+  obsidian-cli print-default
+
+Flags:
+  -h, --help   help for set-default
+```
+
+</details>
+
 ### Print Default Vault
 
 Prints default vault and path. Please set this with `set-default` command if not set.
@@ -95,6 +198,35 @@ obsidian-cli print-default
 obsidian-cli print-default --path-only
 ```
 
+<details>
+<summary><code>print-default</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli print-default --help
+Shows the currently configured default vault.
+
+Use --path-only to output just the path, useful for scripting.
+
+Usage:
+  obsidian-cli print-default [flags]
+
+Aliases:
+  print-default, pd
+
+Examples:
+  # Show default vault info
+  obsidian-cli print-default
+
+  # Get just the path (for scripts)
+  obsidian-cli print-default --path-only
+
+Flags:
+  -h, --help        help for print-default
+      --path-only   print only the vault path
+```
+
+</details>
+
 You can add this to your shell configuration file (like `~/.zshrc`) to quickly navigate to the default vault:
 
 ```bash
@@ -105,6 +237,18 @@ obs_cd() {
 ```
 
 Then you can use `obs_cd` to navigate to the default vault directory within your terminal.
+
+### Config Files
+
+`obsidian-cli` reads and writes configuration under your OS user config directory (`os.UserConfigDir()`):
+
+- `obsidian-cli/preferences.json` (default vault name + optional per-vault `vault_settings`)
+
+It also reads Obsidian’s vault list from:
+
+- `obsidian/obsidian.json` (Obsidian config, used for vault discovery)
+
+Note: when writing `preferences.json`, the CLI attempts to create the config directory with mode `0750` and the file with mode `0600` (confirmed from `os.MkdirAll(…, 0750)` / `os.WriteFile(…, 0600)` in code).
 
 ### Open Note
 
@@ -121,7 +265,9 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 ### Daily Note
 
-Open daily note in Obsidian. It will create one (using template) if one does not exist.
+Open the daily note in Obsidian (via Obsidian URI).
+
+Note: creation/templates are controlled by Obsidian’s daily note settings/plugins.
 
 ```bash
 # Creates / opens daily note in obsidian vault
@@ -230,13 +376,54 @@ obsidian-cli move "{current-note-path}" "{new-note-path}" --open --editor
 
 Deletes a given note (path from top level of vault).
 
+If other notes link to the note, `delete` prints the incoming links and prompts for confirmation. The default is **No** (press Enter to cancel).
+
+Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `delete, del`. Heads up: `daily` uses alias `d`, so `delete` uses `del` to avoid ambiguity.
+
 ```bash
-# Renames a note in default obsidian
+# Delete a note in default obsidian
 obsidian-cli delete "{note-path}"
 
-# Renames a note in given obsidian
+# Force delete without prompt
+obsidian-cli delete "{note-path}" --force
+
+# Delete a note in given obsidian
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
+
+<details>
+<summary><code>delete</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli delete --help
+Delete a note from the vault.
+
+If other notes link to the note, you'll be prompted to confirm.
+Use --force to skip confirmation (recommended for scripts).
+
+Usage:
+  obsidian-cli delete <note> [flags]
+
+Aliases:
+  delete, del
+
+Examples:
+  # Delete a note (prompts if linked)
+  obsidian-cli delete "old-note"
+
+  # Force delete without prompt
+  obsidian-cli delete "temp" --force
+
+  # Delete from specific vault
+  obsidian-cli delete "note" --vault "Archive"
+
+Flags:
+  -f, --force          skip confirmation if the note has incoming links
+  -h, --help           help for delete
+  -v, --vault string   vault name
+```
+
+</details>
 
 ## Contribution
 
