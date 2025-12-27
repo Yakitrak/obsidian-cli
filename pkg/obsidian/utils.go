@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -40,6 +41,8 @@ func GenerateNoteLinkTexts(noteName string) [3]string {
 }
 
 // GenerateLinkReplacements creates all replacement patterns for updating links when moving a note.
+// It normalizes path separators to forward slashes for cross-platform consistency,
+// as Obsidian uses forward slashes in links regardless of operating system.
 // This handles:
 // - Simple wikilinks: [[note]], [[note|alias]], [[note#heading]]
 // - Path-based wikilinks: [[folder/note]], [[folder/note|alias]], [[folder/note#heading]]
@@ -51,9 +54,9 @@ func GenerateLinkReplacements(oldNotePath, newNotePath string) map[string]string
 	oldNormalized := normalizePathSeparators(oldNotePath)
 	newNormalized := normalizePathSeparators(newNotePath)
 
-	// Get basename without .md extension
-	oldBase := RemoveMdSuffix(filepath.Base(oldNotePath))
-	newBase := RemoveMdSuffix(filepath.Base(newNotePath))
+	// Get basename without .md extension (use path.Base on normalized paths for cross-platform consistency)
+	oldBase := RemoveMdSuffix(path.Base(oldNormalized))
+	newBase := RemoveMdSuffix(path.Base(newNormalized))
 
 	// Get full path without .md extension
 	oldPathNoExt := RemoveMdSuffix(oldNormalized)

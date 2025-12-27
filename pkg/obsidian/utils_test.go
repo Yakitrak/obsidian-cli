@@ -83,6 +83,10 @@ func TestGenerateLinkReplacements(t *testing.T) {
 		// Should have markdown link patterns
 		assert.Equal(t, "](newNote.md)", replacements["](oldNote.md)"])
 		assert.Equal(t, "](newNote)", replacements["](oldNote)"])
+
+		// Should have relative markdown link patterns
+		assert.Equal(t, "](./newNote.md)", replacements["](./oldNote.md)"])
+		assert.Equal(t, "](./newNote)", replacements["](./oldNote)"])
 	})
 
 	t.Run("Note with path", func(t *testing.T) {
@@ -104,6 +108,7 @@ func TestGenerateLinkReplacements(t *testing.T) {
 
 		// Relative markdown links
 		assert.Equal(t, "](./folder/newNote.md)", replacements["](./folder/oldNote.md)"])
+		assert.Equal(t, "](./folder/newNote)", replacements["](./folder/oldNote)"])
 	})
 
 	t.Run("Move to different folder", func(t *testing.T) {
