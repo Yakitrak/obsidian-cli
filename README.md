@@ -19,6 +19,7 @@ Available Commands:
   daily          Creates or opens daily note in vault
   delete         Delete note in vault
   help           Help about any command
+  init           Interactive setup wizard
   move           Move or rename note in vault and update corresponding links
   open           Opens note in vault by note name
   print          Print contents of note
@@ -26,6 +27,7 @@ Available Commands:
   search         Fuzzy searches and opens note in vault
   search-content Search note content for search term
   set-default    Sets default vault
+  target         Append text to a configured target note
 
 Flags:
   -h, --help      help for obsidian-cli
@@ -84,12 +86,6 @@ For full installation instructions, see [Mac and Linux manual](https://yakitrak.
 obsidian-cli --help
 ```
 
-For detailed help (including examples) for a specific command:
-
-```bash
-obsidian-cli <command> --help
-```
-
 ### Quickstart (Recommended)
 
 Run the interactive wizard:
@@ -109,6 +105,36 @@ Most wizard prompts accept:
 - `?` for help
 - `back` to go back / cancel
 - `skip` to accept defaults where applicable
+
+<details>
+<summary><code>init</code> command reference (help, flags, examples)</summary>
+
+```text
+$ obsidian-cli init --help
+Interactive setup wizard to configure your default vault, daily note settings, and targets.
+
+Usage:
+  obsidian-cli init [flags]
+
+Examples:
+  obsidian-cli init
+
+Flags:
+  -h, --help   help for init
+```
+
+</details>
+
+### Interactive Workflows
+
+Many commands support “guided” behavior when you omit arguments/flags:
+
+- `init` is a full interactive wizard (and supports a fuzzy finder when choosing a vault).
+- `append` and `target` read content from stdin (piped), or prompt for multi-line input until EOF (Ctrl-D to save, Ctrl-C to cancel).
+- `target add` runs a guided workflow when you omit the `[name]`.
+- `delete` prompts for confirmation if the note has incoming links (use `--force` to skip).
+
+The fuzzy finder (used by `search`, `search-content`, `init`, and `target --select`) lets you type to filter, then press Enter to choose a result. Press Esc, Ctrl-C, or Ctrl-D to abort the selection.
 
 ### Command Shortcut (Alias)
 
@@ -267,7 +293,7 @@ Then you can use `obs_cd` to navigate to the default vault directory within your
 
 ### Config Files
 
-`obsidian-cli` stores configuration under your OS user config directory (`os.UserConfigDir()`):
+`obsidian-cli` reads and writes configuration under your OS user config directory (`os.UserConfigDir()`):
 
 - `obsidian-cli/preferences.json` (default vault name + optional per-vault `vault_settings`)
 - `obsidian-cli/targets.yaml` (capture targets, used by `target`)
@@ -277,6 +303,7 @@ It also reads Obsidian’s vault list from:
 - `obsidian/obsidian.json` (Obsidian config, used for vault discovery)
 
 Note: when writing `preferences.json`, the CLI attempts to create the config directory with mode `0750` and the file with mode `0600` (confirmed from `os.MkdirAll(…, 0750)` / `os.WriteFile(…, 0600)` in code).
+
 ### Open Note
 
 Open a note in Obsidian by vault-relative note path.
@@ -294,7 +321,7 @@ obsidian-cli open "{note-name}" --vault "{vault-name}"
 
 Open the daily note in Obsidian (via Obsidian URI).
 
-Note: creation/templates are controlled by Obsidian’s daily note settings/plugins. Use `append` (below) if you want the CLI to create/write daily notes itself.
+Note: creation/templates are controlled by Obsidian’s daily note settings/plugins. Use `append` (below) if you want the CLI to write the daily note Markdown file directly.
 
 ```bash
 # Creates / opens daily note in obsidian vault
@@ -321,6 +348,9 @@ obsidian-cli append "Meeting notes: discussed roadmap"
 # Multi-line content interactively (Ctrl-D to save, Ctrl-C to cancel)
 obsidian-cli append
 
+# Pipe content
+printf "line1\nline2\n" | obsidian-cli append
+
 # Append with timestamp
 obsidian-cli append --timestamp "Started work on feature X"
 
@@ -334,7 +364,49 @@ obsidian-cli append --dry-run "hello"
 obsidian-cli append --vault "{vault-name}" "Daily standup notes"
 ```
 
-### Targets (Quick Capture)
+<details>
+<summary><code>append</code> command reference (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli append --help
+Appends text to today's daily note.
+
+This command writes to a daily note path derived from your per-vault settings
+in preferences.json (daily_note.folder and daily_note.filename_pattern).
+
+If no text argument is provided, content is read from stdin (piped) or entered
+interactively until EOF.
+
+Usage:
+  obsidian-cli append [text] [flags]
+
+Aliases:
+  append, a
+
+Examples:
+  # Append a one-liner
+  obsidian-cli append "Meeting notes: discussed roadmap"
+
+  # Append multi-line content interactively (Ctrl-D to save)
+  obsidian-cli append
+
+  # Append with timestamp
+  obsidian-cli append --timestamp "Started work on feature X"
+
+  # Append in a specific vault
+  obsidian-cli append --vault "Work" "Daily standup notes"
+
+Flags:
+      --dry-run              preview which note would be written without writing
+  -h, --help                 help for append
+      --time-format string   custom timestamp format (Go time format, default: 15:04)
+  -t, --timestamp            prepend a timestamp to the content
+  -v, --vault string         vault name (not required if default is set)
+```
+
+</details>
+
+### Target (Quick Capture)
 
 Targets let you define named shortcuts for capturing into specific notes.
 
@@ -409,18 +481,146 @@ Notes:
 
 - A simplified scalar form is also accepted and can be migrated by `init` / `target edit`:
   - `inbox: Inbox.md`
+- The legacy `note` key is treated as `file` (file target).
 - Target names cannot contain whitespace, and some names are reserved:
   - `add`, `remove`, `rm`, `list`, `ls`, `edit`, `validate`, `test`, `help`
 
+<details>
+<summary><code>target</code> command reference (help, flags, subcommands)</summary>
+
+```text
+$ obsidian-cli target --help
+Appends text to a note configured in targets.yaml.
+
+Targets can point at:
+  - a fixed file path (always append to the same note)
+  - a folder + filename pattern (append to a dated note based on the current time)
+
+If no text is provided, content is read from stdin (piped) or entered interactively until EOF.
+
+Usage:
+  obsidian-cli target [id] [text] [flags]
+  obsidian-cli target [command]
+
+Examples:
+  # Append a one-liner to a target
+  obsidian-cli target inbox "Buy milk"
+
+  # Multi-line content (Ctrl-D to save, Ctrl-C to cancel)
+  obsidian-cli target inbox
+
+  # Pick a target interactively, then enter content
+  obsidian-cli target --select
+
+  # Preview which file would be used
+  obsidian-cli target inbox --dry-run
+
+Available Commands:
+  add         Add a new target
+  edit        Edit targets in CLI or open targets.yaml
+  list        List configured targets
+  remove      Remove a target
+  test        Preview the resolved path for a target
+
+Flags:
+      --dry-run        preview the resolved target path without writing
+  -h, --help           help for target
+      --ls             select a target interactively
+      --select         select a target interactively
+  -v, --vault string   vault name (not required if default is set)
+
+Use "obsidian-cli target [command] --help" for more information about a command.
+```
+
+</details>
+
+<details>
+<summary><code>target</code> subcommand references (help, flags, aliases)</summary>
+
+```text
+$ obsidian-cli target add --help
+Add a new capture target.
+
+Run without a name to start a guided workflow.
+
+Usage:
+  obsidian-cli target add [name] [flags]
+
+Examples:
+  # Guided workflow
+  obsidian-cli target add
+
+  # Add a fixed-file target
+  obsidian-cli target add inbox
+
+  # Add a folder+pattern target
+  obsidian-cli target add log
+
+Flags:
+  -h, --help   help for add
+```
+
+```text
+$ obsidian-cli target remove --help
+Remove a target
+
+Usage:
+  obsidian-cli target remove [name] [flags]
+
+Aliases:
+  remove, rm
+
+Flags:
+  -h, --help   help for remove
+```
+
+```text
+$ obsidian-cli target list --help
+List configured targets
+
+Usage:
+  obsidian-cli target list [flags]
+
+Flags:
+  -h, --help   help for list
+```
+
+```text
+$ obsidian-cli target edit --help
+Edit targets in CLI or open targets.yaml
+
+Usage:
+  obsidian-cli target edit [flags]
+
+Flags:
+  -h, --help   help for edit
+```
+
+```text
+$ obsidian-cli target test --help
+Shows which file would be created or appended to for the given target.
+
+If no name is provided, previews all targets.
+
+Usage:
+  obsidian-cli target test [name] [flags]
+
+Flags:
+  -h, --help   help for test
+```
+
+</details>
+
 ### Date Patterns and Template Variables
 
-Date patterns (used by daily note filename patterns and folder targets) support Obsidian-style tokens and `[literal]` blocks:
+Date patterns (used by daily note filename patterns and folder targets) support Obsidian-style tokens, legacy `{brace}` patterns, and `[literal]` blocks:
 
-- Tokens (curated subset): `YYYY`, `YY`, `MM`, `M`, `DD`, `D`, `HH`, `H`, `mm`, `m`, `ss`, `s`, `ddd`, `dddd`, `MMM`, `MMMM`, `A`, `a`
-- Zettel timestamp: `YYYYMMDDHHmmss`
+- Tokens (curated subset): `YYYY`, `YY`, `MMMM`, `MMM`, `MM`, `M`, `DD`, `D`, `dddd`, `ddd`, `HH`, `H`, `hh`, `h`, `mm`, `m`, `ss`, `s`, `A`, `a`, `ZZ`, `Z`, `z`
+- Legacy brace patterns: `{YYYY-MM-DD}` and `{YYYY-MM-DD-HHmmss}` (braces are ignored)
+- Zettel timestamp: `YYYYMMDDHHmmss` (with or without braces)
 - Literal blocks: wrap text in `[brackets]`, e.g. `YYYY-[log]-MM`
 
-Templates (used when `append` creates a daily note for the first time, and optionally by targets) support:
+Templates (used when `append` or `target` creates a note that doesn’t exist yet) support:
 
 - `{{title}}`
 - `{{date}}` / `{{date:FORMAT}}`
@@ -481,21 +681,6 @@ obsidian-cli print "{note-name}" --vault "{vault-name}"
 
 ```
 
-### Frontmatter
-
-View or modify YAML frontmatter in a note.
-
-```bash
-# Print frontmatter
-obsidian-cli frontmatter "{note-name}" --print
-
-# Set a key/value
-obsidian-cli frontmatter "{note-name}" --edit --key "status" --value "done"
-
-# Delete a key
-obsidian-cli frontmatter "{note-name}" --delete --key "draft"
-```
-
 ### Create / Update Note
 
 Creates a note (can be a path from the top level of the vault). By default, if the note exists, it will create another note; passing `--overwrite` or `--append` changes that behavior.
@@ -528,12 +713,7 @@ obsidian-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
-Moves a given note (path from top level of vault) to a new path. If given the same path but a different name, it's treated as a rename.
-
-When moving/renaming, `obsidian-cli` updates links inside your vault to match the new location, including:
-
-- Wikilinks: `[[note]]`, `[[folder/note]]`, `[[folder/note|alias]]`, `[[folder/note#heading]]`
-- Markdown links: `[text](folder/note.md)`, `[text](./folder/note.md)`, and the same forms without the `.md` extension
+Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
 
 Note: `--editor` only applies when `--open` is also provided.
 
@@ -560,17 +740,17 @@ If other notes link to the note, `delete` prints the incoming links and prompts 
 Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `delete, del`. Heads up: `daily` uses alias `d`, so `delete` uses `del` to avoid ambiguity.
 
 ```bash
-# Delete a note in the default vault
+# Delete a note in default obsidian vault
 obsidian-cli delete "{note-path}"
+
+# Delete a note in given obsidian vault
+obsidian-cli delete "{note-path}" --vault "{vault-name}"
 
 # Force delete without prompt
 obsidian-cli delete "{note-path}" --force
 
 # Preview which file would be deleted (does not delete)
 obsidian-cli delete --dry-run "{note-path}"
-
-# Delete a note in a specific vault
-obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
 <details>
@@ -584,7 +764,7 @@ If other notes link to the note, you'll be prompted to confirm.
 Use --force to skip confirmation (recommended for scripts).
 
 Usage:
-  obsidian-cli delete <note> [flags]
+  obsidian-cli delete <note-path> [flags]
 
 Aliases:
   delete, del
@@ -600,6 +780,7 @@ Examples:
   obsidian-cli delete "note" --vault "Archive"
 
 Flags:
+      --dry-run        preview which file would be deleted without deleting it
   -f, --force          skip confirmation if the note has incoming links
   -h, --help           help for delete
   -v, --vault string   vault name
@@ -613,9 +794,7 @@ Fork the project, add your feature or fix and submit a pull request. You can als
 
 ## Acknowledgements
 
-- Link-update support for path-based wikilinks and markdown links builds on upstream PR #58: https://github.com/Yakitrak/obsidian-cli/pull/58
-- The note move/rename link-update improvements build on the approach from Logan McDuffie’s fix for issue #44 (`tidalstudio/fix/issue-44-link-updates`).
-- This branch also incorporates the upstream frontmatter view/edit work from PR #59 to stay compatible whether PR #59 lands before or after this PR chain: https://github.com/Yakitrak/obsidian-cli/pull/59
+The note move/rename link-update improvements proposed in this repo build on the approach from Logan McDuffie’s fix for issue #44 (`tidalstudio/fix/issue-44-link-updates`).
 
 ## License
 
