@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
@@ -11,8 +12,9 @@ import (
 var shouldAppend bool
 var shouldOverwrite bool
 var content string
+var createSelect bool
 var createNoteCmd = &cobra.Command{
-	Use:     "create <note-path>",
+	Use:     "create [note-path]",
 	Aliases: []string{"c"},
 	Short:   "Creates note in vault",
 	Long: `Creates a new note in your Obsidian vault.
@@ -34,11 +36,30 @@ with a numeric suffix. Use --append to add to an existing note, or
 
   # Create and open in $EDITOR
   obsidian-cli create "Draft" --open --editor`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vault := obsidian.Vault{Name: vaultName}
 		uri := obsidian.Uri{}
-		noteName := args[0]
+		noteName := ""
+		if len(args) > 0 && !createSelect {
+			noteName = args[0]
+		} else {
+			if _, err := vault.DefaultName(); err != nil {
+				return err
+			}
+			vaultPath, err := vault.Path()
+			if err != nil {
+				return err
+			}
+			selected, err := pickNotePathOrNew(vaultPath)
+			if err != nil {
+				return err
+			}
+			noteName = selected
+		}
+		if noteName == "" {
+			return errors.New("no note selected")
+		}
 		useEditor, err := cmd.Flags().GetBool("editor")
 		if err != nil {
 			return fmt.Errorf("failed to parse --editor flag: %w", err)
@@ -57,6 +78,8 @@ with a numeric suffix. Use --append to add to an existing note, or
 
 func init() {
 	createNoteCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	createNoteCmd.Flags().BoolVar(&createSelect, "ls", false, "select a note interactively")
+	createNoteCmd.Flags().BoolVar(&createSelect, "select", false, "select a note interactively")
 	createNoteCmd.Flags().BoolVarP(&shouldOpen, "open", "", false, "open created note")
 	createNoteCmd.Flags().StringVarP(&content, "content", "c", "", "text to add to note")
 	createNoteCmd.Flags().BoolVarP(&shouldAppend, "append", "a", false, "append to note")

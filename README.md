@@ -137,8 +137,12 @@ Many commands support “guided” behavior when you omit arguments/flags:
 - `append` and `target` read content from stdin (piped), or prompt for multi-line input until EOF (Ctrl-D to save, Ctrl-C to cancel).
 - `target add` runs a guided workflow when you omit the `[name]`.
 - `delete` prompts for confirmation if the note has incoming links (use `--force` to skip).
+- `open`, `create`, and `print` can prompt you to pick a note (or type a new one) when you omit the note path.
+- `delete`, `frontmatter`, and `move` support `--ls` / `--select` to pick an existing note interactively.
 
-The fuzzy finder (used by `search`, `search-content`, `init`, and `target --select`) lets you type to filter, then press Enter to choose a result. Press Esc, Ctrl-C, or Ctrl-D to abort the selection.
+The fuzzy finder (used by `search`, `search-content`, `open`, `create`, `print`, `frontmatter --ls`, `delete --ls`, `move --ls`, and `target --select`) lets you type to filter, then press Enter to choose a result. Press Esc, Ctrl-C, or Ctrl-D to abort the selection.
+
+In the note picker used by `search`, `open`, and `create`, there’s a “Create new note…” option which lets you choose an existing folder (or create a new folder), then type the note name.
 
 ### Command Shortcut (Alias)
 
@@ -310,11 +314,14 @@ Note: when writing `preferences.json`, the CLI attempts to create the config dir
 
 ### Open Note
 
-Open a note in Obsidian by vault-relative note path.
+Open a note in Obsidian by vault-relative note path (or pick one interactively with `--ls` / `--select`).
 
 ```bash
 # Opens note in obsidian vault
 obsidian-cli open "{note-name}"
+
+# Pick (or create) a note path interactively
+obsidian-cli open --ls
 
 # Opens note in specified obsidian vault
 obsidian-cli open "{note-name}" --vault "{vault-name}"
@@ -652,7 +659,7 @@ Created={{date:YYYY-MM-DD}} {{time:HH:mm}}
 
 ### Search Note
 
-Starts a fuzzy search displaying notes in the terminal from the vault. You can hit enter on a note to open that in Obsidian.
+Starts a fuzzy search displaying notes in the terminal from the vault. Press Enter on a note to open it in Obsidian (or choose “Create new note…” to pick/create a folder and type a new note name).
 
 ```bash
 # Searches in default obsidian vault
@@ -684,11 +691,14 @@ obsidian-cli search-content "search term" --editor
 
 ### Print Note
 
-Prints the contents of given note name or path in Obsidian.
+Prints the contents of a note to stdout (useful for piping to other commands).
 
 ```bash
 # Prints note in default vault
 obsidian-cli print "{note-name}"
+
+# Pick a note interactively
+obsidian-cli print --ls
 
 # Prints note by path in default vault
 obsidian-cli print "{note-path}"
@@ -707,6 +717,9 @@ Note: `--editor` only applies when `--open` is also provided.
 ```bash
 # Creates empty note in default obsidian (does not open unless --open is used)
 obsidian-cli create "{note-name}"
+
+# Pick (or create) a note path interactively
+obsidian-cli create --ls
 
 # Creates empty note in given obsidian
 obsidian-cli create "{note-name}"  --vault "{vault-name}"
@@ -730,13 +743,16 @@ obsidian-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
-Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
+Moves a note to a new path (or renames it) and updates links inside the vault to match.
 
 Note: `--editor` only applies when `--open` is also provided.
 
 ```bash
 # Renames a note in default obsidian
 obsidian-cli move "{current-note-path}" "{new-note-path}"
+
+# Pick the note to move interactively
+obsidian-cli move --ls "{new-note-path}"
 
 # Renames a note and given obsidian
 obsidian-cli move "{current-note-path}" "{new-note-path}" --vault "{vault-name}"
@@ -760,6 +776,9 @@ Use `--force` (`-f`) to skip confirmation (recommended for scripts). Alias: `del
 # Delete a note in default obsidian vault
 obsidian-cli delete "{note-path}"
 
+# Pick a note interactively (existing notes only)
+obsidian-cli delete --ls
+
 # Delete a note in given obsidian vault
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 
@@ -781,7 +800,7 @@ If other notes link to the note, you'll be prompted to confirm.
 Use --force to skip confirmation (recommended for scripts).
 
 Usage:
-  obsidian-cli delete <note-path> [flags]
+  obsidian-cli delete [note-path] [flags]
 
 Aliases:
   delete, del
@@ -800,6 +819,8 @@ Flags:
       --dry-run        preview which file would be deleted without deleting it
   -f, --force          skip confirmation if the note has incoming links
   -h, --help           help for delete
+      --ls             select a note interactively
+      --select         select a note interactively
   -v, --vault string   vault name
 ```
 

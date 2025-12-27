@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
@@ -10,8 +11,9 @@ import (
 )
 
 var shouldRenderMarkdown bool
+var printSelect bool
 var printCmd = &cobra.Command{
-	Use:     "print <note-path>",
+	Use:     "print [note-path]",
 	Aliases: []string{"p"},
 	Short:   "Print contents of note",
 	Long: `Prints the contents of a note to stdout.
@@ -29,10 +31,29 @@ a note without opening Obsidian.`,
 
   # Copy to clipboard (macOS)
   obsidian-cli print "Template" | pbcopy`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		noteName := args[0]
 		vault := obsidian.Vault{Name: vaultName}
+		noteName := ""
+		if len(args) > 0 && !printSelect {
+			noteName = args[0]
+		} else {
+			if _, err := vault.DefaultName(); err != nil {
+				return err
+			}
+			vaultPath, err := vault.Path()
+			if err != nil {
+				return err
+			}
+			selected, err := pickExistingNotePath(vaultPath)
+			if err != nil {
+				return err
+			}
+			noteName = selected
+		}
+		if noteName == "" {
+			return errors.New("no note selected")
+		}
 		note := obsidian.Note{}
 		params := actions.PrintParams{
 			NoteName: noteName,
@@ -48,5 +69,7 @@ a note without opening Obsidian.`,
 
 func init() {
 	printCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	printCmd.Flags().BoolVar(&printSelect, "ls", false, "select a note interactively")
+	printCmd.Flags().BoolVar(&printSelect, "select", false, "select a note interactively")
 	rootCmd.AddCommand(printCmd)
 }

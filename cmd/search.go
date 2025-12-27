@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Yakitrak/obsidian-cli/pkg/actions"
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
@@ -28,14 +29,43 @@ note in Obsidian, or use --editor to open in your $EDITOR.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vault := obsidian.Vault{Name: vaultName}
-		note := obsidian.Note{}
-		uri := obsidian.Uri{}
-		fuzzyFinder := obsidian.FuzzyFinder{}
 		useEditor, err := cmd.Flags().GetBool("editor")
 		if err != nil {
 			return fmt.Errorf("failed to retrieve 'editor' flag: %w", err)
 		}
-		return actions.SearchNotes(&vault, &note, &uri, &fuzzyFinder, useEditor)
+
+		if _, err := vault.DefaultName(); err != nil {
+			return err
+		}
+		vaultPath, err := vault.Path()
+		if err != nil {
+			return err
+		}
+
+		notePath, err := pickNotePathOrNew(vaultPath)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(notePath) == "" {
+			return fmt.Errorf("no note selected")
+		}
+
+		if useEditor {
+			fmt.Printf("Opening note: %s\n", notePath)
+			rel := notePath
+			if !strings.HasSuffix(strings.ToLower(rel), ".md") {
+				rel += ".md"
+			}
+			abs, err := obsidian.SafeJoinVaultPath(vaultPath, rel)
+			if err != nil {
+				return err
+			}
+			return obsidian.OpenInEditor(abs)
+		}
+
+		uri := obsidian.Uri{}
+		params := actions.OpenParams{NoteName: notePath}
+		return actions.OpenNote(&vault, &uri, params)
 	},
 }
 
