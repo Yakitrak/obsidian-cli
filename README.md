@@ -238,6 +238,24 @@ obsidian-cli delete "{note-path}"
 obsidian-cli delete "{note-path}" --vault "{vault-name}"
 ```
 
+### Frontmatter
+
+View and modify YAML frontmatter in notes. Alias: `fm`
+
+```bash
+# Print frontmatter of a note
+obsidian-cli frontmatter "{note-name}" --print
+
+# Edit a frontmatter field (creates field if it doesn't exist)
+obsidian-cli frontmatter "{note-name}" --edit --key "status" --value "done"
+
+# Delete a frontmatter field
+obsidian-cli frontmatter "{note-name}" --delete --key "draft"
+
+# Use with a specific vault
+obsidian-cli frontmatter "{note-name}" --print --vault "{vault-name}"
+```
+
 ## Contribution
 
 Fork the project, add your feature or fix and submit a pull request. You can also open an [issue](https://github.com/yakitrak/obsidian-cli/issues/new/choose) to report a bug or request a feature.
