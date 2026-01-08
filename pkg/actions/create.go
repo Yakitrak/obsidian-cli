@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -49,7 +48,11 @@ func CreateNote(vault obsidian.VaultManager, uri obsidian.UriManager, params Cre
 		// The URI command is async, so we need a brief delay to ensure the file exists.
 		time.Sleep(200 * time.Millisecond)
 
-		filePath := filepath.Join(vaultPath, obsidian.AddMdSuffix(params.NoteName))
+		// Validate path stays within vault directory
+		filePath, err := obsidian.ValidatePath(vaultPath, obsidian.AddMdSuffix(params.NoteName))
+		if err != nil {
+			return err
+		}
 		return obsidian.OpenInEditor(filePath)
 	}
 

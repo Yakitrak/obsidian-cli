@@ -2,7 +2,6 @@ package actions
 
 import (
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
-	"path/filepath"
 )
 
 type DeleteParams struct {
@@ -19,7 +18,12 @@ func DeleteNote(vault obsidian.VaultManager, note obsidian.NoteManager, params D
 	if err != nil {
 		return err
 	}
-	notePath := filepath.Join(vaultPath, params.NotePath)
+
+	// Validate path stays within vault directory
+	notePath, err := obsidian.ValidatePath(vaultPath, params.NotePath)
+	if err != nil {
+		return err
+	}
 
 	err = note.Delete(notePath)
 	if err != nil {

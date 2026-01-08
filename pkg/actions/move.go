@@ -1,8 +1,6 @@
 package actions
 
 import (
-	"path/filepath"
-
 	"github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 )
 
@@ -23,8 +21,15 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 		return err
 	}
 
-	currentPath := filepath.Join(vaultPath, params.CurrentNoteName)
-	newPath := filepath.Join(vaultPath, params.NewNoteName)
+	// Validate paths stay within vault directory
+	currentPath, err := obsidian.ValidatePath(vaultPath, params.CurrentNoteName)
+	if err != nil {
+		return err
+	}
+	newPath, err := obsidian.ValidatePath(vaultPath, params.NewNoteName)
+	if err != nil {
+		return err
+	}
 
 	err = note.Move(currentPath, newPath)
 	if err != nil {
@@ -38,7 +43,10 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 
 	if params.ShouldOpen {
 		if params.UseEditor {
-			filePathWithExt := filepath.Join(vaultPath, obsidian.AddMdSuffix(params.NewNoteName))
+			filePathWithExt, err := obsidian.ValidatePath(vaultPath, obsidian.AddMdSuffix(params.NewNoteName))
+			if err != nil {
+				return err
+			}
 			return obsidian.OpenInEditor(filePathWithExt)
 		}
 

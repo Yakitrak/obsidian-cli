@@ -14,4 +14,5 @@ const (
 	ObsidianConfigReadError            = "Failed to read Obsidian config file. Please ensure vault has been set up in Obsidian."
 	ObsidianConfigParseError           = "Failed to parse Obsidian config file. Please ensure vault has been set up in Obsidian."
 	ObsidianConfigVaultNotFoundError   = "Vault not found in Obsidian config file. Please ensure vault has been set up in Obsidian."
+	PathTraversalError                 = "path traversal detected: path must remain within vault directory"
 )
