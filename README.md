@@ -37,8 +37,6 @@ brew tap yakitrak/yakitrak
 brew install yakitrak/yakitrak/obsidian-cli
 ```
 
-For full installation instructions, see [Mac and Linux manual](https://yakitrak.github.io/obsidian-cli-docs/docs/install/mac-and-linux).
-
 ## Usage
 
 ### Help
