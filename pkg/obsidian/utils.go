@@ -54,12 +54,12 @@ func GenerateBacklinkSearchPatterns(notePath string) []string {
 
 	// Wikilinks (basename patterns)
 	basePatterns := wikiLinkPatterns(baseName)
-	patterns := []string{basePatterns[0], basePatterns[1], basePatterns[2]}
+	patterns := append([]string{}, basePatterns[:]...)
 
 	// Path-based wikilinks (only if path differs from basename)
 	if pathNoExt != baseName {
 		pathPatterns := wikiLinkPatterns(pathNoExt)
-		patterns = append(patterns, pathPatterns[0], pathPatterns[1], pathPatterns[2])
+		patterns = append(patterns, pathPatterns[:]...)
 	}
 
 	// Markdown links

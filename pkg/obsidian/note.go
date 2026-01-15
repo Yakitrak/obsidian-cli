@@ -354,7 +354,11 @@ func (m *Note) FindBacklinks(vaultPath, noteName string) ([]NoteMatch, error) {
 		}
 
 		info, err := d.Info()
-		if err != nil || info.Size() > maxFileSizeBytes {
+		if err != nil {
+			return nil
+		}
+		if info.Size() > maxFileSizeBytes {
+			fmt.Fprintf(os.Stderr, "Skipping file %s: size %d bytes exceeds limit %d bytes\n", relPath, info.Size(), maxFileSizeBytes)
 			return nil
 		}
 

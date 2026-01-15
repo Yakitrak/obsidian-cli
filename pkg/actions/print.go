@@ -58,7 +58,7 @@ func formatMentions(backlinks []obsidian.NoteMatch) string {
 	}
 
 	for _, filePath := range order {
-		noteName := strings.TrimSuffix(filePath, ".md")
+		noteName := obsidian.RemoveMdSuffix(filePath)
 		fmt.Fprintf(&sb, "\n**[[%s]]**\n", noteName)
 		for _, match := range grouped[filePath] {
 			sb.WriteString("- ")
