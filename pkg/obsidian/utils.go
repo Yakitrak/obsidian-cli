@@ -30,14 +30,48 @@ func normalizePathSeparators(path string) string {
 	return strings.ReplaceAll(path, "\\", "/")
 }
 
+// wikiLinkPatterns returns the three wikilink patterns for a note name:
+// [[name]], [[name|, [[name#
+func wikiLinkPatterns(name string) [3]string {
+	return [3]string{
+		"[[" + name + "]]",
+		"[[" + name + "|",
+		"[[" + name + "#",
+	}
+}
+
 func GenerateNoteLinkTexts(noteName string) [3]string {
-	var noteLinkTexts [3]string
 	noteName = filepath.Base(noteName)
 	noteName = RemoveMdSuffix(noteName)
-	noteLinkTexts[0] = "[[" + noteName + "]]"
-	noteLinkTexts[1] = "[[" + noteName + "|"
-	noteLinkTexts[2] = "[[" + noteName + "#"
-	return noteLinkTexts
+	return wikiLinkPatterns(noteName)
+}
+
+// GenerateBacklinkSearchPatterns creates patterns to find links pointing to a note.
+func GenerateBacklinkSearchPatterns(notePath string) []string {
+	normalized := normalizePathSeparators(notePath)
+	pathNoExt := RemoveMdSuffix(normalized)
+	baseName := RemoveMdSuffix(path.Base(normalized))
+
+	// Wikilinks (basename patterns)
+	basePatterns := wikiLinkPatterns(baseName)
+	patterns := []string{basePatterns[0], basePatterns[1], basePatterns[2]}
+
+	// Path-based wikilinks (only if path differs from basename)
+	if pathNoExt != baseName {
+		pathPatterns := wikiLinkPatterns(pathNoExt)
+		patterns = append(patterns, pathPatterns[0], pathPatterns[1], pathPatterns[2])
+	}
+
+	// Markdown links
+	mdPath := AddMdSuffix(normalized)
+	patterns = append(patterns,
+		"]("+mdPath+")",
+		"]("+pathNoExt+")",
+		"](./"+mdPath+")",
+		"](./"+pathNoExt+")",
+	)
+
+	return patterns
 }
 
 // GenerateLinkReplacements creates all replacement patterns for updating links when moving a note.

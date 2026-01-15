@@ -3,13 +3,15 @@ package mocks
 import "github.com/Yakitrak/obsidian-cli/pkg/obsidian"
 
 type MockNoteManager struct {
-	DeleteErr        error
-	MoveErr          error
-	UpdateLinksError error
-	GetContentsError error
-	SetContentsError error
-	NoMatches        bool
-	Contents         string
+	DeleteErr          error
+	MoveErr            error
+	UpdateLinksError   error
+	GetContentsError   error
+	SetContentsError   error
+	FindBacklinksErr   error
+	FindBacklinksResult []obsidian.NoteMatch
+	NoMatches          bool
+	Contents           string
 }
 
 func (m *MockNoteManager) Delete(string) error {
@@ -49,5 +51,21 @@ func (m *MockNoteManager) SearchNotesWithSnippets(string, string) ([]obsidian.No
 	return []obsidian.NoteMatch{
 		{FilePath: "note1.md", LineNumber: 5, MatchLine: "example match line"},
 		{FilePath: "note2.md", LineNumber: 10, MatchLine: "another match"},
+	}, nil
+}
+
+func (m *MockNoteManager) FindBacklinks(string, string) ([]obsidian.NoteMatch, error) {
+	if m.FindBacklinksErr != nil {
+		return nil, m.FindBacklinksErr
+	}
+	if m.FindBacklinksResult != nil {
+		return m.FindBacklinksResult, nil
+	}
+	if m.NoMatches {
+		return []obsidian.NoteMatch{}, nil
+	}
+	return []obsidian.NoteMatch{
+		{FilePath: "linking-note.md", LineNumber: 5, MatchLine: "This links to [[target]]"},
+		{FilePath: "another-note.md", LineNumber: 10, MatchLine: "Also references [[target]]"},
 	}, nil
 }

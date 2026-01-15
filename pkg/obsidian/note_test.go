@@ -616,3 +616,166 @@ func TestSearchNotesWithSnippets(t *testing.T) {
 		assert.Contains(t, matches[0].MatchLine, "test")
 	})
 }
+
+func TestFindBacklinks(t *testing.T) {
+	t.Run("Find wikilinks", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+
+		// Create the target note
+		err := os.WriteFile(filepath.Join(tempDir, "TargetNote.md"), []byte("Target note content"), 0644)
+		assert.NoError(t, err)
+
+		// Create notes that link to target
+		err = os.WriteFile(filepath.Join(tempDir, "linking1.md"), []byte("This links to [[TargetNote]] here"), 0644)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(tempDir, "linking2.md"), []byte("Link with alias [[TargetNote|my alias]]"), 0644)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(tempDir, "linking3.md"), []byte("Link with section [[TargetNote#heading]]"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "TargetNote")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 3)
+
+		foundFiles := make(map[string]bool)
+		for _, match := range matches {
+			foundFiles[match.FilePath] = true
+		}
+		assert.True(t, foundFiles["linking1.md"])
+		assert.True(t, foundFiles["linking2.md"])
+		assert.True(t, foundFiles["linking3.md"])
+	})
+
+	t.Run("Find markdown links", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+
+		err := os.WriteFile(filepath.Join(tempDir, "target.md"), []byte("Target content"), 0644)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(tempDir, "linker.md"), []byte("A [markdown link](target.md) here"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "target")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		assert.Equal(t, "linker.md", matches[0].FilePath)
+	})
+
+	t.Run("Excludes the note itself", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+
+		// Create a note that references itself
+		err := os.WriteFile(filepath.Join(tempDir, "SelfRef.md"), []byte("This note [[SelfRef]] links to itself"), 0644)
+		assert.NoError(t, err)
+
+		// Create another note that links to it
+		err = os.WriteFile(filepath.Join(tempDir, "Other.md"), []byte("Links to [[SelfRef]]"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "SelfRef")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		assert.Equal(t, "Other.md", matches[0].FilePath)
+	})
+
+	t.Run("No backlinks returns empty", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+
+		err := os.WriteFile(filepath.Join(tempDir, "lonely.md"), []byte("No one links to me"), 0644)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(tempDir, "other.md"), []byte("Links to [[SomeOtherNote]]"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "lonely")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Empty(t, matches)
+	})
+
+	t.Run("Multiple matches in same file", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+
+		err := os.WriteFile(filepath.Join(tempDir, "target.md"), []byte("Target"), 0644)
+		assert.NoError(t, err)
+
+		content := "First [[target]] link\nSecond [[target]] link\nThird [[target]] link"
+		err = os.WriteFile(filepath.Join(tempDir, "multi.md"), []byte(content), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "target")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 3)
+		for _, match := range matches {
+			assert.Equal(t, "multi.md", match.FilePath)
+		}
+	})
+
+	t.Run("Case insensitive matching", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+
+		err := os.WriteFile(filepath.Join(tempDir, "MyNote.md"), []byte("Content"), 0644)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(tempDir, "linker.md"), []byte("Links to [[mynote]] lowercase"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "MyNote")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+	})
+
+	t.Run("Find links in subdirectories", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		subDir := filepath.Join(tempDir, "subdir")
+		err := os.MkdirAll(subDir, 0755)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(tempDir, "target.md"), []byte("Target"), 0644)
+		assert.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(subDir, "nested.md"), []byte("Links to [[target]]"), 0644)
+		assert.NoError(t, err)
+
+		// Act
+		note := obsidian.Note{}
+		matches, err := note.FindBacklinks(tempDir, "target")
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		assert.Contains(t, matches[0].FilePath, "nested.md")
+	})
+}

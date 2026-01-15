@@ -10,6 +10,8 @@ import (
 )
 
 var shouldRenderMarkdown bool
+var includeMentions bool
+
 var printCmd = &cobra.Command{
 	Use:     "print",
 	Aliases: []string{"p"},
@@ -20,7 +22,8 @@ var printCmd = &cobra.Command{
 		vault := obsidian.Vault{Name: vaultName}
 		note := obsidian.Note{}
 		params := actions.PrintParams{
-			NoteName: noteName,
+			NoteName:        noteName,
+			IncludeMentions: includeMentions,
 		}
 		contents, err := actions.PrintNote(&vault, &note, params)
 		if err != nil {
@@ -32,5 +35,6 @@ var printCmd = &cobra.Command{
 
 func init() {
 	printCmd.Flags().StringVarP(&vaultName, "vault", "v", "", "vault name")
+	printCmd.Flags().BoolVarP(&includeMentions, "mentions", "m", false, "include linked mentions at the end")
 	rootCmd.AddCommand(printCmd)
 }

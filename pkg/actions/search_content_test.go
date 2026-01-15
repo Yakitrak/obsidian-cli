@@ -25,6 +25,9 @@ func (m *CustomMockNoteForSingleMatch) SearchNotesWithSnippets(string, string) (
 		{FilePath: "test-note.md", LineNumber: 5, MatchLine: "test content"},
 	}, nil
 }
+func (m *CustomMockNoteForSingleMatch) FindBacklinks(string, string) ([]obsidian.NoteMatch, error) {
+	return nil, nil
+}
 
 func TestSearchNotesContent(t *testing.T) {
 	t.Run("Successful content search with single match", func(t *testing.T) {
