@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -28,6 +29,7 @@ type NoteManager interface {
 	SetContents(string, string, string) error
 	GetNotesList(string) ([]string, error)
 	SearchNotesWithSnippets(string, string) ([]NoteMatch, error)
+	FindBacklinks(string, string) ([]NoteMatch, error)
 }
 
 func (m *Note) Move(originalPath string, newPath string) error {
@@ -270,5 +272,126 @@ func (m *Note) SearchNotesWithSnippets(vaultPath string, query string) ([]NoteMa
 	if err != nil {
 		return nil, err
 	}
+	return matches, nil
+}
+
+const maxFileSizeBytes = 10 * 1024 * 1024 // 10MB
+
+// containsAnyPattern checks if content contains any of the patterns (case-insensitive).
+func containsAnyPattern(contentLower []byte, patterns [][]byte) bool {
+	for _, pattern := range patterns {
+		if bytes.Contains(contentLower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// findMatchingLines finds all lines containing any of the patterns.
+func findMatchingLines(content []byte, patternsLower [][]byte) []NoteMatch {
+	var matches []NoteMatch
+	lineNum := 0
+
+	for len(content) > 0 {
+		lineNum++
+
+		// Find end of line
+		idx := bytes.IndexByte(content, '\n')
+		var line []byte
+		if idx == -1 {
+			line = content
+			content = nil
+		} else {
+			line = content[:idx]
+			content = content[idx+1:]
+		}
+
+		// Check if line matches any pattern
+		lineLower := bytes.ToLower(line)
+		for _, pattern := range patternsLower {
+			if bytes.Contains(lineLower, pattern) {
+				matches = append(matches, NoteMatch{
+					LineNumber: lineNum,
+					MatchLine:  string(bytes.TrimSpace(line)),
+				})
+				break
+			}
+		}
+	}
+
+	return matches
+}
+
+func (m *Note) FindBacklinks(vaultPath, noteName string) ([]NoteMatch, error) {
+	noteName = RemoveMdSuffix(noteName)
+
+	// Generate patterns and convert to lowercase bytes once
+	patterns := GenerateBacklinkSearchPatterns(noteName)
+	patternsLower := make([][]byte, len(patterns))
+	for i, p := range patterns {
+		patternsLower[i] = []byte(strings.ToLower(p))
+	}
+
+	var matches []NoteMatch
+	fileModTimes := make(map[string]int64)
+
+	err := filepath.WalkDir(vaultPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(vaultPath, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip the note itself (normalize for comparison)
+		if RemoveMdSuffix(normalizePathSeparators(relPath)) == noteName {
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		if info.Size() > maxFileSizeBytes {
+			fmt.Fprintf(os.Stderr, "Skipping file %s: size %d bytes exceeds limit %d bytes\n", relPath, info.Size(), maxFileSizeBytes)
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		// Quick check: skip file if it doesn't contain any pattern
+		contentLower := bytes.ToLower(content)
+		if !containsAnyPattern(contentLower, patternsLower) {
+			return nil
+		}
+
+		// Find matching lines
+		modTime := info.ModTime().UnixNano()
+		fileMatches := findMatchingLines(content, patternsLower)
+		for i := range fileMatches {
+			fileMatches[i].FilePath = relPath
+			fileModTimes[relPath] = modTime
+		}
+		matches = append(matches, fileMatches...)
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		return fileModTimes[matches[i].FilePath] > fileModTimes[matches[j].FilePath]
+	})
+
 	return matches, nil
 }
