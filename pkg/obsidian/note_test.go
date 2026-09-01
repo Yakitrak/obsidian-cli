@@ -201,6 +201,51 @@ func TestMoveNote(t *testing.T) {
 		// Assert
 		assert.Equal(t, err.Error(), obsidian.NoteDoesNotExistError)
 	})
+
+	t.Run("Move note to destination directory that does not exist", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		originalPath := filepath.Join(tempDir, "original.md")
+		newPath := filepath.Join(tempDir, "one", "two", "moved")
+		expectedNewPath := filepath.Join(tempDir, "one", "two", "moved.md")
+
+		err := os.WriteFile(originalPath, []byte(originalContent), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Act
+		noteManager := obsidian.Note{}
+		err = noteManager.Move(filepath.Join(tempDir, "original"), newPath)
+
+		// Assert
+		assert.NoError(t, err, "Expected no error while moving note into a missing directory")
+
+		_, err = os.Stat(originalPath)
+		assert.True(t, os.IsNotExist(err), "Original file still exists at %s, expected it to be moved", originalPath)
+
+		newContent, err := os.ReadFile(expectedNewPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, originalContent, string(newContent), "New file content is %q, expected %q", string(newContent), originalContent)
+	})
+
+	t.Run("Missing note does not create destination directory", func(t *testing.T) {
+		// Arrange
+		tempDir := t.TempDir()
+		newFolder := filepath.Join(tempDir, "newFolder")
+
+		// Act
+		noteManager := obsidian.Note{}
+		err := noteManager.Move(filepath.Join(tempDir, "missing"), filepath.Join(newFolder, "missing"))
+
+		// Assert
+		assert.Equal(t, obsidian.NoteDoesNotExistError, err.Error())
+
+		_, statErr := os.Stat(newFolder)
+		assert.True(t, os.IsNotExist(statErr), "Destination directory %s was created for a note that does not exist", newFolder)
+	})
 }
 
 func createTmpDirAndFiles(t *testing.T, perm os.FileMode, files []string, content []byte) string {
