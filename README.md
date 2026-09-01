@@ -415,7 +415,7 @@ notesmd-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
-Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name.
+Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name. Intermediate directories in the destination path are created automatically.
 
 ```bash
 # Renames a note in default obsidian

@@ -39,9 +39,19 @@ func (m *Note) Move(originalPath string, newPath string) error {
 	o := AddMdSuffix(originalPath)
 	n := AddMdSuffix(newPath)
 
-	err := os.Rename(o, n)
+	// Check the source first so a missing note is reported as such and does not
+	// leave behind a destination directory created below.
+	if _, err := os.Stat(o); err != nil {
+		return errors.New(NoteDoesNotExistError)
+	}
 
-	if err != nil {
+	// Create any intermediate directories the destination requires, as create
+	// and daily already do for their note paths.
+	if err := os.MkdirAll(filepath.Dir(n), 0755); err != nil {
+		return fmt.Errorf("failed to create note directory: %w", err)
+	}
+
+	if err := os.Rename(o, n); err != nil {
 		return errors.New(NoteDoesNotExistError)
 	}
 
