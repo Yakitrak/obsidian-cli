@@ -220,3 +220,81 @@ func TestRemoveVault(t *testing.T) {
 		assert.Contains(t, err.Error(), "not found")
 	})
 }
+
+func TestRegistryPreservesObsidianFields(t *testing.T) {
+	original := obsidian.ObsidianConfigFile
+	t.Cleanup(func() { obsidian.ObsidianConfigFile = original })
+	path := filepath.Join(t.TempDir(), "obsidian.json")
+	obsidian.ObsidianConfigFile = func() (string, error) { return path, nil }
+	originalJSON := `{"vaults":{"existing":{"path":"/vaults/keep","ts":9007199254740993,"open":true,"future":{"nested":[1,null,"x"]}}},"theme":"dark","futureSetting":{"enabled":true,"number":9007199254740993}}`
+	if !assert.NoError(t, os.WriteFile(path, []byte(originalJSON), 0600)) {
+		return
+	}
+	added := t.TempDir()
+	if _, err := obsidian.AddVault(added); !assert.NoError(t, err) {
+		return
+	}
+	content, err := os.ReadFile(path)
+	if !assert.NoError(t, err) {
+		return
+	}
+	var before, after map[string]json.RawMessage
+	if !assert.NoError(t, json.Unmarshal([]byte(originalJSON), &before)) {
+		return
+	}
+	if !assert.NoError(t, json.Unmarshal(content, &after)) {
+		return
+	}
+	assert.JSONEq(t, string(before["futureSetting"]), string(after["futureSetting"]))
+	assert.JSONEq(t, string(before["theme"]), string(after["theme"]))
+	var vaults map[string]json.RawMessage
+	if !assert.NoError(t, json.Unmarshal(after["vaults"], &vaults)) {
+		return
+	}
+	assert.Len(t, vaults, 2)
+	assert.JSONEq(t, `{"path":"/vaults/keep","ts":9007199254740993,"open":true,"future":{"nested":[1,null,"x"]}}`, string(vaults["existing"]))
+	// Check exact numeric representation as JSONEq uses floating-point decoding.
+	assert.Contains(t, string(vaults["existing"]), "9007199254740993")
+	assert.Contains(t, string(after["futureSetting"]), "9007199254740993")
+	if _, err := obsidian.RemoveVault(added); !assert.NoError(t, err) {
+		return
+	}
+	content, err = os.ReadFile(path)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.JSONEq(t, originalJSON, string(content))
+	assert.Contains(t, string(content), "9007199254740993")
+}
+
+func TestAddVaultWithoutVaultMap(t *testing.T) {
+	original := obsidian.ObsidianConfigFile
+	t.Cleanup(func() { obsidian.ObsidianConfigFile = original })
+	for _, contents := range []string{`{"theme":"dark"}`, `{"theme":"dark","vaults":null}`} {
+		t.Run(contents, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "obsidian.json")
+			obsidian.ObsidianConfigFile = func() (string, error) { return path, nil }
+			if !assert.NoError(t, os.WriteFile(path, []byte(contents), 0600)) {
+				return
+			}
+			_, err := obsidian.AddVault(t.TempDir())
+			if !assert.NoError(t, err) {
+				return
+			}
+			content, err := os.ReadFile(path)
+			if !assert.NoError(t, err) {
+				return
+			}
+			var cfg map[string]json.RawMessage
+			if !assert.NoError(t, json.Unmarshal(content, &cfg)) {
+				return
+			}
+			assert.JSONEq(t, `"dark"`, string(cfg["theme"]))
+			var vaults map[string]json.RawMessage
+			if !assert.NoError(t, json.Unmarshal(cfg["vaults"], &vaults)) {
+				return
+			}
+			assert.Len(t, vaults, 1)
+		})
+	}
+}

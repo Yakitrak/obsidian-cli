@@ -68,7 +68,7 @@ func RemoveVault(input string) (string, error) {
 		return "", errors.New(ObsidianConfigReadError)
 	}
 
-	vaultsConfig := ObsidianVaultConfig{}
+	vaultsConfig := vaultRegistryConfig{}
 	if json.Unmarshal(content, &vaultsConfig) != nil {
 		return "", errors.New(ObsidianConfigParseError)
 	}
@@ -140,19 +140,19 @@ func ClearDefaultIfMatch(name string) error {
 	return v.SetDefaultName("")
 }
 
-func readOrCreateObsidianConfig() (string, ObsidianVaultConfig, error) {
-	empty := ObsidianVaultConfig{
+func readOrCreateObsidianConfig() (string, vaultRegistryConfig, error) {
+	empty := vaultRegistryConfig{ObsidianVaultConfig: ObsidianVaultConfig{
 		Vaults: make(map[string]struct {
 			Path string `json:"path"`
 		}),
-	}
+	}}
 
 	// Try to find existing config
 	obsidianConfigFile, err := ObsidianConfigFile()
 	if err == nil {
 		content, readErr := os.ReadFile(obsidianConfigFile)
 		if readErr == nil {
-			vaultsConfig := ObsidianVaultConfig{}
+			vaultsConfig := vaultRegistryConfig{}
 			if err := json.Unmarshal(content, &vaultsConfig); err != nil {
 				return "", empty, fmt.Errorf("corrupt obsidian config at %s: %w", obsidianConfigFile, err)
 			}
@@ -180,7 +180,7 @@ func readOrCreateObsidianConfig() (string, ObsidianVaultConfig, error) {
 	return configFile, empty, nil
 }
 
-func writeObsidianConfig(path string, cfg ObsidianVaultConfig) error {
+func writeObsidianConfig(path string, cfg vaultRegistryConfig) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
