@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"fmt"
 	"github.com/Yakitrak/notesmd-cli/pkg/obsidian"
 )
 
@@ -38,7 +39,7 @@ func MoveNote(vault obsidian.VaultManager, note obsidian.NoteManager, uri obsidi
 
 	err = note.UpdateLinks(vaultPath, params.CurrentNoteName, params.NewNoteName)
 	if err != nil {
-		return err
+		return fmt.Errorf("note moved to %q, but link updates are incomplete: %w", params.NewNoteName, err)
 	}
 
 	if params.ShouldOpen {

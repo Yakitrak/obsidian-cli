@@ -178,9 +178,9 @@ func (m *Note) UpdateLinks(vaultPath string, oldNoteName string, newNoteName str
 			return nil
 		}
 
-		err = os.WriteFile(path, updatedContent, info.Mode())
+		err = replaceNoteFile(path, updatedContent)
 		if err != nil {
-			return errors.New(VaultWriteError)
+			return fmt.Errorf("%s: %s: %w", VaultWriteError, path, err)
 		}
 		return nil
 	})

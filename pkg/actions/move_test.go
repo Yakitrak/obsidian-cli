@@ -83,7 +83,8 @@ func TestMoveNote(t *testing.T) {
 			ShouldOpen:      false,
 		})
 		// Assert
-		assert.Equal(t, err, note.UpdateLinksError)
+		assert.ErrorIs(t, err, note.UpdateLinksError)
+		assert.Contains(t, err.Error(), "link updates are incomplete")
 	})
 
 	t.Run("uri.Execute returns an error", func(t *testing.T) {

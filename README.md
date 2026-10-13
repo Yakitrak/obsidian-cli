@@ -415,6 +415,8 @@ notesmd-cli create "{note-name}" --content "abcde" --open --editor
 
 ### Move / Rename Note
 
+Link updates are written to temporary files before replacing the originals, so failed writes preserve existing note content. The move and all link updates are not a single transaction: if a later update fails, the note may already have moved and some links may already have changed. The error reports this partial completion.
+
 Moves a given note(path from top level of vault) with new name given (top level of vault). If given same path but different name then its treated as a rename. All links inside vault are updated to match new name. Intermediate directories in the destination path are created automatically.
 
 ```bash
