@@ -38,7 +38,7 @@ func writeNoteReplacement(path string, write func(io.Writer) error) error {
 	if err := write(temp); err != nil {
 		return err
 	}
-	if err := temp.Chmod(info.Mode().Perm()); err != nil {
+	if err := temp.Chmod(info.Mode()); err != nil {
 		return err
 	}
 	if err := temp.Sync(); err != nil {
