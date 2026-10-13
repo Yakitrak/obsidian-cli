@@ -13,9 +13,10 @@ var addVaultCmd = &cobra.Command{
 	Use:     "add-vault <path>",
 	Aliases: []string{"av"},
 	Short:   "Register a vault directory",
-	Long:    "Registers a directory as an Obsidian vault. Creates the Obsidian config file if it does not exist.",
+	Long:    "Registers a directory as an Obsidian vault. Creates the Obsidian config file if it does not exist.\n\n" + vaultRegistryWarning,
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		cmd.PrintErrln("Warning: " + vaultRegistryWarning)
 		absPath, err := obsidian.AddVault(args[0])
 		if err != nil {
 			log.Fatal(err)

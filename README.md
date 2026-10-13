@@ -194,6 +194,8 @@ notesmd-cli set-default-vault --open-type editor
 
 ### Add Vault
 
+**Fully quit Obsidian before adding or removing vaults.** Closing its windows is not enough (on macOS, use Cmd+Q). A running Obsidian process can overwrite external registry changes, causing added vaults to disappear or removed vaults to reappear. If Obsidian is running, use its vault manager instead. These commands are intended for headless use or use while Obsidian is stopped.
+
 Registers a directory as an Obsidian vault. Creates the Obsidian config file (`~/.config/obsidian/obsidian.json`) if it does not exist. Alias: `av`
 
 If you have Obsidian installed, vaults are registered automatically when you open them. You only need this command for headless setups or environments where Obsidian is not installed (servers, containers, CI).
@@ -207,6 +209,8 @@ notesmd-cli add-vault /path/to/vault --set-default
 ```
 
 ### Remove Vault
+
+**Fully quit Obsidian before adding or removing vaults.** Closing its windows is not enough (on macOS, use Cmd+Q). A running Obsidian process can overwrite external registry changes, causing added vaults to disappear or removed vaults to reappear. If Obsidian is running, use its vault manager instead. These commands are intended for headless use or use while Obsidian is stopped.
 
 Removes a vault from the Obsidian config. Does not delete any files on disk. If the removed vault was the default, the default is cleared. Alias: `rv`
 
